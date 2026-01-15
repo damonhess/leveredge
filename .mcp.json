@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "n8n-control": {
+      "command": "docker",
+      "args": ["exec", "-i", "n8n-control", "python", "-m", "n8n_troubleshooter", "--mode", "mcp"]
+    }
+  }
+}

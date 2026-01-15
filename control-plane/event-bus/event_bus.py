@@ -20,7 +20,8 @@ from contextlib import contextmanager
 
 app = FastAPI(title="Event Bus", version="1.0.0")
 
-DB_PATH = Path("/opt/leveredge/control-plane/event-bus/events.db")
+import os
+DB_PATH = Path(os.environ.get("EVENT_BUS_DB_PATH", "/opt/leveredge/control-plane/event-bus/events.db"))
 
 @contextmanager
 def get_db():

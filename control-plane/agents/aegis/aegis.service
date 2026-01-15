@@ -1,0 +1,18 @@
+[Unit]
+Description=AEGIS Credential Vault Agent
+After=network.target event-bus.service
+
+[Service]
+Type=simple
+User=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/aegis
+Environment="N8N_URL=https://control.n8n.leveredgeai.com"
+Environment="N8N_USER=admin"
+Environment="N8N_PASS=oMtnAe9qsrxhMe/1ROmokg=="
+Environment="EVENT_BUS_URL=http://localhost:8099"
+ExecStart=/home/damon/.local/bin/uvicorn aegis:app --host 0.0.0.0 --port 8012
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

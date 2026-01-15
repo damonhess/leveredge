@@ -1,0 +1,189 @@
+{
+  "name": "ATLAS - Master Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atlas",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "ATLAS Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "atlas-main"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are ATLAS, the master orchestrator for the LeverEdge control plane.\n\nYour responsibilities:\n- Route requests to appropriate agents\n- Report system status\n- Coordinate multi-agent operations\n- Log all actions to the Event Bus\n\nAvailable agents (not all active yet):\n- HADES (8008): Rollback and recovery\n- ARGUS (8009): Monitoring\n- CHRONOS (8010): Backups\n- HEPHAESTUS (8011): Builder/Deployer\n- AEGIS (8012): Credentials\n- ATHENA (8013): Documentation\n- HERMES (8014): Notifications\n- ALOY (8015): Auditor\n\nEvent Bus: http://host.docker.internal:8099\n\nAlways be concise. Report what you did and what the result was.\n\nWhen you receive a request:\n1. First log the request to the Event Bus using log_to_event_bus tool\n2. Determine which agent(s) should handle it\n3. If checking status, use check_agent_health to verify agent availability\n4. Report your findings clearly"
+        }
+      },
+      "id": "ai-agent",
+      "name": "ATLAS Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "model": "claude-3-5-sonnet-20241022",
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "id": "anthropic-model",
+      "name": "Claude 3.5 Sonnet",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [350, 500],
+      "credentials": {
+        "anthropicApi": {
+          "id": "ANTHROPIC_CREDENTIAL_ID",
+          "name": "Anthropic API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "log_to_event_bus",
+        "description": "Log an event to the Event Bus. Use this to record actions, requests, and outcomes.",
+        "method": "POST",
+        "url": "http://host.docker.internal:8099/events",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source_agent: 'ATLAS', action: $fromAI('action', 'The action being logged, e.g. request_received, status_check, agent_routed'), target: $fromAI('target', 'The target of the action, e.g. HADES, system, user'), details: { message: $fromAI('message', 'Details about the action'), timestamp: new Date().toISOString() } }) }}"
+      },
+      "id": "tool-event-bus",
+      "name": "Log to Event Bus",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [550, 500]
+    },
+    {
+      "parameters": {
+        "name": "check_agent_health",
+        "description": "Check if an agent is healthy and responding. Returns health status.",
+        "method": "GET",
+        "url": "=http://host.docker.internal:{{ $fromAI('port', 'The port number of the agent to check (8008-8015 or 8099 for event bus)') }}/health",
+        "options": {}
+      },
+      "id": "tool-health-check",
+      "name": "Check Agent Health",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [700, 500]
+    },
+    {
+      "parameters": {
+        "name": "get_event_bus_events",
+        "description": "Get recent events from the Event Bus to see system activity.",
+        "method": "GET",
+        "url": "http://host.docker.internal:8099/events",
+        "options": {}
+      },
+      "id": "tool-get-events",
+      "name": "Get Events",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "typeVersion": 1.1,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}"
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "ATLAS Webhook": {
+      "main": [
+        [
+          {
+            "node": "ATLAS Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ATLAS Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude 3.5 Sonnet": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ATLAS Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Event Bus": {
+      "ai_tool": [
+        [
+          {
+            "node": "ATLAS Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Agent Health": {
+      "ai_tool": [
+        [
+          {
+            "node": "ATLAS Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Events": {
+      "ai_tool": [
+        [
+          {
+            "node": "ATLAS Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "control-plane"
+    },
+    {
+      "name": "atlas"
+    },
+    {
+      "name": "ai-agent"
+    }
+  ],
+  "triggerCount": 1,
+  "pinData": {}
+}
