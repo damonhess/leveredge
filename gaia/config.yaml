@@ -1,0 +1,60 @@
+# /opt/leveredge/gaia/config.yaml
+
+gaia:
+  version: "1.0.0"
+
+backup_locations:
+  local: /opt/leveredge/shared/backups
+  # Future: offsite backup locations
+  # s3: s3://leveredge-backups
+  # backblaze: b2://leveredge-backups
+
+restore_targets:
+  control-plane:
+    n8n:
+      compose: /opt/leveredge/control-plane/n8n/docker-compose.yml
+      data_dir: /opt/leveredge/control-plane/n8n/data
+      database: postgresql
+    agents:
+      dir: /opt/leveredge/control-plane/agents
+      services:
+        - atlas
+        - hephaestus
+        - athena
+        - aegis
+        - chronos
+        - hades
+        - hermes
+        - argus
+        - aloy
+
+  data-plane:
+    prod:
+      compose: /opt/leveredge/data-plane/prod/docker-compose.yml
+      n8n_data: /opt/leveredge/data-plane/prod/n8n/data
+      supabase_data: /opt/leveredge/data-plane/prod/supabase/data
+    dev:
+      compose: /opt/leveredge/data-plane/dev/docker-compose.yml
+      n8n_data: /opt/leveredge/data-plane/dev/n8n/data
+      supabase_data: /opt/leveredge/data-plane/dev/supabase/data
+
+emergency_telegram:
+  bot_token_file: /opt/leveredge/gaia/.telegram_token
+  authorized_users:
+    - YOUR_TELEGRAM_USER_ID  # Replace with actual ID
+  require_2fa: true
+  2fa_secret_file: /opt/leveredge/gaia/.2fa_secret
+
+health_check:
+  endpoints:
+    - name: control-n8n
+      url: http://localhost:5679/healthz
+    - name: prod-n8n
+      url: http://localhost:5678/healthz
+    - name: dev-n8n
+      url: http://localhost:5680/healthz
+    - name: atlas
+      url: http://localhost:8007/health
+    - name: aegis
+      url: http://localhost:8012/health
+    # ... all agents

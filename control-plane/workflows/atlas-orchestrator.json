@@ -1,0 +1,155 @@
+{
+  "name": "ATLAS - Master Orchestrator",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "atlas",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "ATLAS Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "atlas-main"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8099/events",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ source_agent: 'ATLAS', action: 'request_received', target: $json.body.target || 'unknown', details: { request_type: $json.body.type || 'unknown', timestamp: new Date().toISOString() } }) }}"
+      },
+      "id": "log-to-eventbus",
+      "name": "Log to Event Bus",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "health_check",
+              "conditions": {
+                "options": { "version": 2 },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "health",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "status_request",
+              "conditions": {
+                "options": { "version": 2 },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.type }}",
+                    "rightValue": "status",
+                    "operator": { "type": "string", "operation": "equals" }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "outputKey": "agent_request",
+              "conditions": {
+                "options": { "version": 2 },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.target }}",
+                    "rightValue": "",
+                    "operator": { "type": "string", "operation": "notEmpty" }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ],
+          "fallbackOutput": "unknown_request"
+        },
+        "options": {}
+      },
+      "id": "router",
+      "name": "Route Request",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'healthy', agent: 'ATLAS', timestamp: new Date().toISOString(), event_bus: 'connected' }) }}"
+      },
+      "id": "health-response",
+      "name": "Health Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 150]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'operational', agents: { ATLAS: { port: 8007, status: 'active' }, HADES: { port: 8008, status: 'pending' }, ARGUS: { port: 8009, status: 'pending' }, CHRONOS: { port: 8010, status: 'pending' }, HEPHAESTUS: { port: 8011, status: 'pending' }, AEGIS: { port: 8012, status: 'pending' }, ATHENA: { port: 8013, status: 'pending' }, HERMES: { port: 8014, status: 'pending' }, ALOY: { port: 8015, status: 'pending' } }, event_bus: { port: 8099, status: 'active' } }) }}"
+      },
+      "id": "status-response",
+      "name": "Status Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'received', message: 'Agent routing not yet implemented', target: $json.body.target, queued: true }) }}"
+      },
+      "id": "agent-response",
+      "name": "Agent Request Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 450]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'error', message: 'Unknown request type', received: $json.body }) }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "unknown-response",
+      "name": "Unknown Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [850, 600]
+    }
+  ],
+  "connections": {
+    "ATLAS Webhook": {
+      "main": [[{ "node": "Log to Event Bus", "type": "main", "index": 0 }]]
+    },
+    "Log to Event Bus": {
+      "main": [[{ "node": "Route Request", "type": "main", "index": 0 }]]
+    },
+    "Route Request": {
+      "main": [
+        [{ "node": "Health Response", "type": "main", "index": 0 }],
+        [{ "node": "Status Response", "type": "main", "index": 0 }],
+        [{ "node": "Agent Request Response", "type": "main", "index": 0 }],
+        [{ "node": "Unknown Response", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [{ "name": "control-plane" }, { "name": "atlas" }]
+}
