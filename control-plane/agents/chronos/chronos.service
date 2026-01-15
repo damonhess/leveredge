@@ -1,0 +1,18 @@
+[Unit]
+Description=CHRONOS Backup Manager Agent
+After=network.target event-bus.service
+
+[Service]
+Type=simple
+User=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/chronos
+Environment="N8N_CONTROL_URL=https://control.n8n.leveredgeai.com"
+Environment="N8N_PROD_URL=https://n8n.leveredgeai.com"
+Environment="N8N_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiNDMxYWE3Ni0zOTY4LTQwMzEtYWFlYS04Nzk0YmZlYTFkNGYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4NTEyMDk3LCJleHAiOjE3NzEwNTYwMDB9.BlqTqVe8lu5FruxDIufycjeWkVQk5oO15zzlLf0yQrs"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+ExecStart=/home/damon/.local/bin/uvicorn chronos:app --host 0.0.0.0 --port 8010
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
