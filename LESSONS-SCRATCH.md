@@ -18,6 +18,24 @@
 
 ## Entries
 
+### 2026-01-16 10:45 - [Supabase Migration]
+**Symptom:** supabase-auth container crash-looping after migration
+**Cause:** Empty `SMTP_PORT=` in .env causes gotrue to fail parsing (newer gotrue requires valid int)
+**Fix:** Set `SMTP_PORT=587` and `SMTP_HOST=localhost` even when email is disabled
+**Prevention:** When migrating Supabase, check .env for empty port values that newer images require
+
+### 2026-01-16 10:30 - [Supabase Migration]
+**Symptom:** Need to migrate Supabase to /opt/leveredge/data-plane/ without data loss
+**Cause:** Data lives in bind-mounted volumes at old location
+**Fix:** Use symlinks from new compose location to existing volume directories. Don't move data.
+**Prevention:** For any Docker migration with bind mounts: symlink volumes, don't copy/move them
+
+### 2026-01-16 10:35 - [Supabase Migration]
+**Symptom:** Expected to need many reference updates after migration
+**Cause:** All routing uses container names (supabase-kong, supabase-db) on shared Docker network
+**Fix:** No fixes needed - preserving container names means Caddy, n8n, and all services continue working
+**Prevention:** When migrating Docker services, preserve container names to avoid cascading reference updates
+
 ### 2026-01-16 22:45 - [ARIA]
 **Symptom:** "No response generated" from ARIA
 **Cause:** `$json.message` after SQL node got `{?column?: 1}` instead of upstream data
