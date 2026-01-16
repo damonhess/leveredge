@@ -10,7 +10,7 @@ Integrates with Prometheus for metrics.
 import os
 import httpx
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
@@ -21,6 +21,8 @@ app = FastAPI(title="ARGUS", description="Monitoring Agent", version="1.0.0")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://host.docker.internal:9090")
 HERMES_URL = os.getenv("HERMES_URL", "http://hermes:8014")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # Agent registry with health endpoints
 AGENTS = {
@@ -281,6 +283,81 @@ async def prometheus_query(query: str):
     if result is None:
         raise HTTPException(status_code=503, detail="Prometheus unavailable")
     return result
+
+
+# =============================================================================
+# COST TRACKING ENDPOINTS
+# =============================================================================
+
+@app.get("/costs")
+async def get_costs(days: int = 30):
+    """Get cost summary for monitoring"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/get_agent_costs",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "start_date": (datetime.now() - timedelta(days=days)).isoformat(),
+                    "end_date": datetime.now().isoformat()
+                },
+                timeout=10.0
+            )
+            return {
+                "period_days": days,
+                "costs_by_agent": response.json(),
+                "generated_at": datetime.now().isoformat()
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/costs/daily")
+async def get_daily_costs(days: int = 30):
+    """Get daily cost trend"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/get_daily_costs",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={"p_days": days},
+                timeout=10.0
+            )
+            return {
+                "daily_costs": response.json(),
+                "generated_at": datetime.now().isoformat()
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/costs/summary")
+async def get_cost_summary():
+    """Get quick cost summary view"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{SUPABASE_URL}/rest/v1/agent_cost_summary?order=date.desc&limit=50",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                },
+                timeout=10.0
+            )
+            return {
+                "summary": response.json(),
+                "generated_at": datetime.now().isoformat()
+            }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":

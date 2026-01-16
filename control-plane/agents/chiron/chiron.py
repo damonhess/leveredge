@@ -23,6 +23,7 @@ V2 CAPABILITIES:
 """
 
 import os
+import sys
 import json
 import httpx
 from datetime import datetime, date
@@ -30,6 +31,10 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import anthropic
+
+# Add shared modules to path
+sys.path.append('/opt/leveredge/control-plane/shared')
+from cost_tracker import CostTracker, log_llm_usage
 
 app = FastAPI(title="CHIRON V2", description="Elite Business Mentor Agent", version="2.0.0")
 
@@ -61,6 +66,9 @@ LAUNCH_DATE = date(2026, 3, 1)
 
 # Initialize Anthropic client
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+# Initialize cost tracker
+cost_tracker = CostTracker("CHIRON")
 
 # =============================================================================
 # TIME AWARENESS
@@ -496,7 +504,7 @@ async def call_agent(agent: str, endpoint: str, payload: dict = {}) -> dict:
 # =============================================================================
 
 async def call_llm(messages: list, time_ctx: dict, portfolio_ctx: dict = None) -> str:
-    """Call Claude API with full context"""
+    """Call Claude API with full context and cost tracking"""
     try:
         system_prompt = build_system_prompt(time_ctx, portfolio_ctx)
 
@@ -506,6 +514,16 @@ async def call_llm(messages: list, time_ctx: dict, portfolio_ctx: dict = None) -
             system=system_prompt,
             messages=messages
         )
+
+        # Log cost
+        await log_llm_usage(
+            agent="CHIRON",
+            endpoint=messages[0].get("content", "")[:50] if messages else "unknown",
+            model="claude-sonnet-4-20250514",
+            response=response,
+            metadata={"days_to_launch": time_ctx.get("days_to_launch")}
+        )
+
         return response.content[0].text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
