@@ -24,9 +24,12 @@ N8N_URLS = {
     "control": os.getenv("N8N_CONTROL_URL", "https://control.n8n.leveredgeai.com"),
     "prod": os.getenv("N8N_PROD_URL", "https://n8n.leveredgeai.com"),
 }
-N8N_USER = os.getenv("N8N_USER", "admin")
-N8N_PASS = os.getenv("N8N_PASS", "")
+N8N_API_KEY = os.getenv("N8N_API_KEY", "")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
+
+def get_n8n_headers():
+    """Get headers for n8n API authentication"""
+    return {"X-N8N-API-KEY": N8N_API_KEY}
 
 ALLOWED_PATHS = [
     "/opt/leveredge/",
@@ -326,7 +329,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
                     f"{n8n_url}/api/v1/workflows",
-                    auth=(N8N_USER, N8N_PASS),
+                    headers=get_n8n_headers(),
                     timeout=30.0
                 )
 
@@ -355,7 +358,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
                     f"{n8n_url}/api/v1/workflows",
-                    auth=(N8N_USER, N8N_PASS),
+                    headers=get_n8n_headers(),
                     json=workflow_data,
                     timeout=30.0
                 )
@@ -375,7 +378,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             async with httpx.AsyncClient() as client:
                 resp = await client.patch(
                     f"{n8n_url}/api/v1/workflows/{workflow_id}",
-                    auth=(N8N_USER, N8N_PASS),
+                    headers=get_n8n_headers(),
                     json={"active": True},
                     timeout=10.0
                 )
