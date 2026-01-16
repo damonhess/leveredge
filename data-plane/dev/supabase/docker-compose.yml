@@ -94,7 +94,7 @@ services:
 
   supabase-storage-dev:
     container_name: supabase-storage-dev
-    image: supabase/storage-api:v0.43.11
+    image: supabase/storage-api:v1.32.0
     restart: unless-stopped
     environment:
       ANON_KEY: ${ANON_KEY}
@@ -108,6 +108,7 @@ services:
       TENANT_ID: stub
       REGION: stub
       GLOBAL_S3_BUCKET: stub
+      ENABLE_IMAGE_TRANSFORMATION: "false"
     volumes:
       - supabase-storage-dev:/var/lib/storage
     networks:
@@ -136,6 +137,7 @@ services:
     ports:
       - "${STUDIO_PORT:-3100}:3000"
     environment:
+      HOSTNAME: "::"
       STUDIO_PG_META_URL: http://supabase-meta-dev:8080
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       DEFAULT_ORGANIZATION_NAME: "ARIA Dev"
@@ -144,6 +146,7 @@ services:
       SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL}
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      NEXT_PUBLIC_ENABLE_LOGS: "false"
     networks:
       - supabase-dev
       - stack_net
