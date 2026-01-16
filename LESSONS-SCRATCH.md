@@ -20,6 +20,39 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-17 - [SCHOLAR Agent Built - CHIRON's Research Partner]
+**Port:** 8018
+**Container:** scholar (n8n-scholar:latest)
+**Model:** Claude claude-sonnet-4-20250514
+**Role:** Market Research
+**Partner:** CHIRON (sends findings for strategic interpretation)
+**Features:**
+- Time-aware (knows days to launch: 44, current phase)
+- Niche analysis with 6-criteria scoring framework
+- ICP development framework
+- Competitive intelligence
+- Lead research
+- Niche comparison side-by-side
+
+**Endpoints:**
+- /health, /time, /team - Standard status
+- /research - General research (quick/standard/deep)
+- /niche - Deep niche analysis with scoring
+- /competitors - Competitive intelligence
+- /icp - Ideal Customer Profile development
+- /lead - Research specific company
+- /compare - Compare multiple niches
+- /send-to-chiron - Send findings to CHIRON
+- /upgrade-self - Propose self-improvements
+
+**Research Frameworks:**
+- TAM/SAM/SOM market sizing
+- 6-criteria niche scoring (Pain, Pay, Access, Competition, Expertise, Growth)
+- ICP template with 8 sections
+- Competitor profiles template
+
+**Team Pattern:** Research -> SCHOLAR -> CHIRON -> Decision -> ARIA knowledge
+
 ### 2026-01-17 - [CHIRON Agent Built - Full Team Integration]
 **Port:** 8017
 **Container:** chiron (n8n-chiron:latest)

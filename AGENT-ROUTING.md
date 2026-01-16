@@ -20,6 +20,7 @@
 | Audit logs/anomalies | ALOY | API call |
 | Generate documentation | ATHENA | API call |
 | Business decisions/accountability | CHIRON | API call (LLM-powered) |
+| Market research/niche analysis | SCHOLAR | API call (LLM-powered) |
 | Update portfolio | GSD → Supabase + Event Bus | Notify ARIA |
 | Update knowledge base | GSD → aria_knowledge + Event Bus | Notify ARIA |
 | Emergency restore | GAIA | Manual trigger only |
@@ -245,6 +246,55 @@ curl -X POST http://localhost:8017/challenge \
 
 # Get hype boost
 curl -X POST http://localhost:8017/hype
+```
+
+---
+
+### SCHOLAR (Market Research) - Port 8018
+**Use for:**
+- Market research and sizing (TAM/SAM/SOM)
+- Niche analysis and evaluation
+- Competitive intelligence
+- ICP (Ideal Customer Profile) development
+- Lead/prospect research
+- Niche comparison
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /health | GET | Health + time context |
+| /time | GET | Current time awareness |
+| /team | GET | Agent roster |
+| /research | POST | General research |
+| /niche | POST | Deep niche analysis |
+| /competitors | POST | Competitive intelligence |
+| /icp | POST | Develop Ideal Customer Profile |
+| /lead | POST | Research specific company |
+| /compare | POST | Compare multiple niches |
+| /send-to-chiron | POST | Send findings to CHIRON |
+| /upgrade-self | POST | Propose self-improvements |
+
+**Team Integration:**
+- Time-aware (days to launch, current phase)
+- Partners with CHIRON for strategy
+- Event Bus integration
+- ARIA knowledge updates
+- HERMES notifications
+
+**Partner Relationship:**
+- SCHOLAR does research -> sends to CHIRON
+- CHIRON interprets strategically -> makes decision
+- Both log to ARIA knowledge
+
+**Trigger Example:**
+```bash
+curl -X POST http://localhost:8018/niche \
+  -H "Content-Type: application/json" \
+  -d '{"niche": "water utilities compliance"}'
+
+curl -X POST http://localhost:8018/compare \
+  -H "Content-Type: application/json" \
+  -d '{"niches": ["water utilities", "environmental permits", "municipal government"]}'
 ```
 
 ---
