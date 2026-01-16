@@ -101,6 +101,24 @@ services:
     networks:
       - control-plane-net
 
+  argus:
+    build:
+      context: ../agents/argus
+      dockerfile: Dockerfile
+    container_name: argus
+    restart: unless-stopped
+    environment:
+      - EVENT_BUS_URL=http://event-bus:8099
+      - PROMETHEUS_URL=http://host.docker.internal:9090
+      - HERMES_URL=http://hermes:8014
+    ports:
+      - "8016:8016"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - control-plane-net
+      - stack_net
+
 networks:
   control-plane-net:
     name: control-plane-net
