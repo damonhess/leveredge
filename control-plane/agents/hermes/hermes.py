@@ -255,13 +255,35 @@ async def health():
 
 @app.post("/notify")
 async def notify(req: NotifyRequest):
-    """Send a notification without waiting for response"""
+    """Send a notification to specified channel"""
     notification_id = str(uuid.uuid4())[:8]
     emoji = get_priority_emoji(req.priority)
-
     formatted_message = f"{emoji} <b>LeverEdge Alert</b>\n\n{req.message}"
 
-    success = await send_telegram_message(formatted_message)
+    success = False
+
+    # Route by channel
+    if req.channel == "telegram":
+        success = await send_telegram_message(formatted_message)
+    elif req.channel == "event-bus":
+        try:
+            await log_to_event_bus(
+                "notification",
+                target="broadcast",
+                details={"message": req.message, "priority": req.priority}
+            )
+            success = True
+        except:
+            success = False
+    elif req.channel == "slack":
+        # TODO: Implement Slack webhook
+        success = False
+    elif req.channel == "email":
+        # TODO: Implement SMTP
+        success = False
+    else:
+        # Default to telegram
+        success = await send_telegram_message(formatted_message)
 
     # Record in database
     conn = sqlite3.connect(DB_PATH)
