@@ -1,109 +1,50 @@
 # LEVEREDGE LOOSE ENDS & TODO
 
-*Last Updated: January 17, 2026 (Morning)*
+*Last Updated: January 17, 2026 (Afternoon)*
 *Mode: JUGGERNAUT until May/June 2026*
 
 ---
 
-## 🗓️ WEEKEND BATTLE PLAN
+## 🎯 CURRENT STATUS
 
-### FRIDAY Jan 17 - LOOSE ENDS BLITZ
-**Target:** Items 1-10, then 13-20 (skip 11-12 niche/TRW for now)
-
-| # | Item | Est Time | Status |
-|---|------|----------|--------|
-| 1 | promote-to-prod.sh API keys | 15 min | ✅ DONE |
-| 2 | ARIA V3.2 - portfolio injection | 2 hrs | ⬜ |
-| 3 | ARIA V3.2 - time calibration | 1 hr | ⬜ |
-| 4 | ARIA frontend polish (Bolt.new) | 3 hrs | ⬜ |
-| 5 | Test full ARIA demo | 1 hr | ⬜ |
-| 6 | Shield/Sword nodes | 2 hrs | ⬜ |
-| 7 | Cost tracking (llm_usage) | 2 hrs | ✅ DONE (overnight) |
-| 8 | Dev credential separation | 1 hr | ⬜ |
-| 9 | Cloudflare Access control plane | 2 hrs | ⬜ |
-| 10 | GitHub remote push | 30 min | ✅ DONE |
-| **SKIP** | 11. Niche research | - | - |
-| **SKIP** | 12. TRW Outreach Module | - | - |
-| 13 | AEGIS credential manager enhance | 1 hr | ⬜ |
-| 14 | SMTP configuration | 1 hr | ⬜ |
-| 15 | ARIA/PA tool routing separation | 1 hr | ⬜ |
-| 16 | GitHub repo audit | 30 min | ⬜ |
-| 17 | File upload system | 3 hrs | ⬜ |
-| 18 | Telegram interface for ARIA | 2 hrs | ⬜ |
-| 19 | Unified memory consolidation | 2 hrs | ⬜ |
-| 20 | Two-way Google Tasks sync | 1 hr | ⬜ |
-
-### SATURDAY Jan 18 - TECHNICAL DEBT + AGENTS
-**Morning:** Technical debt cleanup
-**Afternoon/Evening:** Start building new agents
-
-| Item | Est Time |
-|------|----------|
-| Convert all agents to native n8n nodes | 4-6 hrs |
-| Storage bucket cleanup | 1 hr |
-| n8n chat memory cleanup | 1 hr |
-| n8n-troubleshooter rename | 30 min |
-| Old volume locations cleanup | 30 min |
-| **Then start:** CHIRON (business mentor) | 3-4 hrs |
-
-### SUNDAY Jan 19+ - AGENT BUILDING BEGINS
-- Continue CHIRON
-- Start SCHOLAR (market research)
-- Start LIBRARIAN (RAG)
-- Start content agents (SAPPHO, SCRIBE, DAEDALUS, CICERO, THOTH)
+**Portfolio:** $58,500 - $117,000 (28 wins)
+**Days to Launch:** 44 (March 1, 2026)
+**Agents Built:** 13 (GAIA, ATLAS, HEPHAESTUS, AEGIS, CHRONOS, HADES, HERMES, ARGUS, ALOY, ATHENA, ARIA, CHIRON, SCHOLAR)
 
 ---
 
-## 🎯 MASTER TIMELINE
+## ✅ COMPLETED (January 16-17, 2026)
 
-| Phase | Dates | Focus |
-|-------|-------|-------|
-| **Infrastructure** | Jan 11-16 | ✅ COMPLETE |
-| **Loose Ends + Agents** | Jan 17-31 | 🔥 NOW |
-| **Outreach** | Feb 1-28 | Niche, TRW, 10 attempts, 3 calls |
-| **Launch** | March 1 | IN BUSINESS |
-| **Scale** | March-June | Clients + more agents |
+| # | Item | Status |
+|---|------|--------|
+| 1 | promote-to-prod.sh API keys | ✅ DONE |
+| 2 | ARIA V3.2 - portfolio injection | ✅ DONE |
+| 3 | ARIA V3.2 - time calibration | ✅ DONE |
+| 5 | Demo test (17/17 passed) | ✅ DONE |
+| 6 | Shield (16 patterns) + Sword (15 techniques) | ✅ DONE |
+| 7 | Cost tracking system (llm_usage tables + functions) | ✅ DONE |
+| 10 | GitHub push (damonhess/leveredge) | ✅ DONE |
+| - | Portfolio populated (28 wins) | ✅ DONE |
+| - | ARIA V3.2 promoted to PROD | ✅ DONE |
+| - | Dev-first workflow rules (9 rules) | ✅ DONE |
+| - | Agent routing matrix (AGENT-ROUTING.md) | ✅ DONE |
+| - | ARIA knowledge system (aria_knowledge table) | ✅ DONE |
+| - | Pre-compact learning rules | ✅ DONE |
+| - | CHIRON agent (port 8017) | ✅ BUILT |
+| - | SCHOLAR agent (port 8018) | ✅ BUILT |
 
 ---
 
-## 📋 DETAILED LOOSE ENDS
+## 🔴 HIGH PRIORITY (Next Up)
 
-### 🔴 HIGH PRIORITY (By Jan 22 - ARIA Demo Ready)
-
-#### 1. promote-to-prod.sh API Keys ✅ DONE
-**Status:** Script updated, .env created with placeholders
-**Action:** Paste actual keys into /opt/leveredge/shared/scripts/.env
-
-#### 2. ARIA V3.2 - Dynamic Portfolio Injection ⬜
-**Status:** Guide exists, needs implementation
-**Task:** HTTP Request node to fetch `aria_get_portfolio_summary()`
-**Location:** `/home/damon/environments/dev/aria-assistant/n8n-portfolio-integration.md`
-
-#### 3. ARIA V3.2 - Time Calibration ⬜
-**Task:** Make time responses less verbose
-**Why:** Current responses too wordy when asked what time it is
-
-#### 4. ARIA Frontend Upgrade ⬜
+### 4. ARIA Frontend Upgrade ⬜
 **Task:** Rebuild/enhance in Bolt.new
 **Components:** Charts, data tables, code blocks, responsive
 **Also:** Click-to-expand bubbles (not hover), token/cost display per message
+**Blocked by:** Frontend planning session needed first
 
-#### 5. Demo Walkthrough Test ⬜
-**Task:** Full test of all 7 modes, portfolio, time, mobile
-
-#### 6. Shield/Sword Nodes ⬜
-**Task:** Separate dark psychology into distinct nodes
-- Shield = Pre-processing (detect manipulation)
-- Sword = Post-processing (frame response)
-
-### 🟡 MEDIUM PRIORITY (By Feb 1)
-
-#### 7. Cost Tracking System ✅ DONE (Overnight)
-**Tables:** llm_usage, llm_usage_daily, llm_budget_alerts
-**Functions:** log_llm_usage, get_usage_summary, get_conversation_cost, get_daily_costs, get_usage_by_model, get_usage_by_agent, check_budget_alerts, calculate_llm_cost
-**Next:** Wire into ARIA workflow to call log_llm_usage() after each response
-
-#### 8. Dev Credential Separation ⬜
+### 8. Dev Credential Separation ⬜ (PAUSED)
+**Remaining:**
 | Credential | PROD refs | Needs DEV |
 |------------|-----------|-----------|
 | Google Sheets | 9 | Yes |
@@ -112,55 +53,47 @@
 | Pinecone | misc | Yes |
 | Fal AI | misc | Yes |
 
-#### 9. Cloudflare Access for Control Plane ⬜
+### 9. Cloudflare Access for Control Plane ⬜ (WAITING)
 **Current:** Basic auth
 **Target:** Cloudflare Access with email
 
-#### 10. Push to GitHub Remote ✅ DONE
-**Repo:** https://github.com/damonhess/leveredge
-**Method:** HTTPS with PAT (SSH authenticates as damonhess-dev)
+---
 
-#### 11. Niche Research & Selection ⬜ (SKIP FOR NOW)
-**Task:** Pick ONE niche by Jan 24
-**Candidates:** Water utilities, environmental, municipal, law firms, real estate
+## 🟡 MEDIUM PRIORITY
 
-#### 12. TRW Outreach Module ⬜ (SKIP FOR NOW)
-**Task:** Complete outreach training
-**Time:** 8+ hours
-
-### 🟢 LOWER PRIORITY
-
-#### 13. AEGIS Credential Manager Enhancement ⬜
-**Tasks:** 
+### 13. AEGIS Credential Manager Enhancement ⬜
 - Expiration alerts and rotation reminders
-- GitHub account consolidation (damonhess vs damonhess-dev → single account eventually)
+- GitHub account consolidation (damonhess vs damonhess-dev)
 
-#### 14. SMTP Configuration ⬜
+### 14. SMTP Configuration ⬜
 **Options:** Gmail, SendGrid, AWS SES
 
-#### 15. ARIA/PA Tool Routing Separation ⬜
+### 15. ARIA/PA Tool Routing Separation ⬜
 **Task:** Create ARIA-specific tool versions
 
-#### 16. GitHub Repo Audit ⬜
-**Task:** Ensure all repos have remotes, SSH keys
-**Note:** Part of damonhess/damonhess-dev consolidation
+### 16. GitHub Repo Audit ⬜
+**Task:** Ensure all repos have remotes, proper SSH keys
 
-#### 17. File Upload System ⬜
-- PDF processing with citations
-- Image processing with vision
+---
+
+## 🟢 LOWER PRIORITY (Phase 2)
+
+### 17. File Upload System ⬜
+- PDF processing with page-level citations
+- Image processing with vision API
 - Audio transcription (Whisper)
 - Video processing
 
-#### 18. Telegram Interface for ARIA ⬜
+### 18. Telegram Interface for ARIA ⬜
 - Bot creation and token
 - Webhook setup
 - Cross-interface continuity
 
-#### 19. Unified Memory Consolidation ⬜
+### 19. Unified Memory Consolidation ⬜
 - Extract facts from conversations
 - Semantic search across all
 
-#### 20. Two-Way Google Tasks Sync ⬜
+### 20. Two-Way Google Tasks Sync ⬜
 - Currently one-way
 - Need bidirectional
 
@@ -168,41 +101,61 @@
 
 ## 🔧 TECHNICAL DEBT
 
-| Item | Priority | Est Time |
-|------|----------|----------|
-| **Convert all agents to native n8n nodes** | 🔴 HIGH | 4-6 hrs |
-| Storage bucket cleanup | 🟡 Medium | 1 hr |
-| n8n chat memory cleanup | 🟡 Medium | 1 hr |
-| n8n-troubleshooter rename | 🟢 Low | 30 min |
-| Old volume locations | 🟢 Low | 30 min |
+| Item | Priority | Status |
+|------|----------|--------|
+| Convert all agents to native n8n nodes | 🔴 HIGH | ⬜ |
+| Storage bucket cleanup | 🟡 Medium | ⬜ |
+| n8n chat memory cleanup | 🟡 Medium | ⬜ |
+| Wire cost tracking into ARIA workflow | 🔴 HIGH | ⬜ |
 
 ---
 
-## 🤖 AGENTS TO BUILD (31 Total)
+## 🤖 AGENTS STATUS
 
-### ✅ BUILT (11)
-GAIA, ATLAS, HEPHAESTUS, AEGIS, CHRONOS, HADES, HERMES, ARGUS, ALOY, ATHENA, ARIA
+### ✅ BUILT (13)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| GAIA | 8000 | Emergency bootstrap | ✅ Active |
+| ATLAS | n8n | Master orchestrator | ✅ Active |
+| HEPHAESTUS | 8011 | Builder/deployer, MCP | ✅ Active |
+| AEGIS | 8012 | Credential vault | ✅ Active |
+| CHRONOS | 8010 | Backup manager | ✅ Active |
+| HADES | 8008 | Rollback/recovery | ✅ Active |
+| HERMES | 8014 | Notifications | ✅ Active |
+| ARGUS | 8016 | Monitoring | ✅ Active |
+| ALOY | 8015 | Audit | ✅ Active |
+| ATHENA | 8013 | Documentation | ✅ Active |
+| Event Bus | 8099 | Inter-agent comms | ✅ Active |
+| ARIA | - | Personal assistant | ✅ V3.2 PROD |
+| CHIRON | 8017 | Business mentor | ✅ Active |
+| SCHOLAR | 8018 | Market research | ✅ Active |
 
-### 🔥 NEXT WAVE - Business (10)
-| Agent | Domain | Priority |
-|-------|--------|----------|
-| CHIRON | Business mentor | 🔴 HIGH |
-| SCHOLAR | Market research | 🔴 HIGH |
-| LIBRARIAN | RAG/knowledge | 🔴 HIGH |
-| SAPPHO | Copywriting | 🟡 |
-| SCRIBE | Long-form content | 🟡 |
-| DAEDALUS | Graphics | 🟡 |
-| CICERO | Presentations | 🟡 |
-| THOTH | Reports | 🟡 |
-| VARYS | Project management | 🟡 |
-| MERCHANT | Sales/CRM | 🟡 |
-| ORACLE | Forecasting | 🟢 |
+### 🔮 TO DESIGN (by March 1)
 
-### 🌴 LIFE WAVE (9)
-NIKE, DEMETER, COCO, PHILEAS, APOLLO, MENTOR, EROS, MIDAS, NICHOLAS
+**Business Domain (8):**
+- VARYS - Project management
+- ORACLE - Predictions/forecasting
+- LIBRARIAN - RAG/knowledge
+- SCRIBE - Long-form content
+- SAPPHO - Copywriting
+- MERCHANT - Sales/CRM
+- DAEDALUS - Graphic design
+- CICERO - Presentations
+- THOTH - Reports
 
-### 🌐 PRODUCT (1)
-Geopolitical Intelligence System
+**Personal Domain (9):**
+- APOLLO - Creativity
+- NIKE - Fitness
+- DEMETER - Nutrition
+- MENTOR - Learning
+- EROS - Relationships
+- MIDAS - Shopping/procurement
+- NICHOLAS - Gifting
+- COCO - Fashion
+- PHILEAS - Travel
+
+**Product (1):**
+- Geopolitical Intelligence System
 
 ---
 
@@ -216,6 +169,37 @@ Geopolitical Intelligence System
 | Native n8n nodes over Code nodes | Visibility and maintainability |
 | JUGGERNAUT MODE until May/June | Momentum is everything |
 | HTTPS for GitHub (not SSH) | SSH key tied to wrong account |
+| Infrastructure = Greek naming | Established pattern |
+| Business/Personal naming = TBD | To be explored |
+| Design EVERYTHING by March 1 | Specs, not necessarily builds |
+
+---
+
+## 📋 UPCOMING: COMPREHENSIVE PLANNING MISSION
+
+**Scope:** Design everything by March 1
+
+**Part 1: Business Domain**
+- All business agents specced
+- Infrastructure (command center, public side, CRM, product)
+- Sales/GTM strategy
+- Market research
+
+**Part 2: Personal Domain**
+- All personal agents specced
+- Life infrastructure
+
+**Part 3: Integration**
+- How domains interact
+- ARIA as unified interface
+
+**Planning Team:**
+- CHIRON: Strategic lead, decisions
+- SCHOLAR: Research
+- Claude Web: Orchestration, gap-filling
+- Damon: Final authority
+
+**First Mission:** CHIRON + SCHOLAR self-upgrade planning
 
 ---
 
@@ -223,11 +207,10 @@ Geopolitical Intelligence System
 
 | File | Purpose |
 |------|---------|
-| `/opt/leveredge/README.md` | Quick reference |
-| `/opt/leveredge/ARCHITECTURE.md` | System design |
-| `/opt/leveredge/MASTER-LAUNCH-CALENDAR.md` | Timeline |
 | `/opt/leveredge/LOOSE-ENDS.md` | This file |
-| `/opt/leveredge/FUTURE-VISION.md` | Agent roadmap |
+| `/opt/leveredge/FUTURE-VISION.md` | Agent roadmap (needs update) |
+| `/opt/leveredge/ARCHITECTURE.md` | System design |
+| `/opt/leveredge/AGENT-ROUTING.md` | Who does what |
 | `/opt/leveredge/ARIA-VISION.md` | ARIA enhancements |
 | `/opt/leveredge/LESSONS-LEARNED.md` | Knowledge base |
 | `/home/damon/.claude/EXECUTION_RULES.md` | Claude Code rules |
@@ -237,29 +220,30 @@ Geopolitical Intelligence System
 ## 🎯 SUCCESS BY DATE
 
 ### Jan 22 - ARIA Demo Ready
-- [ ] Portfolio injection working
-- [ ] Time calibration fixed
-- [ ] Frontend polished
-- [ ] All 7 modes tested
-- [ ] Mobile experience smooth
+- [x] Portfolio injection working
+- [x] Time calibration fixed
+- [x] Shield/Sword complete
+- [x] All 7 modes tested (17/17)
+- [ ] Frontend polished (Bolt.new)
 
-### Jan 31 - Loose Ends Complete
-- [x] Items 1, 7, 10 done
-- [ ] Items 2-6, 8-9 done
-- [ ] Items 13-20 done
-- [ ] Technical debt cleared
-- [ ] First wave agents started
+### Jan 31 - Comprehensive Design Complete
+- [ ] All agent specs written
+- [ ] Infrastructure architecture docs
+- [ ] Business domain planned
+- [ ] Personal domain planned
+- [ ] Naming conventions finalized
 
 ### Feb 28 - Outreach Complete
-- [ ] Niche selected
+- [ ] Niche selected (via CHIRON/SCHOLAR)
 - [ ] TRW module done
 - [ ] 10 outreach attempts
 - [ ] 3 discovery calls
 
 ### March 1 - IN BUSINESS
 - [ ] Ready for paying clients
+- [ ] Everything DESIGNED (specs complete)
 
 ### May/June - Scale
-- [ ] All 31 agents operational
+- [ ] All agents BUILT
 - [ ] $30K+ MRR
 - [ ] Quit government job
