@@ -20,6 +20,55 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-16 21:55 - [SCHOLAR V2 Elite Market Research Upgrade]
+**Upgrade:** SCHOLAR v1.0 → v2.0
+**Container:** Rebuilt and deployed to control-plane-net
+
+**New Endpoints (5):**
+- `/deep-research` - Multi-source deep dive with web search
+- `/competitor-profile` - Structured competitor analysis with web search
+- `/market-size` - TAM/SAM/SOM calculation with sources
+- `/pain-discovery` - Research and quantify pain points
+- `/validate-assumption` - Test business assumptions with evidence
+
+**New Frameworks (5):**
+- TAM/SAM/SOM market sizing framework
+- Competitive analysis framework with structured profiles
+- ICP development framework with buyer profiles
+- Pain point discovery framework (5 Whys, quantification)
+- Research synthesis framework with confidence levels
+
+**Enhanced System Prompt:**
+- Elite research agent identity
+- Damon's context with portfolio value
+- Market sizing methodology
+- Competitive intelligence gathering sources
+- Research methodology checklists
+- Output standards with confidence levels
+
+**Web Search Capability:**
+- Anthropic web_search tool enabled
+- call_llm_with_search() function for live data
+- Upgraded endpoints: /research, /niche, /competitors, /icp, /lead, /compare
+
+**Bug Fix During Upgrade:**
+- Issue: `can only concatenate str (not "NoneType") to str`
+- Cause: Some web search response blocks have `text` attribute as None
+- Fix: Added null check: `if hasattr(block, 'text') and block.text is not None`
+
+**Deployment Note:** SCHOLAR container not in docker-compose.yml - runs standalone. Rebuild with:
+```bash
+cd /opt/leveredge/control-plane/agents/scholar
+docker build -t n8n-scholar:latest .
+docker stop scholar && docker rm scholar
+docker run -d --name scholar --network control-plane-net -p 8018:8018 \
+  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+  -e EVENT_BUS_URL=http://event-bus:8099 \
+  -e SUPABASE_URL=http://supabase-kong:8000 \
+  -e SUPABASE_ANON_KEY="..." \
+  n8n-scholar:latest
+```
+
 ### 2026-01-16 21:35 - [CHIRON V2 Elite Business Mentor Upgrade]
 **Upgrade:** CHIRON v1.0 → v2.0
 **Container:** Rebuilt and deployed to control-plane-net
