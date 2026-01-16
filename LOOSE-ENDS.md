@@ -1,178 +1,206 @@
 # LEVEREDGE LOOSE ENDS & TODO
 
-*Last Updated: January 17, 2026 (1:30 AM)*
+*Last Updated: January 17, 2026 (2:30 AM)*
+*Mode: JUGGERNAUT until May/June 2026*
 
 ---
 
-## 🎯 LAUNCH TIMELINE
+## 🗓️ WEEKEND BATTLE PLAN
 
-| Milestone | Date | Status |
-|-----------|------|--------|
-| Infrastructure complete | Jan 16 | ✅ DONE |
-| ARIA demo-ready | Jan 22 | ⬜ IN PROGRESS |
-| Outreach ready | Jan 29 | ⬜ UPCOMING |
-| 10 outreach attempts | Feb 4 | ⬜ UPCOMING |
-| 3 discovery calls | Feb 12 | ⬜ UPCOMING |
-| **IN BUSINESS** | **March 1** | 🎯 TARGET |
+### FRIDAY Jan 17 - LOOSE ENDS BLITZ
+**Target:** Items 1-10, then 13-20 (skip 11-12 niche/TRW for now)
+
+| # | Item | Est Time |
+|---|------|----------|
+| 1 | promote-to-prod.sh API keys | 15 min |
+| 2 | ARIA V3.2 - portfolio injection | 2 hrs |
+| 3 | ARIA V3.2 - time calibration | 1 hr |
+| 4 | ARIA frontend polish (Bolt.new) | 3 hrs |
+| 5 | Test full ARIA demo | 1 hr |
+| 6 | Shield/Sword nodes | 2 hrs |
+| 7 | Cost tracking (llm_usage) | 2 hrs |
+| 8 | Dev credential separation | 1 hr |
+| 9 | Cloudflare Access control plane | 2 hrs |
+| 10 | GitHub remote push | 30 min |
+| **SKIP** | 11. Niche research | - |
+| **SKIP** | 12. TRW Outreach Module | - |
+| 13 | AEGIS credential manager enhance | 1 hr |
+| 14 | SMTP configuration | 1 hr |
+| 15 | ARIA/PA tool routing separation | 1 hr |
+| 16 | GitHub repo audit | 30 min |
+| 17 | File upload system | 3 hrs |
+| 18 | Telegram interface for ARIA | 2 hrs |
+| 19 | Unified memory consolidation | 2 hrs |
+| 20 | Two-way Google Tasks sync | 1 hr |
+
+### SATURDAY Jan 18 - TECHNICAL DEBT + AGENTS
+**Morning:** Technical debt cleanup
+**Afternoon/Evening:** Start building new agents
+
+| Item | Est Time |
+|------|----------|
+| Convert all agents to native n8n nodes | 4-6 hrs |
+| Storage bucket cleanup | 1 hr |
+| n8n chat memory cleanup | 1 hr |
+| n8n-troubleshooter rename | 30 min |
+| Old volume locations cleanup | 30 min |
+| **Then start:** CHIRON (business mentor) | 3-4 hrs |
+
+### SUNDAY Jan 19+ - AGENT BUILDING BEGINS
+- Continue CHIRON
+- Start SCHOLAR (market research)
+- Start LIBRARIAN (RAG)
+- Start content agents (SAPPHO, SCRIBE, DAEDALUS, CICERO, THOTH)
 
 ---
 
-## 🔄 IN PROGRESS
+## 🎯 MASTER TIMELINE
 
-### Connect n8n to Portfolio Dynamically
-**Status:** Guide exists, needs implementation
-**Task:** Add HTTP Request node to fetch `aria_get_portfolio_summary()` and inject into DAMON_PROFILE
-**Location:** `/home/damon/environments/dev/aria-assistant/n8n-portfolio-integration.md`
-**MCP:** Use n8n-troubleshooter (61 tools)
+| Phase | Dates | Focus |
+|-------|-------|-------|
+| **Infrastructure** | Jan 11-16 | ✅ COMPLETE |
+| **Loose Ends + Agents** | Jan 17-31 | 🔥 NOW |
+| **Outreach** | Feb 1-28 | Niche, TRW, 10 attempts, 3 calls |
+| **Launch** | March 1 | IN BUSINESS |
+| **Scale** | March-June | Clients + more agents |
 
-### promote-to-prod.sh API Keys
-**Status:** Script created, needs keys configured
+---
+
+## 📋 DETAILED LOOSE ENDS
+
+### 🔴 HIGH PRIORITY (By Jan 22 - ARIA Demo Ready)
+
+#### 1. promote-to-prod.sh API Keys ⬜
+**Status:** Script created, needs keys
 **Task:** Get API keys from n8n UI, add to .env
 **Location:** `/opt/leveredge/shared/scripts/.env`
 
----
+#### 2. ARIA V3.2 - Dynamic Portfolio Injection ⬜
+**Status:** Guide exists, needs implementation
+**Task:** HTTP Request node to fetch `aria_get_portfolio_summary()`
+**Location:** `/home/damon/environments/dev/aria-assistant/n8n-portfolio-integration.md`
 
-## 📋 HIGH PRIORITY (By Jan 22 - ARIA Demo Ready)
+#### 3. ARIA V3.2 - Time Calibration ⬜
+**Task:** Make time responses less verbose
+**Why:** Current responses too wordy when asked what time it is
 
-### 1. ARIA Frontend Upgrade
-**Task:** Rebuild/enhance ARIA web UI in Bolt.new
-**Why:** Better UX, richer components, mobile optimization
-**Approach:** Build in Bolt.new, manage via git, deploy to dev first
-**Components needed:**
-- Interactive charts (Recharts/Chart.js)
-- Data tables with sorting/filtering
-- Code blocks with syntax highlighting
-- Better responsive layouts
-- Gesture support for mobile
+#### 4. ARIA Frontend Upgrade ⬜
+**Task:** Rebuild/enhance in Bolt.new
+**Components:** Charts, data tables, code blocks, responsive
 
-### 2. Shield/Sword Nodes
-**Task:** Separate dark psychology into distinct processing nodes
-**Why:** Cleaner architecture, easier to tune
-- **Shield** = Pre-processing (detect manipulation in user's situation)
-- **Sword** = Post-processing (frame ARIA's response for maximum impact)
+#### 5. Demo Walkthrough Test ⬜
+**Task:** Full test of all 7 modes, portfolio, time, mobile
 
-### 3. ARIA V3.2 Features
-- Dynamic portfolio injection (fetches from `aria_portfolio_summary`)
-- Improved time response calibration (less verbose)
-- Better mode transitions
+#### 6. Shield/Sword Nodes ⬜
+**Task:** Separate dark psychology into distinct nodes
+- Shield = Pre-processing (detect manipulation)
+- Sword = Post-processing (frame response)
 
-### 4. Test Full Demo Walkthrough
-- All 7 modes working
-- Portfolio data displaying
-- Time awareness accurate
-- Mobile experience smooth
+### 🟡 MEDIUM PRIORITY (By Feb 1)
 
----
-
-## 📋 MEDIUM PRIORITY (By Feb 1 - Outreach Ready)
-
-### 5. Cost Tracking System
-**Task:** Create `llm_usage` table and reporting
-**Why:** Must track API costs before scaling autonomous features
-**Tables needed:**
+#### 7. Cost Tracking System ⬜
 ```sql
-llm_usage (
-  id, timestamp, model, input_tokens, output_tokens,
-  cost_usd, context, agent_source
-)
-
-llm_usage_daily (
-  date, total_cost, total_tokens, by_model JSONB, by_agent JSONB
-)
-
-llm_budget_alerts (
-  threshold_daily, threshold_monthly, notification_channel
-)
+llm_usage (id, timestamp, model, input_tokens, output_tokens, cost_usd, context, agent_source)
+llm_usage_daily (date, total_cost, total_tokens, by_model, by_agent)
+llm_budget_alerts (threshold_daily, threshold_monthly, notification_channel)
 ```
 
-### 6. Complete Dev Credential Separation
-**Remaining:**
-| Credential | PROD refs | Needs DEV version |
-|------------|-----------|-------------------|
-| Google Sheets | 9 workflows | Yes |
-| Telegram | 14 workflows | Yes |
-| Google Drive | 4 workflows | Yes |
+#### 8. Dev Credential Separation ⬜
+| Credential | PROD refs | Needs DEV |
+|------------|-----------|-----------|
+| Google Sheets | 9 | Yes |
+| Telegram | 14 | Yes |
+| Google Drive | 4 | Yes |
 | Pinecone | misc | Yes |
 | Fal AI | misc | Yes |
-| WhatsApp | misc | Yes |
 
-### 7. Cloudflare Access for Control Plane
+#### 9. Cloudflare Access for Control Plane ⬜
 **Current:** Basic auth
-**Target:** Cloudflare Access with email verification
-**Why:** Proper security for production
+**Target:** Cloudflare Access with email
 
-### 8. Push to GitHub Remote
-**Task:** Create repo, add remote, push
-**Why:** Backup + future collaboration
+#### 10. Push to GitHub Remote ⬜
+**Task:** Create repo, add remote, push /opt/leveredge
 
-### 9. GAIA Telegram Emergency Bot
-**Task:** Set up bot for remote recovery
-**Why:** Can't always SSH in emergencies
+#### 11. Niche Research & Selection ⬜ (SKIP FOR NOW)
+**Task:** Pick ONE niche by Jan 24
+**Candidates:** Water utilities, environmental, municipal, law firms, real estate
 
-### 10. Niche Research & Selection
-**Task:** Research top 5 niches, pick ONE by Jan 24
-**Candidates:**
-- Water utilities compliance
-- Environmental permits
-- Municipal government
-- Small law firms
-- Real estate compliance
-
-### 11. TRW Outreach Module
-**Task:** Complete The Real World outreach training
+#### 12. TRW Outreach Module ⬜ (SKIP FOR NOW)
+**Task:** Complete outreach training
 **Time:** 8+ hours
-**Deliverables:** Scripts, templates, methodology
 
----
+### 🟢 LOWER PRIORITY
 
-## 📋 LOW PRIORITY (Post-Launch)
+#### 13. AEGIS Credential Manager Enhancement ⬜
+**Task:** Expiration alerts, rotation reminders
 
-### 12. Credential Manager Agent (AEGIS Enhancement)
-**Problem:** API keys, OAuth tokens scattered everywhere
-**Need:** Central tracking with expiration alerts, rotation reminders
+#### 14. SMTP Configuration ⬜
+**Options:** Gmail, SendGrid, AWS SES
 
-### 13. Email Configuration (SMTP)
-**Issue:** Supabase Auth pointing to non-existent mail server
-**Current:** Using autoconfirm workaround
-**Options:** Gmail, SendGrid, or AWS SES
-**Impact:** Production auth requires real emails eventually
+#### 15. ARIA/PA Tool Routing Separation ⬜
+**Task:** Create ARIA-specific tool versions
 
-### 14. ARIA/PA Tool Routing Separation
-**Issue:** Both ARIA and Personal Assistant share same tool workflows
-**Better:** Create ARIA-specific versions for different schemas
+#### 16. GitHub Repo Audit ⬜
+**Task:** Ensure all repos have remotes, SSH keys
 
-### 15. GitHub Repo Management
-**Need:** Audit all repos, ensure GitHub remotes, proper SSH keys
-
-### 16. File Upload System
-- PDF processing with page-level citations
-- Image processing with vision API
+#### 17. File Upload System ⬜
+- PDF processing with citations
+- Image processing with vision
 - Audio transcription (Whisper)
-- Video processing (extract audio + frames)
+- Video processing
 
-### 17. Telegram Interface for ARIA
+#### 18. Telegram Interface for ARIA ⬜
 - Bot creation and token
 - Webhook setup
 - Cross-interface continuity
 
-### 18. Unified Memory Consolidation
-- Extract facts/preferences from conversations
-- Semantic search across all conversations
+#### 19. Unified Memory Consolidation ⬜
+- Extract facts from conversations
+- Semantic search across all
 
-### 19. Two-Way Google Tasks Sync
-- Currently one-way (n8n → Google Tasks)
-- Need bidirectional sync
+#### 20. Two-Way Google Tasks Sync ⬜
+- Currently one-way
+- Need bidirectional
 
 ---
 
 ## 🔧 TECHNICAL DEBT
 
-| Item | Issue | Solution | Priority |
-|------|-------|----------|----------|
-| Storage bucket cleanup | Deleted conversations leave orphaned files | Scheduled cleanup or edge function | Low |
-| n8n chat memory cleanup | `n8n_chat_histories` not cleaned when archived | Scheduled cleanup workflow | Low |
-| n8n-troubleshooter rename | Confusing name | Rename to n8n-prod | Low |
-| Old volume data | Volumes in /home/damon/supabase/volumes | Move to /opt/leveredge eventually | Low |
+| Item | Priority | Est Time |
+|------|----------|----------|
+| **Convert all agents to native n8n nodes** | 🔴 HIGH | 4-6 hrs |
+| Storage bucket cleanup | 🟡 Medium | 1 hr |
+| n8n chat memory cleanup | 🟡 Medium | 1 hr |
+| n8n-troubleshooter rename | 🟢 Low | 30 min |
+| Old volume locations | 🟢 Low | 30 min |
+
+---
+
+## 🤖 AGENTS TO BUILD (31 Total)
+
+### ✅ BUILT (11)
+GAIA, ATLAS, HEPHAESTUS, AEGIS, CHRONOS, HADES, HERMES, ARGUS, ALOY, ATHENA, ARIA
+
+### 🔥 NEXT WAVE - Business (10)
+| Agent | Domain | Priority |
+|-------|--------|----------|
+| CHIRON | Business mentor | 🔴 HIGH |
+| SCHOLAR | Market research | 🔴 HIGH |
+| LIBRARIAN | RAG/knowledge | 🔴 HIGH |
+| SAPPHO | Copywriting | 🟡 |
+| SCRIBE | Long-form content | 🟡 |
+| DAEDALUS | Graphics | 🟡 |
+| CICERO | Presentations | 🟡 |
+| THOTH | Reports | 🟡 |
+| VARYS | Project management | 🟡 |
+| MERCHANT | Sales/CRM | 🟡 |
+| ORACLE | Forecasting | 🟢 |
+
+### 🌴 LIFE WAVE (9)
+NIKE, DEMETER, COCO, PHILEAS, APOLLO, MENTOR, EROS, MIDAS, NICHOLAS
+
+### 🌐 PRODUCT (1)
+Geopolitical Intelligence System
 
 ---
 
@@ -182,43 +210,9 @@ llm_budget_alerts (
 |----------|-----------|
 | No LinkedIn until after first clients | Protecting reputation |
 | Direct outreach via TRW methodology | More targeted than social |
-| ARIA is personal assistant, not a product | Don't sell the tool, sell the outcomes |
-| Credential manager waits until Feb | Outreach takes priority |
-| Autonomous ATLAS deferred | Wait for revenue before API-heavy autonomy |
-| Dev-first deployment | Never deploy directly to prod |
-| Option A (dumb executors) for now | Zero API cost, human in loop |
-
----
-
-## 🛠️ KEY TOOLS & COMMANDS
-
-### Portfolio
-```bash
-add-win.sh "Title" "category" "description" low high "anchoring"
-add-win.sh --summary
-add-win.sh --list
-```
-
-### Development
-```bash
-# n8n workflow changes - use MCP, not UI
-# n8n-control: Control plane (port 5679)
-# n8n-troubleshooter: Prod (port 5678)
-# n8n-troubleshooter-dev: Dev (port 5680)
-```
-
-### Deployment
-```bash
-cd /opt/leveredge/shared/scripts
-./promote-to-prod.sh <workflow_id>
-```
-
-### Monitoring
-```bash
-docker ps | grep -E "supabase|n8n|control"
-curl http://localhost:8016/status  # ARGUS fleet status
-curl http://localhost:8014/health  # HERMES
-```
+| ARIA is personal assistant, not a product | Sell outcomes, not tools |
+| Native n8n nodes over Code nodes | Visibility and maintainability |
+| JUGGERNAUT MODE until May/June | Momentum is everything |
 
 ---
 
@@ -229,56 +223,38 @@ curl http://localhost:8014/health  # HERMES
 | `/opt/leveredge/README.md` | Quick reference |
 | `/opt/leveredge/ARCHITECTURE.md` | System design |
 | `/opt/leveredge/MASTER-LAUNCH-CALENDAR.md` | Timeline |
-| `/opt/leveredge/LESSONS-LEARNED.md` | Knowledge base |
 | `/opt/leveredge/LOOSE-ENDS.md` | This file |
-| `/opt/leveredge/FUTURE-VISION.md` | Business roadmap |
+| `/opt/leveredge/FUTURE-VISION.md` | Agent roadmap |
+| `/opt/leveredge/LESSONS-LEARNED.md` | Knowledge base |
 | `/home/damon/.claude/EXECUTION_RULES.md` | Claude Code rules |
-| `/home/damon/environments/dev/aria-assistant/prompts/` | ARIA prompts |
 
 ---
 
-## 🎯 SUCCESS METRICS
+## 🎯 SUCCESS BY DATE
 
-### By End of January (Jan 31)
-- [ ] ARIA V3.2 functional and polished
-- [ ] Portfolio tracker connected dynamically
-- [ ] Frontend upgraded via Bolt.new
-- [ ] Full demo walkthrough successful
+### Jan 22 - ARIA Demo Ready
+- [ ] Portfolio injection working
+- [ ] Time calibration fixed
+- [ ] Frontend polished
+- [ ] All 7 modes tested
+- [ ] Mobile experience smooth
 
-### By End of February (Feb 28)
-- [ ] 10 outreach attempts completed
-- [ ] 3 discovery calls scheduled
-- [ ] TRW Outreach Module complete
-- [ ] First potential clients identified
-- [ ] Cost tracking implemented
+### Jan 31 - Loose Ends Complete
+- [ ] Items 1-10 done
+- [ ] Items 13-20 done
+- [ ] Technical debt cleared
+- [ ] First wave agents started
 
-### March 1, 2026
-- [ ] **IN BUSINESS** - Ready to take paying clients
+### Feb 28 - Outreach Complete
+- [ ] Niche selected
+- [ ] TRW module done
+- [ ] 10 outreach attempts
+- [ ] 3 discovery calls
 
----
+### March 1 - IN BUSINESS
+- [ ] Ready for paying clients
 
-## 🔮 FUTURE VISION (Post-Launch)
-
-### Option B: Autonomous Agents
-- Add LLM reasoning to agents
-- ATLAS routes intelligently
-- HEPHAESTUS interprets vague requests
-- **Trigger:** Revenue > $10K/month
-
-### ARIA V4.0
-- Multi-modal file processing
-- Proactive reminders
-- Telegram interface
-- Voice interface
-
-### Business Scaling
-- Multi-tenant capability
-- Client portal
-- White-label options
-- SOC 2 preparation
-
-### Geopolitical Intelligence System
-- Multi-agent news analysis
-- Bias detection
-- Separate product
-- Timeline: 6-12 months post-launch
+### May/June - Scale
+- [ ] All 31 agents operational
+- [ ] $30K+ MRR
+- [ ] Quit government job
