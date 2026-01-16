@@ -119,6 +119,22 @@ services:
       - control-plane-net
       - stack_net
 
+  aloy:
+    build:
+      context: ../agents/aloy
+      dockerfile: Dockerfile
+    container_name: aloy
+    restart: unless-stopped
+    environment:
+      - EVENT_BUS_URL=http://event-bus:8099
+      - HERMES_URL=http://hermes:8014
+    volumes:
+      - ../agents/aloy/data:/app/data
+    ports:
+      - "8015:8015"
+    networks:
+      - control-plane-net
+
 networks:
   control-plane-net:
     name: control-plane-net
