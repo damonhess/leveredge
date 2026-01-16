@@ -32,9 +32,9 @@ def get_n8n_headers():
     return {"X-N8N-API-KEY": N8N_API_KEY}
 
 ALLOWED_PATHS = [
-    "/opt/leveredge/",
-    "/home/damon/shared/",
-    "/tmp/leveredge/",
+    "/opt/leveredge",
+    "/home/damon/shared",
+    "/tmp/leveredge",
 ]
 
 # Initialize MCP Server
