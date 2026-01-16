@@ -20,6 +20,23 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-17 - [Agent Routing + ARIA Knowledge System]
+**Created:** `/opt/leveredge/AGENT-ROUTING.md` - Complete agent routing matrix
+**Database:** `aria_knowledge` table in PROD Supabase with 18 initial entries
+**Functions:** `aria_add_knowledge`, `aria_search_knowledge`, `aria_get_recent_knowledge`, `aria_get_system_status`
+**Rules Added:** Rule #5 (Agent Routing), Rule #6 (ARIA Knowledge Updates), Rule #7 (Event Bus Logging)
+**Categories:** agent (10), architecture (3), rule (3), status (2)
+**Purpose:** ARIA now has queryable knowledge base for system awareness. All ops route through designated agents.
+
+### 2026-01-17 11:30 AM - [Development Flow Rules Codified]
+**Created:** /home/damon/.claude/EXECUTION_RULES.md
+**Updated:** LESSONS-LEARNED.md, ARCHITECTURE.md
+**Symlinked:** /opt/leveredge/EXECUTION_RULES.md → ~/.claude/EXECUTION_RULES.md
+**Rule:** DEV first for all workflows/code/schema. PROD only for real data with explicit approval.
+**Enforcement:** All Claude instances must read EXECUTION_RULES.md before tasks.
+**MCP Awareness:** n8n-control (5679), n8n-troubleshooter (PROD 5678), n8n-troubleshooter-dev (DEV 5680)
+**Prevention:** No more accidental PROD deployments without explicit approval.
+
 ### 2026-01-17 11:15 AM - [Full Portfolio Populated - 28 Wins]
 **Status:** All wins tracked in PROD Supabase
 **Tables:**
