@@ -20,6 +20,39 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-17 - [CHIRON Agent Built - Full Team Integration]
+**Port:** 8017
+**Container:** chiron (n8n-chiron:latest)
+**Model:** Claude claude-sonnet-4-20250514
+**Features:**
+- Time-aware (knows days to launch: 44, current phase)
+- Portfolio-aware (cites actual wins from aria_portfolio)
+- Team-integrated (Event Bus, ARIA knowledge, HERMES notifications)
+- Inter-agent communication capability
+- Self-upgrade endpoint for proposing improvements
+
+**Endpoints:**
+- /health - Health + time context
+- /time - Full time context
+- /team - Agent roster
+- /chat - General conversation with context
+- /decide - Decision framework with scoring
+- /accountability - Commitment tracking
+- /challenge - Challenge assumptions with evidence
+- /hype - Evidence-based motivation
+- /framework/{type} - decision, accountability, strategic, fear, launch
+- /upgrade-self - Propose self-improvements
+
+**Integration:**
+- Logs all decisions to aria_knowledge (ARIA sees everything)
+- Publishes events to Event Bus
+- Critical decisions notify HERMES -> Telegram
+- Can call other agents via /agent/call
+
+**First LLM Agent:** Template for future agents (SCHOLAR will be similar)
+
+**Git Note:** AGENT-ROUTING.md committed. Chiron files need `sudo chown -R damon:damon /opt/leveredge/.git/objects` before commit (some root-owned directories).
+
 ### 2026-01-17 - [Pre-Compact Learning Rules]
 **Added:** Rules #8 (pre-compact capture) and #9 (session handoff)
 **Purpose:** Knowledge persists across Claude context windows
