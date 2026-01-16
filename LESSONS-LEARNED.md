@@ -170,6 +170,16 @@ networks:
 **NEVER give manual bash commands when HEPHAESTUS can do it.**
 **ALWAYS format GSD dispatch as ready-to-paste block.**
 
+### Pre-Compact Capture
+
+Before context clears:
+1. LESSONS-SCRATCH.md - debugging discoveries, gotchas
+2. aria_knowledge - decisions, state changes
+3. Git commit - preserve all file changes
+4. LOOSE-ENDS.md - update task status
+
+**This ensures learning persists across Claude sessions.**
+
 ---
 
 ## GAIA Update Protocol

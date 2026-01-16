@@ -20,6 +20,13 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-17 - [Pre-Compact Learning Rules]
+**Added:** Rules #8 (pre-compact capture) and #9 (session handoff)
+**Purpose:** Knowledge persists across Claude context windows
+**Flow:** Work → Capture → Compact → Next session reads captures
+**Locations:** LESSONS-SCRATCH.md, aria_knowledge, Git commits
+**Triggers:** Context pressure, session end, major task complete, switching work areas
+
 ### 2026-01-17 - [Agent Routing + ARIA Knowledge System]
 **Created:** `/opt/leveredge/AGENT-ROUTING.md` - Complete agent routing matrix
 **Database:** `aria_knowledge` table in PROD Supabase with 18 initial entries

@@ -255,3 +255,30 @@ SELECT * FROM aria_get_recent_knowledge('category', 20);
 ```sql
 SELECT * FROM aria_get_system_status();
 ```
+
+---
+
+## Knowledge Persistence Flow
+
+```
+Work Session
+    ↓
+Discoveries/Learnings
+    ↓
+┌─────────────────────────────────────┐
+│ LESSONS-SCRATCH.md (quick capture)  │
+│ aria_knowledge (ARIA awareness)     │
+│ Git commit (file changes)           │
+└─────────────────────────────────────┘
+    ↓
+Context Compacts/Clears
+    ↓
+New Session Reads:
+- LESSONS-LEARNED.md (consolidated)
+- aria_knowledge (queryable)
+- LOOSE-ENDS.md (current state)
+    ↓
+Continuity Preserved ✓
+```
+
+Periodic consolidation: LESSONS-SCRATCH.md → LESSONS-LEARNED.md
