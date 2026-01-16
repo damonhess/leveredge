@@ -23,6 +23,7 @@
 |------|---------|------------------|
 | **ARCHITECTURE.md** | System design, agent registry, networks | Major changes |
 | **MASTER-LAUNCH-CALENDAR.md** | Timeline, milestones, weekly tasks | Weekly |
+| **LOOSE-ENDS.md** | All tasks, priorities, technical debt | After each session |
 | **LESSONS-LEARNED.md** | Technical knowledge base | After each session |
 | **LESSONS-SCRATCH.md** | Quick debug capture | During debugging |
 | **FUTURE-VISION.md** | Business roadmap, autonomy plans | Monthly |
