@@ -1,6 +1,6 @@
 # LEVEREDGE FUTURE VISION & BUSINESS ROADMAP
 
-*Last Updated: January 17, 2026 (2:00 AM)*
+*Last Updated: January 17, 2026 (2:15 AM)*
 
 ---
 
@@ -29,6 +29,10 @@ LeverEdge AI is an automation agency targeting compliance professionals, launchi
 - **GAIA** - Mother Earth (genesis, emergency restore)
 - **CHIRON** - Wise centaur who trained heroes (business mentorship)
 - **VARYS** - Spymaster who knows everything (project management)
+- **NIKE** - Goddess of victory (fitness, athletics)
+- **DEMETER** - Goddess of harvest (nutrition, meal planning)
+- **MIDAS** - King with golden touch (shopping, procurement)
+- **NICHOLAS** - Saint Nicholas (gifting, holiday shopping)
 
 ---
 
@@ -177,28 +181,50 @@ MERCHANT
 | Agent | Domain | Purpose | Status |
 |-------|--------|---------|--------|
 | **APOLLO** | Creativity | Music, art, creative projects | 🔮 Vision |
-| **DEMETER** | Health | Nutrition, exercise, wellness tracking | 🔮 Vision |
+| **NIKE** | Fitness | Workout programming, exercise coaching | 🔮 Vision |
+| **DEMETER** | Nutrition | Meal planning, recipes, diet optimization | 🔮 Vision |
 | **MENTOR** | Learning | Skill development, course tracking | 🔮 Vision |
-| **EROS** | Relationships | Social calendar, gift reminders | 🔮 Vision |
+| **EROS** | Relationships | Social calendar, relationship management | 🔮 Vision |
+| **MIDAS** | Shopping | Procurement, deals, purchases | 🔮 Vision |
+| **NICHOLAS** | Gifting | Gift research, holiday shopping, wishlists | 🔮 Vision |
 
 #### APOLLO - Creativity Agent
 ```
 APOLLO (God of music, arts, poetry)
-├── Music practice tracking
+├── Music practice tracking and coaching
 ├── Creative project management
-├── Inspiration collection
-├── Art/writing prompts
-└── Festival/event planning (Burning Man)
+├── Inspiration collection and prompts
+├── Art/writing project tracking
+├── Festival/event planning (Burning Man)
+└── Creative goal setting
 ```
 
-#### DEMETER - Health Agent
+#### NIKE - Fitness Coach Agent
+```
+NIKE (Goddess of victory - athletic achievement)
+├── Workout programming and periodization
+├── Exercise form guidance and coaching
+├── Progress tracking (PRs, volume, consistency)
+├── Recovery and deload recommendations
+├── Gym session planning
+├── Sport-specific training
+├── Accountability and motivation
+├── Integration with fitness trackers
+└── "What should I do at the gym today?"
+```
+
+#### DEMETER - Nutrition Agent
 ```
 DEMETER (Goddess of harvest, nourishment)
-├── Nutrition tracking and meal planning
-├── Exercise routine management
-├── Sleep analysis
-├── Supplement reminders
-└── Health metrics dashboard
+├── Meal planning and prep scheduling
+├── Recipe recommendations based on goals
+├── Macro/calorie tracking and targets
+├── Grocery list generation
+├── Diet optimization (cut/bulk/maintain)
+├── Supplement recommendations
+├── Restaurant menu guidance
+├── Cooking instructions and timing
+└── "What should I eat?" with fridge inventory
 ```
 
 #### MENTOR - Learning Agent
@@ -208,17 +234,50 @@ MENTOR
 ├── Skill gap analysis
 ├── Learning resource curation
 ├── Study schedule optimization
-└── Knowledge testing
+├── Knowledge testing and retention
+├── Book/podcast recommendations
+└── "What should I learn next?"
 ```
 
 #### EROS - Relationships Agent
 ```
 EROS (God of love)
 ├── Social calendar management
-├── Birthday/anniversary reminders
-├── Gift idea tracking
-├── Relationship touchpoint reminders
-└── Event coordination
+├── Birthday/anniversary reminders (with lead time)
+├── Relationship touchpoint tracking
+├── Date idea generation
+├── Important conversation reminders
+├── Friend/family check-in scheduling
+└── Relationship health scoring
+```
+
+#### MIDAS - Shopping/Procurement Agent
+```
+MIDAS (King with the golden touch - wise purchases)
+├── Deal hunting and price tracking
+├── Purchase research and comparison
+├── Subscription management
+├── Warranty/return tracking
+├── Reorder reminders (consumables)
+├── Wishlist management
+├── Budget tracking per category
+├── "Find me the best X under $Y"
+└── Vendor/supplier management
+```
+
+#### NICHOLAS - Gift Agent
+```
+NICHOLAS (Saint Nicholas - the gift giver)
+├── Gift idea research and curation
+├── Recipient preference tracking
+├── Holiday shopping lists and budgets
+├── Gift purchase tracking (who got what)
+├── Shipping deadline reminders
+├── Price drop alerts on wishlist items
+├── Re-gift prevention (track past gifts)
+├── Christmas/birthday countdown planning
+├── "What should I get [person] for [occasion]?"
+└── Group gift coordination
 ```
 
 **Build trigger:** Work-life balance achieved, time for personal optimization
@@ -273,12 +332,15 @@ Multi-Agent News Analysis
 
 ### SOMEDAY (Work-life balance achieved)
 18. APOLLO (creativity)
-19. DEMETER (health)
-20. MENTOR (learning)
-21. EROS (relationships)
+19. NIKE (fitness)
+20. DEMETER (nutrition)
+21. MENTOR (learning)
+22. EROS (relationships)
+23. MIDAS (shopping)
+24. NICHOLAS (gifting)
 
 ### SEPARATE PRODUCT
-22. Geopolitical Intelligence System
+25. Geopolitical Intelligence System
 
 ---
 
