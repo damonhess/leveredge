@@ -135,6 +135,22 @@ services:
     networks:
       - control-plane-net
 
+  athena:
+    build:
+      context: ../agents/athena
+      dockerfile: Dockerfile
+    container_name: athena
+    restart: unless-stopped
+    environment:
+      - EVENT_BUS_URL=http://event-bus:8099
+      - DOCS_PATH=/opt/leveredge
+    volumes:
+      - ../../:/opt/leveredge:ro
+    ports:
+      - "8013:8013"
+    networks:
+      - control-plane-net
+
 networks:
   control-plane-net:
     name: control-plane-net
