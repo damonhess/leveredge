@@ -1,6 +1,6 @@
 # LEVEREDGE FUTURE VISION & BUSINESS ROADMAP
 
-*Last Updated: January 17, 2026 (1:45 AM)*
+*Last Updated: January 17, 2026 (2:00 AM)*
 
 ---
 
@@ -27,6 +27,8 @@ LeverEdge AI is an automation agency targeting compliance professionals, launchi
 - **ARGUS** - The all-seeing (monitoring, observability)
 - **ALOY** - Hunter (audit, anomaly detection)
 - **GAIA** - Mother Earth (genesis, emergency restore)
+- **CHIRON** - Wise centaur who trained heroes (business mentorship)
+- **VARYS** - Spymaster who knows everything (project management)
 
 ---
 
@@ -76,30 +78,57 @@ VARYS (Named after Game of Thrones spymaster - knows everything)
 ### TIER 3: Business Agents (Post-Launch)
 | Agent | Domain | Purpose | Status |
 |-------|--------|---------|--------|
-| **SCHOLAR** | Research | Deep research, web scraping, analysis | 🔮 Planned |
+| **CHIRON** | Mentorship | Business coach, strategy advisor, accountability | 🔮 Planned |
+| **SCHOLAR** | Market Research | Competitive intel, market analysis, niche research | 🔮 Planned |
 | **ORACLE** | Prediction | Business forecasting, trend analysis | 🔮 Planned |
 | **LIBRARIAN** | Knowledge | RAG system, document retrieval, memory | 🔮 Planned |
 | **SCRIBE** | Content | Long-form writing, proposals, reports | 🔮 Planned |
 | **MERCHANT** | Sales | CRM integration, lead scoring, outreach | 🔮 Planned |
 
-#### SCHOLAR - Research Agent
+#### CHIRON - Business Mentor Agent
+```
+CHIRON (The wise centaur who trained heroes - Achilles, Jason, Hercules)
+├── Business strategy coaching and advising
+├── Decision framework guidance
+├── Accountability partner (TRW methodology style)
+├── Challenge assumptions and blind spots
+├── Weekly/daily business review sessions
+├── Goal setting, tracking, and adjustments
+├── Mindset and psychology coaching
+├── "What would a competent person do?" prompts
+├── Call out avoidance and procrastination
+├── Celebrate wins and build confidence
+└── Push through fear of rejection/failure
+```
+**This is like having Alex Hormozi + TRW coach in your pocket.**
+
+#### SCHOLAR - Market Research Agent
 ```
 SCHOLAR
-├── Deep web research on any topic
-├── Competitive intelligence gathering
-├── Market analysis and reports
-├── Citation management
-└── Fact verification
+├── Niche market research and TAM/SAM/SOM sizing
+├── Competitive intelligence and analysis
+├── Ideal Customer Profile (ICP) development
+├── Pricing research and positioning
+├── Industry trend reports and analysis
+├── Lead list building and enrichment
+├── Company/prospect deep research
+├── Pain point and opportunity identification
+├── Market opportunity scoring
+├── Citation management and fact verification
+└── "Is this niche worth pursuing?" analysis
 ```
+**Critical for niche selection and outreach targeting.**
 
 #### ORACLE - Prediction Agent
 ```
 ORACLE
 ├── Business metrics forecasting
 ├── Trend detection and analysis
-├── Risk assessment
+├── Risk assessment and mitigation
 ├── What-if scenario modeling
-└── Revenue projections
+├── Revenue and cash flow projections
+├── Churn prediction
+└── Market timing signals
 ```
 
 #### LIBRARIAN - Knowledge Agent
@@ -107,9 +136,11 @@ ORACLE
 LIBRARIAN
 ├── RAG-based knowledge retrieval
 ├── Document indexing and search
-├── Cross-conversation memory
+├── Cross-conversation memory for ARIA
 ├── Semantic search across all data
-└── Context preservation
+├── Context preservation between sessions
+├── "What did I decide about X?" queries
+└── Personal/business knowledge base
 ```
 
 #### SCRIBE - Content Agent
@@ -117,19 +148,25 @@ LIBRARIAN
 SCRIBE
 ├── Long-form content generation
 ├── Proposal and SOW writing
+├── Case study creation
 ├── Report generation
 ├── Email drafting at scale
-└── Template management
+├── Template management
+├── Blog posts and thought leadership
+└── Client deliverable formatting
 ```
 
 #### MERCHANT - Sales Agent
 ```
 MERCHANT
-├── CRM integration (HubSpot, Pipedrive)
+├── CRM integration (HubSpot, Pipedrive, Close)
 ├── Lead scoring and qualification
 ├── Outreach sequence automation
-├── Follow-up scheduling
-└── Pipeline reporting
+├── Follow-up scheduling and reminders
+├── Pipeline reporting and forecasting
+├── Meeting scheduling automation
+├── Proposal tracking
+└── Win/loss analysis
 ```
 
 **Build trigger:** $10K MRR, need to scale operations
@@ -221,24 +258,27 @@ Multi-Agent News Analysis
 9. ~~ALOY~~ ✅
 10. ~~ATHENA~~ ✅
 
+### SOON (Pre-Launch or Early Launch)
+11. **CHIRON** (business mentor) - HIGH VALUE for accountability
+12. **SCHOLAR** (market research) - HIGH VALUE for niche selection
+
 ### NEXT (Post-Launch, $10K MRR)
-11. VARYS (project management)
-12. LIBRARIAN (RAG/memory)
-13. SCRIBE (content at scale)
-14. MERCHANT (sales automation)
+13. VARYS (project management)
+14. LIBRARIAN (RAG/memory)
+15. SCRIBE (content at scale)
+16. MERCHANT (sales automation)
 
 ### LATER ($30K MRR)
-15. SCHOLAR (research)
-16. ORACLE (forecasting)
+17. ORACLE (forecasting)
 
 ### SOMEDAY (Work-life balance achieved)
-17. APOLLO (creativity)
-18. DEMETER (health)
-19. MENTOR (learning)
-20. EROS (relationships)
+18. APOLLO (creativity)
+19. DEMETER (health)
+20. MENTOR (learning)
+21. EROS (relationships)
 
 ### SEPARATE PRODUCT
-21. Geopolitical Intelligence System
+22. Geopolitical Intelligence System
 
 ---
 
@@ -304,6 +344,8 @@ Multi-Agent News Analysis
 | ATHENA | Haiku | $0.01 |
 | ALOY | Haiku | $0.01 |
 | VARYS | Haiku | $0.01 |
+| CHIRON | Sonnet | $0.03 |
+| SCHOLAR | Haiku | $0.01 |
 
 **Monthly estimate:** $50-200 for moderate usage
 
