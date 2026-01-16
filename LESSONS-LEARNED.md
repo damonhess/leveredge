@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 15, 2026*
+*Last Updated: January 16, 2026*
 
 ---
 
@@ -16,6 +16,17 @@
 | Update BOTH workflow_entity AND workflow_history | n8n workflow changes not taking effect | Changes visible in UI but not executing |
 | Cloudflare proxy blocks ACME challenge | SSL certs not provisioning | Grey cloud temporarily, then re-enable |
 | Git objects owned by root block commits | Running git as root then as user | `chown -R damon:damon /opt/leveredge/` |
+| **MCP servers target different n8n instances** | Wrong MCP = wrong database | n8n-control (5679), n8n-troubleshooter (5678), n8n-troubleshooter-dev (5680) |
+
+### MCP Server Mapping (CRITICAL)
+
+| MCP Server | Target | Port | Use For |
+|------------|--------|------|---------|
+| **n8n-control** | Control plane | 5679 | Agent workflows (ATLAS, CHRONOS, HADES, etc.) |
+| n8n-troubleshooter | Prod data plane | 5678 | ARIA, client workflows |
+| n8n-troubleshooter-dev | Dev data plane | 5680 | Development/testing |
+
+**ALWAYS check which MCP you're using before creating workflows.**
 
 ### Agent-Specific Lessons
 
@@ -30,9 +41,10 @@
 - Sync from n8n discovers credentials without exposing values
 
 #### HEPHAESTUS
-- AI Agent is expensive ($0.03/request with Sonnet)
-- Dumb executor pattern: Claude Desktop reasons, HEPHAESTUS executes
-- Keep execution tools atomic and composable
+- MCP server on port 8011, accessible via Claude Web connector
+- Dumb executor pattern: Claude Web reasons, HEPHAESTUS executes
+- Path whitelist: /opt/leveredge/, /home/damon/shared/, /tmp/leveredge/
+- Command whitelist: ls, cat, grep, find, head, tail, git status, git log, git diff, docker ps, docker logs
 
 #### CHRONOS
 - Backup directory must exist before first backup
@@ -43,6 +55,21 @@
 - Depends on CHRONOS for backup-based restores
 - Version-based rollback requires n8n's internal history API
 - Emergency actions require explicit confirmation flag
+
+---
+
+## Execution Workflow (ALWAYS FOLLOW)
+
+```
+1. Claude Web writes spec via HEPHAESTUS → /opt/leveredge/
+2. Claude Web calls CHRONOS backup (pre-deploy)
+3. Claude Code + GSD reads spec and executes
+4. Claude Web verifies via HEPHAESTUS
+5. If fail → HADES rollback
+6. If pass → Git commit via HEPHAESTUS
+```
+
+**NEVER give manual bash commands when HEPHAESTUS can do it.**
 
 ---
 
@@ -136,6 +163,7 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 - Docker bridge IP: 172.17.0.1
 - Service discovery within docker-compose: use service names
 - External access: use Cloudflare Tunnel or exposed ports
+- WireGuard VPN: server 10.8.0.1, laptop 10.8.0.2
 
 ### Persistence
 - SQLite fine for low-volume agent DBs
@@ -148,6 +176,7 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 - Never log credential values
 - Whitelist allowed paths for file operations
 - Audit everything via Event Bus
+- UFW rules: allow 8011 from 10.8.0.0/24 (HEPHAESTUS via VPN)
 
 ---
 
@@ -170,6 +199,21 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 - Use `docker logs` immediately when things don't work
 - Commit frequently, not in batches
 
+### January 16, 2026 (ongoing)
+**What worked:**
+- HEPHAESTUS MCP via Claude Web connector - command center achieved
+- GSD for parallel task execution
+- CHRONOS backup before major changes
+
+**What didn't:**
+- GSD using wrong MCP (n8n-troubleshooter vs n8n-control)
+- Initially built HEPHAESTUS as REST API instead of MCP protocol
+
+**Process improvements:**
+- Always specify which MCP server in specs
+- Update memory with execution rules
+- Use HEPHAESTUS for verification, not manual bash
+
 ---
 
 ## Technical Debt Tracker
@@ -177,10 +221,12 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 | Item | Priority | Effort | Blocked By |
 |------|----------|--------|------------|
 | Service consolidation (hades-api → hades) | Low | 15 min | Nothing |
-| n8n-troubleshooter rename | Low | 1 hour | Nothing |
+| n8n-troubleshooter rename to n8n-prod | Low | 1 hour | Nothing |
 | Cloudflare Access for control plane | Medium | 2 hours | Nothing |
 | GAIA Telegram bot setup | Low | 30 min | Bot token |
 | Push to GitHub remote | Medium | 5 min | Create repo |
+| HERMES Telegram config | High | 30 min | Bot token |
+| ARGUS Prometheus access | Medium | 30 min | Firewall fix |
 
 ---
 
