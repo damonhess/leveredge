@@ -26,7 +26,7 @@ N8N_PASS = os.getenv("N8N_PASS", "")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
 CHRONOS_URL = os.getenv("CHRONOS_URL", "http://localhost:8010")
 BACKUP_BASE = Path("/opt/leveredge/shared/backups")
-DB_PATH = "/opt/leveredge/control-plane/agents/hades/hades.db"
+DB_PATH = os.getenv("HADES_DB_PATH", "/opt/leveredge/shared/backups/hades.db")
 
 # Database setup
 def init_db():

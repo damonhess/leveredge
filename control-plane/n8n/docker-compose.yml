@@ -55,6 +55,35 @@ services:
       - control-plane-net
       - stack_net
 
+  chronos:
+    build:
+      context: ../agents/chronos
+      dockerfile: Dockerfile
+    container_name: chronos
+    restart: unless-stopped
+    environment:
+      - N8N_API_KEY=${N8N_API_KEY}
+      - N8N_URL=http://control-n8n:5678
+    volumes:
+      - ../../shared/backups:/opt/leveredge/shared/backups
+    networks:
+      - control-plane-net
+
+  hades:
+    build:
+      context: ../agents/hades
+      dockerfile: Dockerfile
+    container_name: hades
+    restart: unless-stopped
+    environment:
+      - N8N_API_KEY=${N8N_API_KEY}
+      - N8N_URL=http://control-n8n:5678
+      - CHRONOS_URL=http://chronos:8010
+    volumes:
+      - ../../shared/backups:/opt/leveredge/shared/backups
+    networks:
+      - control-plane-net
+
 networks:
   control-plane-net:
     name: control-plane-net

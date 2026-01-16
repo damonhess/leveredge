@@ -26,7 +26,7 @@ N8N_PROD_URL = os.getenv("N8N_PROD_URL", "https://n8n.leveredgeai.com")
 N8N_API_KEY = os.getenv("N8N_API_KEY", "")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
 BACKUP_BASE = Path("/opt/leveredge/shared/backups")
-DB_PATH = "/opt/leveredge/control-plane/agents/chronos/chronos.db"
+DB_PATH = os.getenv("CHRONOS_DB_PATH", "/opt/leveredge/shared/backups/chronos.db")
 
 # Retention policies (number of backups to keep)
 RETENTION = {
