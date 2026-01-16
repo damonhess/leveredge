@@ -1,7 +1,34 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (12:45 AM)*
+*Last Updated: January 17, 2026 (11:20 AM)*
+
+---
+
+## CRITICAL: DEVELOPMENT FLOW RULES
+
+**These rules are NON-NEGOTIABLE. All Claude instances must follow them.**
+
+### Rule 1: DEV FIRST
+| Type | Flow |
+|------|------|
+| Workflows | DEV → test → promote to PROD |
+| Code | DEV → test → PROD |
+| Schema changes | DEV → test → PROD |
+| Real user data | PROD (with explicit approval) |
+
+**Exception requires explicit statement:** "Run this in PROD" or "This is real data"
+
+### Rule 2: Know Your Target
+| Environment | Identifier | Port |
+|-------------|------------|------|
+| DEV | `dev.`, `dev-`, `-dev` in name | 5680 |
+| PROD | No dev prefix | 5678 |
+
+### Rule 3: When Uncertain, ASK
+"Should this go to DEV or PROD?"
+
+**Full rules:** See `/home/damon/.claude/EXECUTION_RULES.md`
 
 ---
 

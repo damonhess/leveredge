@@ -14,8 +14,8 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
     source "$SCRIPT_DIR/.env"
 fi
 
-DEV_API="http://localhost:5680/api/v1"
-PROD_API="http://localhost:5678/api/v1"
+DEV_API="${N8N_DEV_URL:-http://localhost:5680}/api/v1"
+PROD_API="${N8N_PROD_URL:-http://localhost:5678}/api/v1"
 DEV_KEY="${N8N_DEV_API_KEY}"
 PROD_KEY="${N8N_PROD_API_KEY}"
 

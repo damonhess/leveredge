@@ -212,12 +212,26 @@ All control plane agents follow the same pattern:
 - HERMES handles human notifications
 - AEGIS manages credentials (builders never see values)
 
-### Development Workflow
-1. Build/edit workflows in DEV n8n
+### Development Workflow (MANDATORY)
+```
+DEV → Test → PROD
+```
+
+| Change Type | Flow | Exception |
+|-------------|------|-----------|
+| Workflows | DEV n8n (5680) → test → PROD n8n (5678) | Never |
+| Code | DEV → test → PROD | Never |
+| Schema changes | DEV Supabase → test → PROD Supabase | Never |
+| Real user data | PROD directly | Only with explicit approval |
+
+**Steps:**
+1. Build/edit in DEV n8n or DEV environment
 2. Test thoroughly
-3. Run `promote-to-prod.sh` to deploy
+3. Run `promote-to-prod.sh` to deploy workflows
 4. CHRONOS creates backup before deployment
 5. HADES ready for rollback if needed
+
+**Full rules:** See `/home/damon/.claude/EXECUTION_RULES.md`
 
 ---
 

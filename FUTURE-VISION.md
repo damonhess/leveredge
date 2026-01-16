@@ -9,7 +9,7 @@
 
 LeverEdge AI is an automation agency targeting compliance professionals, launching March 1, 2026. The infrastructure is complete - now it's about polish, agents, and outreach.
 
-**Current Portfolio Value:** $57,500 - $109,500 (8 wins)
+**Current Portfolio Value:** $58,500 - $117,000 (28 wins tracked in aria_wins table)
 **Launch Date:** March 1, 2026
 **Revenue Goal:** $30K/month → quit government job
 **Work Mode:** JUGGERNAUT until May/June 2026
@@ -81,9 +81,10 @@ LeverEdge AI is an automation agency targeting compliance professionals, launchi
 | Agent | Port | Purpose | Status |
 |-------|------|---------|--------|
 | **ARIA** | - | Personal AI assistant, human liaison | ✅ Active |
-| **VARYS** | TBD | Project Manager, task coordination | 🔮 Planned |
+| **VARYS** | TBD | Project Manager, task coordination, portfolio tracking | 🔮 Planned |
 
 #### VARYS - Project Manager
+> **Note:** Portfolio tracking (aria_wins table) is currently managed by Claude Web → GSD execution. VARYS will own this when built.
 ```
 VARYS (Named after Game of Thrones spymaster - knows everything)
 ├── Tracks tasks across all projects

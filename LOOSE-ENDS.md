@@ -1,6 +1,6 @@
 # LEVEREDGE LOOSE ENDS & TODO
 
-*Last Updated: January 17, 2026 (2:30 AM)*
+*Last Updated: January 17, 2026 (Morning)*
 *Mode: JUGGERNAUT until May/June 2026*
 
 ---
@@ -10,28 +10,28 @@
 ### FRIDAY Jan 17 - LOOSE ENDS BLITZ
 **Target:** Items 1-10, then 13-20 (skip 11-12 niche/TRW for now)
 
-| # | Item | Est Time |
-|---|------|----------|
-| 1 | promote-to-prod.sh API keys | 15 min |
-| 2 | ARIA V3.2 - portfolio injection | 2 hrs |
-| 3 | ARIA V3.2 - time calibration | 1 hr |
-| 4 | ARIA frontend polish (Bolt.new) | 3 hrs |
-| 5 | Test full ARIA demo | 1 hr |
-| 6 | Shield/Sword nodes | 2 hrs |
-| 7 | Cost tracking (llm_usage) | 2 hrs |
-| 8 | Dev credential separation | 1 hr |
-| 9 | Cloudflare Access control plane | 2 hrs |
-| 10 | GitHub remote push | 30 min |
-| **SKIP** | 11. Niche research | - |
-| **SKIP** | 12. TRW Outreach Module | - |
-| 13 | AEGIS credential manager enhance | 1 hr |
-| 14 | SMTP configuration | 1 hr |
-| 15 | ARIA/PA tool routing separation | 1 hr |
-| 16 | GitHub repo audit | 30 min |
-| 17 | File upload system | 3 hrs |
-| 18 | Telegram interface for ARIA | 2 hrs |
-| 19 | Unified memory consolidation | 2 hrs |
-| 20 | Two-way Google Tasks sync | 1 hr |
+| # | Item | Est Time | Status |
+|---|------|----------|--------|
+| 1 | promote-to-prod.sh API keys | 15 min | ✅ DONE |
+| 2 | ARIA V3.2 - portfolio injection | 2 hrs | ⬜ |
+| 3 | ARIA V3.2 - time calibration | 1 hr | ⬜ |
+| 4 | ARIA frontend polish (Bolt.new) | 3 hrs | ⬜ |
+| 5 | Test full ARIA demo | 1 hr | ⬜ |
+| 6 | Shield/Sword nodes | 2 hrs | ⬜ |
+| 7 | Cost tracking (llm_usage) | 2 hrs | ✅ DONE (overnight) |
+| 8 | Dev credential separation | 1 hr | ⬜ |
+| 9 | Cloudflare Access control plane | 2 hrs | ⬜ |
+| 10 | GitHub remote push | 30 min | ✅ DONE |
+| **SKIP** | 11. Niche research | - | - |
+| **SKIP** | 12. TRW Outreach Module | - | - |
+| 13 | AEGIS credential manager enhance | 1 hr | ⬜ |
+| 14 | SMTP configuration | 1 hr | ⬜ |
+| 15 | ARIA/PA tool routing separation | 1 hr | ⬜ |
+| 16 | GitHub repo audit | 30 min | ⬜ |
+| 17 | File upload system | 3 hrs | ⬜ |
+| 18 | Telegram interface for ARIA | 2 hrs | ⬜ |
+| 19 | Unified memory consolidation | 2 hrs | ⬜ |
+| 20 | Two-way Google Tasks sync | 1 hr | ⬜ |
 
 ### SATURDAY Jan 18 - TECHNICAL DEBT + AGENTS
 **Morning:** Technical debt cleanup
@@ -70,10 +70,9 @@
 
 ### 🔴 HIGH PRIORITY (By Jan 22 - ARIA Demo Ready)
 
-#### 1. promote-to-prod.sh API Keys ⬜
-**Status:** Script created, needs keys
-**Task:** Get API keys from n8n UI, add to .env
-**Location:** `/opt/leveredge/shared/scripts/.env`
+#### 1. promote-to-prod.sh API Keys ✅ DONE
+**Status:** Script updated, .env created with placeholders
+**Action:** Paste actual keys into /opt/leveredge/shared/scripts/.env
 
 #### 2. ARIA V3.2 - Dynamic Portfolio Injection ⬜
 **Status:** Guide exists, needs implementation
@@ -87,6 +86,7 @@
 #### 4. ARIA Frontend Upgrade ⬜
 **Task:** Rebuild/enhance in Bolt.new
 **Components:** Charts, data tables, code blocks, responsive
+**Also:** Click-to-expand bubbles (not hover), token/cost display per message
 
 #### 5. Demo Walkthrough Test ⬜
 **Task:** Full test of all 7 modes, portfolio, time, mobile
@@ -98,12 +98,10 @@
 
 ### 🟡 MEDIUM PRIORITY (By Feb 1)
 
-#### 7. Cost Tracking System ⬜
-```sql
-llm_usage (id, timestamp, model, input_tokens, output_tokens, cost_usd, context, agent_source)
-llm_usage_daily (date, total_cost, total_tokens, by_model, by_agent)
-llm_budget_alerts (threshold_daily, threshold_monthly, notification_channel)
-```
+#### 7. Cost Tracking System ✅ DONE (Overnight)
+**Tables:** llm_usage, llm_usage_daily, llm_budget_alerts
+**Functions:** log_llm_usage, get_usage_summary, get_conversation_cost, get_daily_costs, get_usage_by_model, get_usage_by_agent, check_budget_alerts, calculate_llm_cost
+**Next:** Wire into ARIA workflow to call log_llm_usage() after each response
 
 #### 8. Dev Credential Separation ⬜
 | Credential | PROD refs | Needs DEV |
@@ -118,8 +116,9 @@ llm_budget_alerts (threshold_daily, threshold_monthly, notification_channel)
 **Current:** Basic auth
 **Target:** Cloudflare Access with email
 
-#### 10. Push to GitHub Remote ⬜
-**Task:** Create repo, add remote, push /opt/leveredge
+#### 10. Push to GitHub Remote ✅ DONE
+**Repo:** https://github.com/damonhess/leveredge
+**Method:** HTTPS with PAT (SSH authenticates as damonhess-dev)
 
 #### 11. Niche Research & Selection ⬜ (SKIP FOR NOW)
 **Task:** Pick ONE niche by Jan 24
@@ -132,7 +131,9 @@ llm_budget_alerts (threshold_daily, threshold_monthly, notification_channel)
 ### 🟢 LOWER PRIORITY
 
 #### 13. AEGIS Credential Manager Enhancement ⬜
-**Task:** Expiration alerts, rotation reminders
+**Tasks:** 
+- Expiration alerts and rotation reminders
+- GitHub account consolidation (damonhess vs damonhess-dev → single account eventually)
 
 #### 14. SMTP Configuration ⬜
 **Options:** Gmail, SendGrid, AWS SES
@@ -142,6 +143,7 @@ llm_budget_alerts (threshold_daily, threshold_monthly, notification_channel)
 
 #### 16. GitHub Repo Audit ⬜
 **Task:** Ensure all repos have remotes, SSH keys
+**Note:** Part of damonhess/damonhess-dev consolidation
 
 #### 17. File Upload System ⬜
 - PDF processing with citations
@@ -213,6 +215,7 @@ Geopolitical Intelligence System
 | ARIA is personal assistant, not a product | Sell outcomes, not tools |
 | Native n8n nodes over Code nodes | Visibility and maintainability |
 | JUGGERNAUT MODE until May/June | Momentum is everything |
+| HTTPS for GitHub (not SSH) | SSH key tied to wrong account |
 
 ---
 
@@ -225,6 +228,7 @@ Geopolitical Intelligence System
 | `/opt/leveredge/MASTER-LAUNCH-CALENDAR.md` | Timeline |
 | `/opt/leveredge/LOOSE-ENDS.md` | This file |
 | `/opt/leveredge/FUTURE-VISION.md` | Agent roadmap |
+| `/opt/leveredge/ARIA-VISION.md` | ARIA enhancements |
 | `/opt/leveredge/LESSONS-LEARNED.md` | Knowledge base |
 | `/home/damon/.claude/EXECUTION_RULES.md` | Claude Code rules |
 
@@ -240,7 +244,8 @@ Geopolitical Intelligence System
 - [ ] Mobile experience smooth
 
 ### Jan 31 - Loose Ends Complete
-- [ ] Items 1-10 done
+- [x] Items 1, 7, 10 done
+- [ ] Items 2-6, 8-9 done
 - [ ] Items 13-20 done
 - [ ] Technical debt cleared
 - [ ] First wave agents started
