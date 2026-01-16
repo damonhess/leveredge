@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 16, 2026*
+*Last Updated: January 16, 2026 (11:00 PM)*
 
 ---
 
@@ -17,6 +17,9 @@
 | Cloudflare proxy blocks ACME challenge | SSL certs not provisioning | Grey cloud temporarily, then re-enable |
 | Git objects owned by root block commits | Running git as root then as user | `chown -R damon:damon /opt/leveredge/` |
 | **MCP servers target different n8n instances** | Wrong MCP = wrong database | n8n-control (5679), n8n-troubleshooter (5678), n8n-troubleshooter-dev (5680) |
+| n8n 2.2.x requires `activeVersionId` to match `versionId` | Webhooks return 404 despite workflow existing | Set activeVersionId when updating workflow_entity |
+| Caddy reverse proxy uses container names | 502 errors after container rename | Update Caddyfile and reload when container names change |
+| Docker network `stack_net` required for cross-compose communication | New containers can't reach Supabase | Add `stack_net` as external network in docker-compose |
 
 ### MCP Server Mapping (CRITICAL)
 
@@ -45,16 +48,59 @@
 - Dumb executor pattern: Claude Web reasons, HEPHAESTUS executes
 - Path whitelist: /opt/leveredge/, /home/damon/shared/, /tmp/leveredge/
 - Command whitelist: ls, cat, grep, find, head, tail, git status, git log, git diff, docker ps, docker logs
+- curl NOT in whitelist - use Claude Code for HTTP requests
 
 #### CHRONOS
 - Backup directory must exist before first backup
 - Checksum manifest for integrity verification
-- Pre-deploy backups should be automatic before any HEPHAESTUS build
+- Pre-deploy backups should be automatic before any migration/build
 
 #### HADES
 - Depends on CHRONOS for backup-based restores
 - Version-based rollback requires n8n's internal history API
 - Emergency actions require explicit confirmation flag
+
+#### ARIA
+- Multi-workflow architecture: Web Interface Handler → Model Router → Personal Assistant
+- "No response generated" = empty body sent to downstream workflow
+- SQL nodes output `{?column?: 1}`, breaking `$json` chain
+- Fix: Use `$('Process Router Response').first().json.message`
+- AI Agent expressions referencing unexecuted nodes fail silently
+- After DB updates, restart n8n for webhook registration
+
+---
+
+## Data Plane Migration Lessons (Jan 16, 2026)
+
+### Container Naming & Caddy
+When renaming containers (e.g., `n8n` → `prod-n8n`):
+1. Caddy reverse_proxy uses container names for routing
+2. Must update Caddyfile: `reverse_proxy prod-n8n:5678`
+3. Reload Caddy: `docker exec caddy caddy reload --config /etc/caddy/Caddyfile`
+4. 502 = Caddy can't reach backend (wrong name or network)
+
+### Database Migration
+```bash
+# Export from old shared postgres
+docker exec n8n-postgres pg_dump -U n8n -d n8n_dev > backup.sql
+
+# Import to new isolated postgres
+docker exec -i dev-n8n-postgres psql -U n8n -d n8n_dev < backup.sql
+```
+
+### Volume Strategy
+- Use existing volumes when possible: `external: true`
+- Keeps data intact during migration
+- New postgres = new volume (don't share between instances)
+
+### Network Requirements
+```yaml
+networks:
+  data-plane-net:    # Internal to compose
+    driver: bridge
+  stack_net:         # External - connects to Supabase, Caddy
+    external: true
+```
 
 ---
 
@@ -63,13 +109,14 @@
 ```
 1. Claude Web writes spec via HEPHAESTUS → /opt/leveredge/
 2. Claude Web calls CHRONOS backup (pre-deploy)
-3. Claude Code + GSD reads spec and executes
+3. Give user "/gsd [spec path]" as copy-paste block
 4. Claude Web verifies via HEPHAESTUS
 5. If fail → HADES rollback
 6. If pass → Git commit via HEPHAESTUS
 ```
 
 **NEVER give manual bash commands when HEPHAESTUS can do it.**
+**ALWAYS format GSD dispatch as ready-to-paste block.**
 
 ---
 
@@ -92,68 +139,6 @@
 5. If tests fail: `rm -rf /opt/leveredge/gaia && mv /opt/leveredge/gaia.backup.* /opt/leveredge/gaia`
 6. Commit with detailed message
 
-### Post-Update Verification
-- [ ] GAIA health check passes
-- [ ] Can list backups
-- [ ] Emergency Telegram bot responds (if configured)
-- [ ] Documented what changed and why
-
-### GAIA Update History
-
-| Date | Change | Reason | Tested By |
-|------|--------|--------|-----------|
-| 2026-01-15 | Initial creation | Phase 0 build | Claude Code |
-| | | | |
-
----
-
-## Autonomy Handoff Preparation
-
-When upgrading from Option A (dumb executors) to Option B (autonomous agents):
-
-### Per-Agent Handoff Checklist
-
-#### HEPHAESTUS
-- [ ] Add LLM node (Claude Haiku for simple, Sonnet for complex)
-- [ ] Implement request interpretation logic
-- [ ] Add design/planning phase before execution
-- [ ] Test with vague requests
-- [ ] Set cost alerts ($50/month warning)
-- [ ] Document decision patterns for audit
-
-#### ATLAS
-- [ ] Upgrade from switch routing to LLM routing
-- [ ] Add context awareness (what agents are busy, recent failures)
-- [ ] Implement request prioritization
-- [ ] Add "I don't know" fallback (ask human)
-
-#### ATHENA
-- [ ] Add LLM for automatic documentation
-- [ ] Implement change detection (watch Event Bus)
-- [ ] Auto-commit documentation updates
-- [ ] Generate session summaries
-
-#### ALOY
-- [ ] Add anomaly detection LLM
-- [ ] Pattern learning from Event Bus history
-- [ ] Alert generation for suspicious patterns
-- [ ] Integration with HERMES for notifications
-
-### Global Handoff Tasks
-- [ ] Implement TIER 2 approval queue
-- [ ] HERMES Telegram integration complete
-- [ ] Cost monitoring dashboard in Grafana
-- [ ] Per-agent spending limits
-- [ ] Kill switch for runaway costs
-- [ ] Audit log retention policy (30 days? 90 days?)
-
-### Handoff Trigger Criteria
-- Revenue > $10K/month (can afford LLM costs)
-- All Phase 4 agents deployed
-- HERMES approval flow tested
-- Cost monitoring verified
-- Human comfortable with autonomy level
-
 ---
 
 ## Infrastructure Lessons
@@ -164,6 +149,7 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 - Service discovery within docker-compose: use service names
 - External access: use Cloudflare Tunnel or exposed ports
 - WireGuard VPN: server 10.8.0.1, laptop 10.8.0.2
+- `stack_net` is the shared network for all services needing Supabase/Caddy access
 
 ### Persistence
 - SQLite fine for low-volume agent DBs
@@ -194,25 +180,35 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 - Creating n8n workflows without webhookId
 - Running as root (permission issues later)
 
-**Process improvements:**
-- Always test webhook accessibility after creating workflow
-- Use `docker logs` immediately when things don't work
-- Commit frequently, not in batches
+### January 16, 2026 (6+ hours - JUGGERNAUT MODE)
+**Accomplished:**
+- HEPHAESTUS converted from REST to proper MCP protocol
+- Claude Web command center established (HEPHAESTUS connector)
+- Phase 4 agents built (HERMES, ARGUS, ALOY, ATHENA)
+- Phase 4 n8n workflows created (was FastAPI-only, now proper architecture)
+- Data plane migration (prod + dev n8n to /opt/leveredge/)
+- ARIA debugged and fixed (expression references, HTTP body issues)
+- 9 control plane workflows active
 
-### January 16, 2026 (ongoing)
 **What worked:**
-- HEPHAESTUS MCP via Claude Web connector - command center achieved
-- GSD for parallel task execution
-- CHRONOS backup before major changes
+- GSD for parallel task execution (Track 1 + Track 2 simultaneously)
+- CHRONOS backup before migration
+- Direct database queries to debug n8n workflow execution
+- Checking execution_data table to trace actual data flow
+- Using explicit node references `$('NodeName').first().json`
 
 **What didn't:**
-- GSD using wrong MCP (n8n-troubleshooter vs n8n-control)
-- Initially built HEPHAESTUS as REST API instead of MCP protocol
+- GSD initially used wrong MCP (n8n-troubleshooter vs n8n-control)
+- Built HEPHAESTUS as REST API instead of MCP protocol initially
+- Caddy 502 after container rename (forgot to update Caddyfile)
+- Over-verifying instead of moving fast
 
 **Process improvements:**
 - Always specify which MCP server in specs
 - Update memory with execution rules
-- Use HEPHAESTUS for verification, not manual bash
+- When "No response generated": check execution_data, HTTP body, upstream node output
+- Container renames require Caddyfile updates
+- Format GSD dispatches as ready-to-paste blocks
 
 ---
 
@@ -220,21 +216,25 @@ When upgrading from Option A (dumb executors) to Option B (autonomous agents):
 
 | Item | Priority | Effort | Blocked By |
 |------|----------|--------|------------|
-| Service consolidation (hades-api → hades) | Low | 15 min | Nothing |
-| n8n-troubleshooter rename to n8n-prod | Low | 1 hour | Nothing |
-| Cloudflare Access for control plane | Medium | 2 hours | Nothing |
-| GAIA Telegram bot setup | Low | 30 min | Bot token |
-| Push to GitHub remote | Medium | 5 min | Create repo |
-| HERMES Telegram config | High | 30 min | Bot token |
+| Remove old systemd agent services | High | 15 min | Nothing |
+| HERMES Telegram config | Medium | 30 min | Bot token |
 | ARGUS Prometheus access | Medium | 30 min | Firewall fix |
+| DEV Supabase credentials | Medium | 15 min | Nothing |
+| promote-to-prod.sh script | High | 30 min | API keys |
+| Cloudflare Access for control plane | Low | 2 hours | Nothing |
+| Push to GitHub remote | Low | 5 min | Create repo |
 
 ---
 
-## Future Investigation
+## File Locations
 
-Questions to answer later:
-- Can Claude Code expose itself as MCP server?
-- Best model for cost/capability balance per agent?
-- How to share context between Claude Desktop and Claude Code?
-- Supabase Realtime for Event Bus instead of SQLite?
-- n8n community nodes for agent capabilities?
+| File | Purpose |
+|------|---------|
+| /opt/leveredge/MASTER-LAUNCH-CALENDAR.md | Launch timeline and milestones |
+| /opt/leveredge/LESSONS-LEARNED.md | This file |
+| /opt/leveredge/FUTURE-VISION-AND-EXPLORATION.md | Architecture decisions |
+| /opt/leveredge/data-plane/prod/n8n/ | Production n8n |
+| /opt/leveredge/data-plane/dev/n8n/ | Development n8n |
+| /opt/leveredge/control-plane/ | Control plane agents |
+| /opt/leveredge/shared/scripts/ | CLI tools |
+| /opt/leveredge/shared/backups/ | CHRONOS backups |
