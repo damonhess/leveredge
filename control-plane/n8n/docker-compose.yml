@@ -84,6 +84,23 @@ services:
     networks:
       - control-plane-net
 
+  hermes:
+    build:
+      context: ../agents/hermes
+      dockerfile: Dockerfile
+    container_name: hermes
+    restart: unless-stopped
+    environment:
+      - EVENT_BUS_URL=http://event-bus:8099
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+    volumes:
+      - ../agents/hermes/data:/app/data
+    ports:
+      - "8014:8014"
+    networks:
+      - control-plane-net
+
 networks:
   control-plane-net:
     name: control-plane-net
