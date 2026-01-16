@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 16, 2026 (11:00 PM)*
+*Last Updated: January 17, 2026 (12:45 AM)*
 
 ---
 
@@ -104,6 +104,31 @@ networks:
 
 ---
 
+## Supabase Migration Lessons (Jan 16, 2026)
+
+### SMTP Configuration
+- **Problem:** supabase-auth (gotrue) crash-looping after migration
+- **Cause:** Empty `SMTP_PORT=` in .env - newer gotrue requires valid integer even when email disabled
+- **Fix:** Set `SMTP_PORT=587` and `SMTP_HOST=localhost` 
+- **Prevention:** When migrating Supabase, check .env for empty port values
+
+### Volume Symlink Strategy
+- **Problem:** Need to migrate compose files without moving data
+- **Cause:** Data lives in bind-mounted volumes at old location
+- **Fix:** Symlink from new location to existing volumes:
+  ```bash
+  ln -s /home/damon/supabase/volumes /opt/leveredge/data-plane/prod/supabase/volumes
+  ```
+- **Prevention:** For any Docker migration with bind mounts: symlink volumes, don't copy/move
+
+### Container Name Preservation
+- **Problem:** Expected many reference updates after migration
+- **Cause:** All routing uses container names on shared Docker network
+- **Fix:** None needed - preserving container names means Caddy, n8n, and all services continue working
+- **Prevention:** When migrating Docker services, preserve container names to avoid cascading updates
+
+---
+
 ## Execution Workflow (ALWAYS FOLLOW)
 
 ```
@@ -150,6 +175,7 @@ networks:
 - External access: use Cloudflare Tunnel or exposed ports
 - WireGuard VPN: server 10.8.0.1, laptop 10.8.0.2
 - `stack_net` is the shared network for all services needing Supabase/Caddy access
+- Prometheus on host network can't be reached from Docker bridge - connect to shared network instead
 
 ### Persistence
 - SQLite fine for low-volume agent DBs
@@ -180,49 +206,56 @@ networks:
 - Creating n8n workflows without webhookId
 - Running as root (permission issues later)
 
-### January 16, 2026 (6+ hours - JUGGERNAUT MODE)
-**Accomplished:**
-- HEPHAESTUS converted from REST to proper MCP protocol
-- Claude Web command center established (HEPHAESTUS connector)
-- Phase 4 agents built (HERMES, ARGUS, ALOY, ATHENA)
-- Phase 4 n8n workflows created (was FastAPI-only, now proper architecture)
-- Data plane migration (prod + dev n8n to /opt/leveredge/)
-- ARIA debugged and fixed (expression references, HTTP body issues)
-- 9 control plane workflows active
+### January 16, 2026 (6.5 hours - JUGGERNAUT MODE)
+**Accomplished (13 tasks):**
+1. HEPHAESTUS converted from REST to proper MCP protocol
+2. Claude Web command center established
+3. Phase 4 agents built (HERMES, ARGUS, ALOY, ATHENA)
+4. Phase 4 n8n workflows created
+5. n8n PROD migration
+6. n8n DEV migration
+7. ARIA debugged and fixed
+8. promote-to-prod.sh created
+9. Lesson capture system implemented
+10. Old systemd services removed
+11. HERMES Telegram + multi-channel
+12. ARGUS Prometheus connected
+13. Supabase PROD + DEV migration
 
 **What worked:**
-- GSD for parallel task execution (Track 1 + Track 2 simultaneously)
-- CHRONOS backup before migration
-- Direct database queries to debug n8n workflow execution
-- Checking execution_data table to trace actual data flow
-- Using explicit node references `$('NodeName').first().json`
+- GSD for parallel task execution
+- CHRONOS backup before migrations
+- Symlink strategy for volume preservation
+- Container name preservation avoiding cascade updates
 
 **What didn't:**
-- GSD initially used wrong MCP (n8n-troubleshooter vs n8n-control)
-- Built HEPHAESTUS as REST API instead of MCP protocol initially
-- Caddy 502 after container rename (forgot to update Caddyfile)
+- GSD initially used wrong MCP
+- Built HEPHAESTUS as REST instead of MCP initially
+- Caddy 502 after container rename
 - Over-verifying instead of moving fast
+- Forgetting to update LESSONS-SCRATCH after debugging
 
 **Process improvements:**
 - Always specify which MCP server in specs
-- Update memory with execution rules
-- When "No response generated": check execution_data, HTTP body, upstream node output
-- Container renames require Caddyfile updates
 - Format GSD dispatches as ready-to-paste blocks
+- Symlink volumes, don't move them
+- Preserve container names during migration
+- Claude Code must update LESSONS-SCRATCH after every debug
 
 ---
 
-## Technical Debt Tracker
+## Technical Debt Tracker (Updated)
 
-| Item | Priority | Effort | Blocked By |
-|------|----------|--------|------------|
-| Remove old systemd agent services | High | 15 min | Nothing |
-| HERMES Telegram config | Medium | 30 min | Bot token |
-| ARGUS Prometheus access | Medium | 30 min | Firewall fix |
-| DEV Supabase credentials | Medium | 15 min | Nothing |
-| promote-to-prod.sh script | High | 30 min | API keys |
-| Cloudflare Access for control plane | Low | 2 hours | Nothing |
-| Push to GitHub remote | Low | 5 min | Create repo |
+| Item | Priority | Effort | Status |
+|------|----------|--------|--------|
+| ~~Remove old systemd agent services~~ | ~~High~~ | ~~15 min~~ | ✅ Done |
+| ~~HERMES Telegram config~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done |
+| ~~ARGUS Prometheus access~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done |
+| DEV supabase-storage-dev fix | Medium | 30 min | ⬜ |
+| DEV supabase-studio-dev fix | Low | 30 min | ⬜ |
+| promote-to-prod.sh API keys | Medium | 15 min | ⬜ |
+| Cloudflare Access for control plane | Low | 2 hours | ⬜ |
+| Push to GitHub remote | Low | 5 min | ⬜ |
 
 ---
 
@@ -232,9 +265,12 @@ networks:
 |------|---------|
 | /opt/leveredge/MASTER-LAUNCH-CALENDAR.md | Launch timeline and milestones |
 | /opt/leveredge/LESSONS-LEARNED.md | This file |
+| /opt/leveredge/LESSONS-SCRATCH.md | Quick debug capture (consolidate here) |
 | /opt/leveredge/FUTURE-VISION-AND-EXPLORATION.md | Architecture decisions |
 | /opt/leveredge/data-plane/prod/n8n/ | Production n8n |
 | /opt/leveredge/data-plane/dev/n8n/ | Development n8n |
+| /opt/leveredge/data-plane/prod/supabase/ | Production Supabase |
+| /opt/leveredge/data-plane/dev/supabase/ | Development Supabase |
 | /opt/leveredge/control-plane/ | Control plane agents |
 | /opt/leveredge/shared/scripts/ | CLI tools |
 | /opt/leveredge/shared/backups/ | CHRONOS backups |
