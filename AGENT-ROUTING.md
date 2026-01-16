@@ -19,7 +19,7 @@
 | Check monitoring/metrics | ARGUS | API call |
 | Audit logs/anomalies | ALOY | API call |
 | Generate documentation | ATHENA | API call |
-| Business decisions/accountability | CHIRON | API call (LLM-powered) |
+| Business decisions/accountability/ADHD planning | CHIRON V2 | API call (LLM-powered) |
 | Market research/niche analysis | SCHOLAR | API call (LLM-powered) |
 | Update portfolio | GSD → Supabase + Event Bus | Notify ARIA |
 | Update knowledge base | GSD → aria_knowledge + Event Bus | Notify ARIA |
@@ -200,14 +200,22 @@ curl -X POST http://localhost:8013/generate \
 
 ---
 
-### CHIRON (Business Mentor) - Port 8017
+### CHIRON V2 (Elite Business Mentor) - Port 8017
 **Use for:**
-- Strategic business decisions
-- Accountability checks
-- Challenging assumptions and beliefs
-- Hype/motivation based on actual wins
-- Decision frameworks
-- Pushing through fear/procrastination
+- Strategic business decisions with embedded frameworks
+- ADHD-optimized sprint planning
+- Pricing strategy and value-based pricing
+- Rapid fear analysis and reframing
+- Weekly accountability reviews
+- Pushing through procrastination with evidence
+- Sales psychology and objection handling
+
+**V2 Capabilities:**
+- OODA Loop, Eisenhower Matrix, 10X Thinking, Inversion, First Principles
+- ADHD Launch Framework with procrastination decoding
+- Pricing psychology (anchoring, three-tier, ROI framing)
+- Sales psychology (Trust Equation, pain > features, objection reframes)
+- Hyperfocus trap detection
 
 **Endpoints:**
 | Endpoint | Method | Purpose |
@@ -220,13 +228,17 @@ curl -X POST http://localhost:8013/generate \
 | /accountability | POST | Accountability check |
 | /challenge | POST | Challenge assumptions |
 | /hype | POST | Evidence-based motivation |
-| /framework/{type} | GET | Get frameworks (decision, accountability, strategic, fear, launch) |
+| /framework/{type} | GET | Get frameworks (decision, accountability, strategic, fear, launch, adhd, pricing, sales, mvp) |
 | /agent/call | POST | Call other agents |
 | /upgrade-self | POST | Propose self-improvements |
+| /sprint-plan | POST | **V2** ADHD-optimized sprint planning |
+| /pricing-help | POST | **V2** Value-based pricing strategy |
+| /fear-check | POST | **V2** Rapid fear analysis and reframe |
+| /weekly-review | POST | **V2** Structured accountability review |
 
 **Team Integration:**
 - Time-aware (days to launch, current phase)
-- Portfolio-aware (cites actual wins)
+- Portfolio-aware (cites actual wins as evidence)
 - Event Bus integration
 - ARIA knowledge updates
 - HERMES notifications (critical decisions)
@@ -234,6 +246,26 @@ curl -X POST http://localhost:8013/generate \
 
 **Trigger Example:**
 ```bash
+# Create ADHD-optimized sprint plan
+curl -X POST http://localhost:8017/sprint-plan \
+  -H "Content-Type: application/json" \
+  -d '{"goals": ["10 outreach messages", "1 demo call"], "time_available": "this weekend", "energy_level": "high"}'
+
+# Get pricing strategy
+curl -X POST http://localhost:8017/pricing-help \
+  -H "Content-Type: application/json" \
+  -d '{"service_description": "Compliance workflow automation", "value_delivered": "Saves 20 hours/month"}'
+
+# Rapid fear check
+curl -X POST http://localhost:8017/fear-check \
+  -H "Content-Type: application/json" \
+  -d '{"situation": "About to send cold outreach", "what_im_avoiding": "rejection"}'
+
+# Weekly review
+curl -X POST http://localhost:8017/weekly-review \
+  -H "Content-Type: application/json" \
+  -d '{"wins": ["Built 2 agents", "1 demo call"], "losses": ["Missed outreach target"]}'
+
 # Get accountability check
 curl -X POST http://localhost:8017/accountability \
   -H "Content-Type: application/json" \
@@ -246,6 +278,9 @@ curl -X POST http://localhost:8017/challenge \
 
 # Get hype boost
 curl -X POST http://localhost:8017/hype
+
+# Get ADHD framework
+curl http://localhost:8017/framework/adhd
 ```
 
 ---
