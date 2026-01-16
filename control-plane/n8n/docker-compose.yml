@@ -109,12 +109,10 @@ services:
     restart: unless-stopped
     environment:
       - EVENT_BUS_URL=http://event-bus:8099
-      - PROMETHEUS_URL=http://host.docker.internal:9090
+      - PROMETHEUS_URL=http://prometheus:9090
       - HERMES_URL=http://hermes:8014
     ports:
       - "8016:8016"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - control-plane-net
       - stack_net
