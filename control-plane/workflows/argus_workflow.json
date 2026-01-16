@@ -1,0 +1,147 @@
+{
+  "name": "ARGUS - Observability",
+  "nodes": [
+    {
+      "name": "ARGUS Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [208, 304],
+      "webhookId": "argus-webhook-001",
+      "parameters": {
+        "path": "argus",
+        "options": {},
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "ARGUS Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [464, 304],
+      "parameters": {
+        "text": "={{ $json.body.message || $json.body.chatInput || $json.body.query || JSON.stringify($json.body) }}",
+        "options": {
+          "systemMessage": "You are ARGUS, the Observability agent for the LeverEdge control plane.\n\nYour responsibilities:\n- Monitor system and agent health\n- Query Prometheus metrics\n- Report on service status\n- Alert on issues\n\nYou have tools to check health, get system status, agent status, metrics, query Prometheus, and create alerts.\n\nAlways be concise. Report status clearly and highlight any issues."
+        },
+        "promptType": "define"
+      },
+      "typeVersion": 1.7
+    },
+    {
+      "name": "Claude Sonnet",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [336, 512],
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "anthropicApi": {
+          "id": "NQ4e9Jw74TK8ABhU",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "name": "Log to Event Bus",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [480, 512],
+      "parameters": {
+        "url": "http://event-bus:8099/events",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source_agent\": \"ARGUS\", \"action\": \"{{ $fromAI('action', 'Action performed') }}\", \"details\": {\"message\": \"{{ $fromAI('details', 'Details') }}\"}}",
+        "description": "Log an event to the Event Bus"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "ARGUS Health",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [624, 512],
+      "parameters": {
+        "url": "http://argus:8016/health",
+        "description": "Check ARGUS backend health"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "System Status",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [768, 512],
+      "parameters": {
+        "url": "http://argus:8016/status",
+        "description": "Get overall system status including all agents"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Get Metrics",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [912, 512],
+      "parameters": {
+        "url": "http://argus:8016/metrics",
+        "description": "Get current system metrics"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Create Alert",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [1056, 512],
+      "parameters": {
+        "url": "http://argus:8016/alert",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"severity\": \"{{ $fromAI('severity', 'warning') }}\", \"source\": \"{{ $fromAI('source', 'ARGUS') }}\", \"message\": \"{{ $fromAI('alert_message', 'Alert') }}\"}",
+        "description": "Create an alert. Severity: info, warning, error, critical."
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [704, 304],
+      "parameters": {
+        "options": {},
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}"
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "ARGUS Webhook": {
+      "main": [[{"node": "ARGUS Agent", "type": "main", "index": 0}]]
+    },
+    "ARGUS Agent": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Claude Sonnet": {
+      "ai_languageModel": [[{"node": "ARGUS Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Log to Event Bus": {
+      "ai_tool": [[{"node": "ARGUS Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "ARGUS Health": {
+      "ai_tool": [[{"node": "ARGUS Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "System Status": {
+      "ai_tool": [[{"node": "ARGUS Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Get Metrics": {
+      "ai_tool": [[{"node": "ARGUS Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Create Alert": {
+      "ai_tool": [[{"node": "ARGUS Agent", "type": "ai_tool", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

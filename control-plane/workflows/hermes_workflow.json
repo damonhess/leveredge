@@ -1,0 +1,151 @@
+{
+  "name": "HERMES - Notifications",
+  "nodes": [
+    {
+      "name": "HERMES Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [208, 304],
+      "webhookId": "hermes-webhook-001",
+      "parameters": {
+        "path": "hermes",
+        "options": {},
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "HERMES Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [464, 304],
+      "parameters": {
+        "text": "={{ $json.body.message || $json.body.chatInput || $json.body.query || JSON.stringify($json.body) }}",
+        "options": {
+          "systemMessage": "You are HERMES, the Notification & Approval agent for the LeverEdge control plane.\n\nYour responsibilities:\n- Send notifications to various channels\n- Request human approval for tier 2/3 operations\n- Track pending approvals\n- Report on notification history\n\nYou have tools to check health, send notifications, request approvals, list pending approvals, and get history.\n\nAlways be concise. Report what you did and the result."
+        },
+        "promptType": "define"
+      },
+      "typeVersion": 1.7
+    },
+    {
+      "name": "Claude Sonnet",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [336, 512],
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "anthropicApi": {
+          "id": "NQ4e9Jw74TK8ABhU",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "name": "Log to Event Bus",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [480, 512],
+      "parameters": {
+        "url": "http://event-bus:8099/events",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source_agent\": \"HERMES\", \"action\": \"{{ $fromAI('action', 'Action performed') }}\", \"details\": {\"message\": \"{{ $fromAI('details', 'Details') }}\"}}",
+        "description": "Log an event to the Event Bus"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "HERMES Health",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [624, 512],
+      "parameters": {
+        "url": "http://hermes:8014/health",
+        "description": "Check HERMES backend health"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Send Notification",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [768, 512],
+      "parameters": {
+        "url": "http://hermes:8014/notify",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"channel\": \"{{ $fromAI('channel', 'event-bus') }}\", \"message\": \"{{ $fromAI('message', 'Notification') }}\", \"priority\": \"{{ $fromAI('priority', 'normal') }}\"}",
+        "description": "Send notification. Channels: event-bus, telegram, slack. Priority: low, normal, high, critical."
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Request Approval",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [912, 512],
+      "parameters": {
+        "url": "http://hermes:8014/request-approval",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"action\": \"{{ $fromAI('action_desc', 'Action to approve') }}\", \"source_agent\": \"{{ $fromAI('source_agent', 'AGENT') }}\", \"tier\": {{ $fromAI('tier', '2') }}, \"details\": {}}",
+        "description": "Request human approval for an action. Returns approval_id."
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "List Pending",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [1056, 512],
+      "parameters": {
+        "url": "http://hermes:8014/pending",
+        "description": "List pending approval requests"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [704, 304],
+      "parameters": {
+        "options": {},
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}"
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "HERMES Webhook": {
+      "main": [[{"node": "HERMES Agent", "type": "main", "index": 0}]]
+    },
+    "HERMES Agent": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Claude Sonnet": {
+      "ai_languageModel": [[{"node": "HERMES Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Log to Event Bus": {
+      "ai_tool": [[{"node": "HERMES Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "HERMES Health": {
+      "ai_tool": [[{"node": "HERMES Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Send Notification": {
+      "ai_tool": [[{"node": "HERMES Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Request Approval": {
+      "ai_tool": [[{"node": "HERMES Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "List Pending": {
+      "ai_tool": [[{"node": "HERMES Agent", "type": "ai_tool", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

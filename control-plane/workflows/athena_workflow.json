@@ -1,0 +1,151 @@
+{
+  "name": "ATHENA - Documentation",
+  "nodes": [
+    {
+      "name": "ATHENA Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [208, 304],
+      "webhookId": "athena-webhook-001",
+      "parameters": {
+        "path": "athena",
+        "options": {},
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "ATHENA Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [464, 304],
+      "parameters": {
+        "text": "={{ $json.body.message || $json.body.chatInput || $json.body.query || JSON.stringify($json.body) }}",
+        "options": {
+          "systemMessage": "You are ATHENA, the Documentation agent for the LeverEdge control plane.\n\nYour responsibilities:\n- Generate system documentation\n- Create architecture diagrams\n- Maintain documentation freshness\n- Update specific docs on request\n\nYou have tools to check health, generate reports, generate architecture docs, list docs, get specific documents, and update documents.\n\nAlways be concise. Focus on accuracy and clarity in documentation."
+        },
+        "promptType": "define"
+      },
+      "typeVersion": 1.7
+    },
+    {
+      "name": "Claude Sonnet",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [336, 512],
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "anthropicApi": {
+          "id": "NQ4e9Jw74TK8ABhU",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "name": "Log to Event Bus",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [480, 512],
+      "parameters": {
+        "url": "http://event-bus:8099/events",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source_agent\": \"ATHENA\", \"action\": \"{{ $fromAI('action', 'Action performed') }}\", \"details\": {\"message\": \"{{ $fromAI('details', 'Details') }}\"}}",
+        "description": "Log an event to the Event Bus"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "ATHENA Health",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [624, 512],
+      "parameters": {
+        "url": "http://athena:8013/health",
+        "description": "Check ATHENA backend health"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Generate Report",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [768, 512],
+      "parameters": {
+        "url": "http://athena:8013/generate/report",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"report_type\": \"{{ $fromAI('report_type', 'status') }}\", \"scope\": \"{{ $fromAI('scope', 'all') }}\"}",
+        "description": "Generate a report. Types: status, health, deployment. Scope: all, agents, workflows."
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Generate Architecture",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [912, 512],
+      "parameters": {
+        "url": "http://athena:8013/generate/architecture",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"format\": \"{{ $fromAI('format', 'markdown') }}\"}",
+        "description": "Generate architecture documentation. Format: markdown, mermaid, json."
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "List Docs",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [1056, 512],
+      "parameters": {
+        "url": "http://athena:8013/docs",
+        "description": "List all available documentation"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [704, 304],
+      "parameters": {
+        "options": {},
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}"
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "ATHENA Webhook": {
+      "main": [[{"node": "ATHENA Agent", "type": "main", "index": 0}]]
+    },
+    "ATHENA Agent": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Claude Sonnet": {
+      "ai_languageModel": [[{"node": "ATHENA Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Log to Event Bus": {
+      "ai_tool": [[{"node": "ATHENA Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "ATHENA Health": {
+      "ai_tool": [[{"node": "ATHENA Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Generate Report": {
+      "ai_tool": [[{"node": "ATHENA Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Generate Architecture": {
+      "ai_tool": [[{"node": "ATHENA Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "List Docs": {
+      "ai_tool": [[{"node": "ATHENA Agent", "type": "ai_tool", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

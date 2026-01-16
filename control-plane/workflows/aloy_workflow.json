@@ -1,0 +1,164 @@
+{
+  "name": "ALOY - Audit & Anomaly",
+  "nodes": [
+    {
+      "name": "ALOY Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [208, 304],
+      "webhookId": "aloy-webhook-001",
+      "parameters": {
+        "path": "aloy",
+        "options": {},
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "ALOY Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [464, 304],
+      "parameters": {
+        "text": "={{ $json.body.message || $json.body.chatInput || $json.body.query || JSON.stringify($json.body) }}",
+        "options": {
+          "systemMessage": "You are ALOY, the Audit & Anomaly Detection agent for the LeverEdge control plane.\n\nYour responsibilities:\n- Query and report on audit logs\n- Detect anomalies in system behavior\n- Analyze patterns in events\n- Generate security reports\n\nYou have tools to check health, get recent audit events, generate audit reports, list anomalies, analyze patterns, and get detection rules.\n\nAlways be concise. Report findings clearly and flag any security concerns."
+        },
+        "promptType": "define"
+      },
+      "typeVersion": 1.7
+    },
+    {
+      "name": "Claude Sonnet",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "position": [336, 512],
+      "parameters": {
+        "model": "claude-sonnet-4-20250514",
+        "options": {
+          "maxTokensToSample": 4096
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "anthropicApi": {
+          "id": "NQ4e9Jw74TK8ABhU",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "name": "Log to Event Bus",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [480, 512],
+      "parameters": {
+        "url": "http://event-bus:8099/events",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"source_agent\": \"ALOY\", \"action\": \"{{ $fromAI('action', 'Action performed') }}\", \"details\": {\"message\": \"{{ $fromAI('details', 'Details') }}\"}}",
+        "description": "Log an event to the Event Bus"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "ALOY Health",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [624, 512],
+      "parameters": {
+        "url": "http://aloy:8015/health",
+        "description": "Check ALOY backend health"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Recent Audit Events",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [768, 512],
+      "parameters": {
+        "url": "http://aloy:8015/audit/recent",
+        "description": "Get recent audit events from Event Bus"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Audit Report",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [912, 512],
+      "parameters": {
+        "url": "http://aloy:8015/audit/report",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"hours\": {{ $fromAI('hours', '24') }}}",
+        "description": "Generate an audit report for the specified number of hours"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "List Anomalies",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [1056, 512],
+      "parameters": {
+        "url": "http://aloy:8015/anomalies",
+        "description": "List detected anomalies"
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Analyze Patterns",
+      "type": "@n8n/n8n-nodes-langchain.toolHttpRequest",
+      "position": [1200, 512],
+      "parameters": {
+        "url": "http://aloy:8015/analyze",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"focus\": \"{{ $fromAI('focus', 'all') }}\"}",
+        "description": "Analyze event patterns. Focus: all, security, performance, errors."
+      },
+      "typeVersion": 1.1
+    },
+    {
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [704, 304],
+      "parameters": {
+        "options": {},
+        "respondWith": "text",
+        "responseBody": "={{ $json.output }}"
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "ALOY Webhook": {
+      "main": [[{"node": "ALOY Agent", "type": "main", "index": 0}]]
+    },
+    "ALOY Agent": {
+      "main": [[{"node": "Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "Claude Sonnet": {
+      "ai_languageModel": [[{"node": "ALOY Agent", "type": "ai_languageModel", "index": 0}]]
+    },
+    "Log to Event Bus": {
+      "ai_tool": [[{"node": "ALOY Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "ALOY Health": {
+      "ai_tool": [[{"node": "ALOY Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Recent Audit Events": {
+      "ai_tool": [[{"node": "ALOY Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Audit Report": {
+      "ai_tool": [[{"node": "ALOY Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "List Anomalies": {
+      "ai_tool": [[{"node": "ALOY Agent", "type": "ai_tool", "index": 0}]]
+    },
+    "Analyze Patterns": {
+      "ai_tool": [[{"node": "ALOY Agent", "type": "ai_tool", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
