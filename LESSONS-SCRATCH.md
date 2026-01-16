@@ -20,6 +20,67 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-16 23:35 - [Universal Cost Tracking Infrastructure]
+**Status:** Deployed and verified
+**Scope:** CHIRON, SCHOLAR, ARGUS
+
+**Created:**
+- `/opt/leveredge/control-plane/shared/cost_tracker.py` - Universal cost tracking module
+- `agent_usage_logs` table in PROD Supabase with indexes
+- `agent_cost_summary` view for quick overview
+- `get_agent_costs()` and `get_daily_costs()` SQL functions
+- ARGUS `/costs`, `/costs/daily`, `/costs/summary` endpoints
+
+**Integration Points:**
+- CHIRON: `call_llm()` now logs usage automatically
+- SCHOLAR: Both `call_llm()` and `call_llm_with_search()` log usage + web searches
+
+**Tracked Metrics Per Request:**
+- Agent name, endpoint, model
+- Input tokens, output tokens
+- Web searches count
+- Input cost, output cost, feature cost, total cost
+- Metadata (days_to_launch, etc.)
+- Timestamp
+
+**Pricing (per 1M tokens):**
+- Claude Sonnet 4: $3.00 input, $15.00 output
+- Claude Opus 4: $15.00 input, $75.00 output
+- Claude Haiku 4: $0.25 input, $1.25 output
+
+**Container Setup Requirements:**
+1. Containers must be on `stack_net` network to reach supabase-kong
+2. `SUPABASE_SERVICE_KEY` env var must be set (from `/opt/leveredge/data-plane/prod/supabase/.env`)
+3. Shared module copied to container at `/opt/leveredge/control-plane/shared/`
+
+**Rebuild Command Pattern:**
+```bash
+SERVICE_ROLE_KEY="<key>" && \
+docker stop <agent> && docker rm <agent> && \
+docker run -d --name <agent> \
+  --network control-plane-net \
+  -p <port>:<port> \
+  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+  -e EVENT_BUS_URL="http://event-bus:8099" \
+  -e SUPABASE_URL="http://supabase-kong:8000" \
+  -e SUPABASE_SERVICE_KEY="$SERVICE_ROLE_KEY" \
+  n8n-<agent>:latest && \
+docker network connect stack_net <agent>
+```
+
+**Gotcha:** The `get_daily_costs()` function had ambiguous column reference error. Fixed by renaming return columns to `cost_date`, `day_total_cost`, `day_request_count`.
+
+**Verification:**
+```bash
+curl -s http://localhost:8016/costs | jq .
+# Returns costs by agent for last 30 days
+
+docker exec supabase-db psql -U postgres -d postgres \
+  -c "SELECT * FROM agent_usage_logs ORDER BY created_at DESC LIMIT 5;"
+```
+
+**Git Status:** Changes ready but blocked by root-owned directories in .git/objects. Need `sudo chown -R damon:damon /opt/leveredge/.git` before commit.
+
 ### 2026-01-16 21:55 - [SCHOLAR V2 Elite Market Research Upgrade]
 **Upgrade:** SCHOLAR v1.0 → v2.0
 **Container:** Rebuilt and deployed to control-plane-net
