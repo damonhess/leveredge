@@ -110,7 +110,9 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nReplace HEPHAESTUS REST API with actual MCP protocol\n\n- Add proper MCP server using Python mcp SDK with SSE transport\n- Dockerize hephaestus for stack_net network compatibility\n- Tools: create_file, read_file, list_directory, run_command,\n  list_workflows, create_workflow, activate_workflow, call_agent, git_commit\n- Expose at https://hephaestus.leveredgeai.com/sse\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(docker stop:*)",
       "Bash(docker rm:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(netstat:*)",
+      "Bash(ip addr:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
