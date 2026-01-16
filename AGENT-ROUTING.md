@@ -20,7 +20,7 @@
 | Audit logs/anomalies | ALOY | API call |
 | Generate documentation | ATHENA | API call |
 | Business decisions/accountability/ADHD planning | CHIRON V2 | API call (LLM-powered) |
-| Market research/niche analysis | SCHOLAR | API call (LLM-powered) |
+| Market research/niche analysis | SCHOLAR V2 | API call (LLM-powered + web search) |
 | Update portfolio | GSD → Supabase + Event Bus | Notify ARIA |
 | Update knowledge base | GSD → aria_knowledge + Event Bus | Notify ARIA |
 | Emergency restore | GAIA | Manual trigger only |
@@ -285,29 +285,45 @@ curl http://localhost:8017/framework/adhd
 
 ---
 
-### SCHOLAR (Market Research) - Port 8018
+### SCHOLAR V2 (Elite Market Research) - Port 8018
 **Use for:**
-- Market research and sizing (TAM/SAM/SOM)
+- Deep market research with web search (live data)
+- TAM/SAM/SOM market sizing with sources
+- Structured competitor profiling
 - Niche analysis and evaluation
-- Competitive intelligence
 - ICP (Ideal Customer Profile) development
 - Lead/prospect research
+- Pain point discovery and quantification
+- Business assumption validation
 - Niche comparison
+
+**V2 Capabilities:**
+- Live web search via Anthropic web_search tool
+- TAM/SAM/SOM market sizing framework
+- Competitive analysis framework with structured profiles
+- ICP development framework
+- Pain point discovery framework (5 Whys, quantification)
+- Research synthesis framework with confidence levels
 
 **Endpoints:**
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| /health | GET | Health + time context |
+| /health | GET | Health + time context + V2 status |
 | /time | GET | Current time awareness |
 | /team | GET | Agent roster |
-| /research | POST | General research |
-| /niche | POST | Deep niche analysis |
-| /competitors | POST | Competitive intelligence |
-| /icp | POST | Develop Ideal Customer Profile |
-| /lead | POST | Research specific company |
-| /compare | POST | Compare multiple niches |
+| /research | POST | General research (web search for standard/deep) |
+| /niche | POST | Deep niche analysis with web search |
+| /competitors | POST | Competitive intelligence with web search |
+| /icp | POST | Develop Ideal Customer Profile with web search |
+| /lead | POST | Research specific company with web search |
+| /compare | POST | Compare multiple niches with web search |
 | /send-to-chiron | POST | Send findings to CHIRON |
 | /upgrade-self | POST | Propose self-improvements |
+| /deep-research | POST | **V2** Multi-source deep dive with web search |
+| /competitor-profile | POST | **V2** Structured competitor analysis |
+| /market-size | POST | **V2** TAM/SAM/SOM calculation with sources |
+| /pain-discovery | POST | **V2** Research and quantify pain points |
+| /validate-assumption | POST | **V2** Test business assumptions with evidence |
 
 **Team Integration:**
 - Time-aware (days to launch, current phase)
@@ -317,16 +333,38 @@ curl http://localhost:8017/framework/adhd
 - HERMES notifications
 
 **Partner Relationship:**
-- SCHOLAR does research -> sends to CHIRON
+- SCHOLAR does research with web search -> sends to CHIRON
 - CHIRON interprets strategically -> makes decision
 - Both log to ARIA knowledge
 
 **Trigger Example:**
 ```bash
-curl -X POST http://localhost:8018/niche \
+# Deep research with web search
+curl -X POST http://localhost:8018/deep-research \
   -H "Content-Type: application/json" \
-  -d '{"niche": "water utilities compliance"}'
+  -d '{"question": "What are the top 5 compliance automation software companies in 2025-2026?"}'
 
+# Competitor profiling
+curl -X POST http://localhost:8018/competitor-profile \
+  -H "Content-Type: application/json" \
+  -d '{"company_name": "Hyperproof", "website": "https://hyperproof.io"}'
+
+# Market sizing
+curl -X POST http://localhost:8018/market-size \
+  -H "Content-Type: application/json" \
+  -d '{"market": "compliance automation software", "geography": "United States", "segment": "water utilities"}'
+
+# Pain discovery
+curl -X POST http://localhost:8018/pain-discovery \
+  -H "Content-Type: application/json" \
+  -d '{"role": "Compliance Officer", "industry": "water utilities"}'
+
+# Validate assumption
+curl -X POST http://localhost:8018/validate-assumption \
+  -H "Content-Type: application/json" \
+  -d '{"assumption": "Water utilities spend over $50K/year on compliance software", "importance": "high"}'
+
+# Niche comparison (upgraded)
 curl -X POST http://localhost:8018/compare \
   -H "Content-Type: application/json" \
   -d '{"niches": ["water utilities", "environmental permits", "municipal government"]}'

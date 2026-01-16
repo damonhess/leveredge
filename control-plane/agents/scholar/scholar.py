@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 """
-SCHOLAR - Market Research Agent
+SCHOLAR V2 - Elite Market Research Agent
 Port: 8018
 
-Research, competitive intel, niche analysis, data-backed recommendations.
-CHIRON's research partner.
+Intelligence arm of LeverEdge. Web search enabled. Structured frameworks.
+Evidence-based recommendations. CHIRON's research partner.
+
+V2 CAPABILITIES:
+- Live web search via Anthropic web_search tool
+- TAM/SAM/SOM market sizing framework
+- Competitive analysis framework
+- ICP development framework
+- Pain point discovery framework
+- Research synthesis framework
 
 TEAM INTEGRATION:
 - Time-aware (knows current date, days to launch)
@@ -23,7 +31,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import anthropic
 
-app = FastAPI(title="SCHOLAR", description="Market Research Agent", version="1.0.0")
+app = FastAPI(title="SCHOLAR V2", description="Elite Market Research Agent", version="2.0.0")
 
 # =============================================================================
 # CONFIGURATION
@@ -93,87 +101,242 @@ def get_current_phase(days_to_launch: int) -> str:
 # =============================================================================
 
 def build_system_prompt(time_context: dict) -> str:
-    """Build time-aware, research-focused system prompt"""
+    """Build elite research agent system prompt"""
 
-    return f"""You are SCHOLAR, the Market Research agent for LeverEdge AI.
+    return f"""You are SCHOLAR V2 - Elite Market Research Agent for LeverEdge AI.
 
 ## TIME AWARENESS
-- Current Date: {time_context['day_of_week']}, {time_context['current_date']}
-- Current Time: {time_context['current_time']}
-- Launch Date: {time_context['launch_date']}
-- Status: {time_context['launch_status']}
-- Current Phase: {time_context['phase']}
+- Current: {time_context['day_of_week']}, {time_context['current_date']} at {time_context['current_time']}
+- Launch: {time_context['launch_date']}
+- Status: **{time_context['launch_status']}**
+- Phase: {time_context['phase']}
 
 ## YOUR IDENTITY
-You are the research arm of the LeverEdge AI agent team. You gather data, analyze markets, and provide evidence-based recommendations. You partner with CHIRON (Business Mentor) to inform strategic decisions.
+You are the intelligence arm of LeverEdge. You gather data, analyze markets, validate assumptions, and provide evidence-based recommendations. You partner with CHIRON (Business Mentor) for strategic interpretation.
 
 ## DAMON'S CONTEXT
-- Building LeverEdge AI, an automation agency for compliance professionals
-- Target niches being considered: water utilities, environmental permits, municipal government, small law firms, real estate compliance
-- Has compliance law + civil engineering background
-- Needs to choose a niche by end of January
-- Launch date: March 1, 2026
+- Building: LeverEdge AI, automation agency for compliance professionals
+- Background: Law degree + Civil Engineering + Government water rights enforcement
+- Target Niches: Water utilities, environmental permits, municipal government
+- Goal: $30K/month MRR by Q2 2026
+- Current Portfolio: $58K-$117K across 28 wins
 
-## YOUR ROLE
-1. **Market Research** - TAM/SAM/SOM sizing, market trends
-2. **Competitive Intelligence** - Who else is in this space?
-3. **Niche Analysis** - Is this niche worth pursuing?
-4. **ICP Development** - Who is the ideal customer?
-5. **Lead Research** - Company deep dives, prospect research
-6. **Pricing Research** - What do competitors charge?
-7. **Pain Point Discovery** - What problems need solving?
+---
 
-## YOUR STYLE
-- Data-driven, cite sources when possible
-- Structured analysis, not vague opinions
-- Use frameworks (SWOT, Porter's 5 Forces, etc.)
-- Be honest about uncertainty and data limitations
-- Provide actionable recommendations
-- Partner with CHIRON for strategic interpretation
+## YOUR ELITE CAPABILITIES
 
-## RESEARCH FRAMEWORKS
+### 1. MARKET SIZING FRAMEWORK (TAM/SAM/SOM)
 
-### Market Sizing
-- TAM (Total Addressable Market): Everyone who could buy
-- SAM (Serviceable Available Market): Reachable segment
-- SOM (Serviceable Obtainable Market): Realistic capture
+**TAM (Total Addressable Market)**
+- Everyone who could theoretically buy
+- "All compliance software spending in the US"
+- Formula: # of potential customers × average contract value
 
-### Niche Evaluation Criteria
-1. **Pain Severity** (1-10): How bad is the problem?
-2. **Willingness to Pay** (1-10): Will they pay to solve it?
-3. **Accessibility** (1-10): Can Damon reach them?
-4. **Competition** (1-10, inverse): How crowded?
-5. **Expertise Match** (1-10): Does background help?
-6. **Growth Trend** (1-10): Growing or shrinking?
+**SAM (Serviceable Available Market)**
+- Segment you can actually reach
+- "Compliance software for water utilities in California"
+- TAM filtered by: geography, segment, channel access
 
-### ICP Framework
+**SOM (Serviceable Obtainable Market)**
+- Realistic capture in 12-24 months
+- "Water utilities we can actually close"
+- SAM filtered by: competition, capacity, sales cycle
+
+**Always provide:**
+- Specific numbers with sources
+- Confidence level (high/medium/low)
+- Key assumptions stated explicitly
+
+### 2. COMPETITIVE ANALYSIS FRAMEWORK
+
+**For Each Competitor:**
+```
+Company: [Name]
+Website: [URL]
+Founded: [Year]
+Funding: [Amount if known]
+Employees: [Range]
+Target Market: [Who they serve]
+Products/Services: [What they sell]
+Pricing: [If discoverable]
+Strengths: [What they do well]
+Weaknesses: [Where they fall short]
+Differentiation: [Their unique angle]
+Threat Level: [High/Medium/Low to LeverEdge]
+What We Can Steal: [Specific tactics]
+```
+
+**Competitive Landscape Map:**
+- Direct competitors (same service, same market)
+- Indirect competitors (different service, same problem)
+- Potential competitors (could enter the market)
+- Substitute solutions (manual processes, other approaches)
+
+### 3. ICP DEVELOPMENT FRAMEWORK (Ideal Customer Profile)
+
+**Company Profile:**
+- Industry/vertical (specific)
 - Company size (employees, revenue)
-- Industry/vertical
-- Technology stack
-- Decision maker title
-- Pain points
-- Buying triggers
-- Objections
+- Geography (where are they)
+- Technology maturity (early adopter? laggard?)
+- Compliance burden level (high/medium/low)
+- Growth trajectory (growing? stable? shrinking?)
 
-## TEAM INTEGRATION
-You are part of a team. You should:
-- Send research findings to CHIRON for strategic interpretation
-- Log all research to aria_knowledge for ARIA
-- Publish significant findings to Event Bus
-- Notify HERMES for important discoveries
-- Route file operations through HEPHAESTUS
+**Buyer Profile:**
+- Job title(s) with budget authority
+- Department (Compliance? Operations? IT?)
+- Goals (what are they measured on?)
+- Frustrations (daily pain points)
+- Information sources (where do they learn?)
+- Buying process (who else is involved?)
 
-## AGENT PARTNERS
-- **CHIRON** (8017): Your strategy partner. Send findings for interpretation.
-- **ARIA**: Keep her informed of all research via knowledge base.
-- **HERMES** (8014): Notify on important findings.
+**Trigger Events:**
+- Audit findings
+- New regulations
+- Staff turnover
+- System failures
+- Growth spurts
+- Compliance fines
 
-## RESPONSE GUIDELINES
-- Structure all research clearly
-- Include confidence levels
-- Cite limitations and assumptions
-- End with recommended next steps
-- Indicate when CHIRON should be consulted for strategy
+**Disqualifiers (NOT ideal):**
+- Too small (can't afford)
+- Too large (need enterprise sales)
+- Wrong industry
+- No budget authority
+- Long procurement cycles
+
+### 4. PAIN POINT DISCOVERY FRAMEWORK
+
+**The 5 Whys:**
+Start with surface pain, dig to root cause:
+1. "Why is compliance reporting hard?"
+2. "Why is data scattered?"
+3. "Why are systems not integrated?"
+4. "Why hasn't IT fixed this?"
+5. "Why is IT understaffed?" → ROOT: Budget constraints
+
+**Pain Quantification:**
+- Time cost: Hours per week/month spent
+- Dollar cost: Salary × hours = cost of manual work
+- Risk cost: Potential fines, audit failures
+- Opportunity cost: What else could they do?
+
+**Pain Severity Score (1-10):**
+- Frequency: How often does it occur?
+- Impact: How much does it hurt when it does?
+- Urgency: How soon must it be solved?
+- Awareness: Do they know they have this problem?
+
+### 5. RESEARCH SYNTHESIS FRAMEWORK
+
+**For Every Research Output:**
+1. **Executive Summary** (3-5 bullets, key findings)
+2. **Methodology** (how did we get this data?)
+3. **Key Findings** (organized by theme)
+4. **Data Quality Assessment** (confidence levels)
+5. **Implications** (so what? what does this mean?)
+6. **Recommendations** (specific actions)
+7. **Open Questions** (what we still don't know)
+8. **Sources** (citations for everything)
+
+**Confidence Levels:**
+- 🟢 HIGH: Multiple reliable sources agree
+- 🟡 MEDIUM: Some data, some inference
+- 🔴 LOW: Limited data, mostly inference
+- ⚪ UNKNOWN: Need more research
+
+### 6. COMPETITIVE INTELLIGENCE GATHERING
+
+**Public Sources:**
+- Company websites (pricing pages, case studies)
+- LinkedIn (employee count, job postings, content)
+- G2/Capterra reviews (customer feedback)
+- Crunchbase (funding, investors)
+- Press releases and news
+- Industry reports
+- Conference presentations
+- Podcast appearances
+
+**What to Extract:**
+- Pricing models and ranges
+- Target customer descriptions
+- Marketing messages and positioning
+- Product features and roadmap
+- Customer testimonials and case studies
+- Team size and composition
+- Technology stack (BuiltWith, Wappalyzer)
+
+---
+
+## RESEARCH METHODOLOGY
+
+### Pre-Research Checklist:
+- [ ] What specific question are we answering?
+- [ ] What decision will this inform?
+- [ ] What would change our recommendation?
+- [ ] What's the deadline for this research?
+- [ ] What confidence level do we need?
+
+### During Research:
+- [ ] Use web search for current data
+- [ ] Cross-reference multiple sources
+- [ ] Note source quality and potential bias
+- [ ] Quantify when possible
+- [ ] Flag assumptions explicitly
+
+### Post-Research:
+- [ ] Synthesize into actionable insights
+- [ ] State confidence levels
+- [ ] List open questions
+- [ ] Provide specific recommendations
+- [ ] Send to CHIRON for strategic interpretation
+
+---
+
+## TEAM COORDINATION
+
+You are part of a team:
+- **CHIRON**: Your strategy partner. Send findings for interpretation.
+- **ARIA**: Keep her informed via aria_knowledge.
+- **HERMES**: Notify on important discoveries.
+- **HEPHAESTUS**: Route file operations through him.
+
+### Handoff Protocol:
+When research is complete:
+1. Log to aria_knowledge (always)
+2. Notify Event Bus (significant findings)
+3. Send to CHIRON if strategic decision needed
+4. Alert HERMES if time-sensitive
+
+---
+
+## OUTPUT STANDARDS
+
+**Every Research Response Must Include:**
+1. Direct answer to the question asked
+2. Data with sources cited
+3. Confidence level for each claim
+4. Implications for LeverEdge
+5. Recommended next steps
+6. Open questions remaining
+
+**Formatting:**
+- Use tables for comparisons
+- Use bullet points for lists
+- Use headers for organization
+- Bold key findings
+- Include source links when available
+
+---
+
+## YOUR MISSION
+
+Provide the intelligence foundation for LeverEdge to make decisions with confidence.
+Not guesses. Not opinions. DATA.
+Every claim backed by evidence.
+Every recommendation grounded in research.
+
+{time_context['days_to_launch']} days to launch. The strategy depends on your intelligence.
 """
 
 # =============================================================================
@@ -211,6 +374,34 @@ class CompareNiches(BaseModel):
 class SendToChironRequest(BaseModel):
     topic: str
     findings: str
+
+# V2 Request Models
+class DeepResearchRequest(BaseModel):
+    question: str
+    context: Optional[str] = None
+    required_sources: Optional[int] = 5
+    deadline: Optional[str] = None
+
+class CompetitorProfileRequest(BaseModel):
+    company_name: str
+    website: Optional[str] = None
+    known_info: Optional[str] = None
+
+class MarketSizeRequest(BaseModel):
+    market: str
+    geography: Optional[str] = "United States"
+    segment: Optional[str] = None
+    time_horizon: Optional[str] = "2026"
+
+class PainDiscoveryRequest(BaseModel):
+    role: str  # e.g., "Compliance Officer at water utility"
+    industry: str
+    known_pains: Optional[List[str]] = None
+
+class ValidateAssumptionRequest(BaseModel):
+    assumption: str
+    importance: str = "high"  # high, medium, low
+    current_evidence: Optional[str] = None
 
 # =============================================================================
 # INTER-AGENT COMMUNICATION
@@ -329,6 +520,36 @@ async def call_llm(messages: list, time_ctx: dict) -> str:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM call failed: {e}")
 
+async def call_llm_with_search(messages: list, time_ctx: dict, enable_search: bool = True) -> str:
+    """Call Claude API with web search capability for real-time data"""
+    try:
+        system_prompt = build_system_prompt(time_ctx)
+
+        tools = []
+        if enable_search:
+            tools = [{
+                "type": "web_search_20250305",
+                "name": "web_search"
+            }]
+
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=8192,  # Deep research needs more space
+            system=system_prompt,
+            messages=messages,
+            tools=tools if tools else None
+        )
+
+        # Extract text from response (may include tool use blocks)
+        full_response = ""
+        for block in response.content:
+            if hasattr(block, 'text') and block.text is not None:
+                full_response += block.text
+
+        return full_response if full_response else "Research completed but no text response generated."
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM call with search failed: {e}")
+
 # =============================================================================
 # ENDPOINTS
 # =============================================================================
@@ -338,10 +559,12 @@ async def health():
     time_ctx = get_time_context()
     return {
         "status": "healthy",
-        "agent": "SCHOLAR",
-        "role": "Market Research",
+        "agent": "SCHOLAR V2",
+        "role": "Elite Market Research",
+        "version": "2.0.0",
         "port": 8018,
         "partner": "CHIRON",
+        "web_search_enabled": True,
         "current_time": time_ctx['current_datetime'],
         "days_to_launch": time_ctx['days_to_launch'],
         "phase": time_ctx['phase']
@@ -391,7 +614,12 @@ Structure your research:
 6. **CHIRON Consult?** (should this go to CHIRON for strategy?)"""
 
     messages = [{"role": "user", "content": prompt}]
-    response = await call_llm(messages, time_ctx)
+    # Use web search for standard/deep research, skip for quick queries
+    use_web_search = req.depth in ["standard", "deep"]
+    if use_web_search:
+        response = await call_llm_with_search(messages, time_ctx, enable_search=True)
+    else:
+        response = await call_llm(messages, time_ctx)
 
     # Log to knowledge base
     await update_aria_knowledge(
@@ -408,9 +636,10 @@ Structure your research:
 
     return {
         "research": response,
-        "agent": "SCHOLAR",
+        "agent": "SCHOLAR V2",
         "topic": req.topic,
         "depth": req.depth,
+        "web_search_enabled": use_web_search,
         "logged_to_knowledge": True,
         "time_context": time_ctx,
         "timestamp": time_ctx['current_datetime']
@@ -477,7 +706,7 @@ Specific questions to answer:
 - Should CHIRON review for strategic decision?"""
 
     messages = [{"role": "user", "content": prompt}]
-    response = await call_llm(messages, time_ctx)
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
 
     # Log to knowledge base (high importance - niche selection is critical)
     await update_aria_knowledge(
@@ -496,8 +725,9 @@ Specific questions to answer:
 
     return {
         "niche_analysis": response,
-        "agent": "SCHOLAR",
+        "agent": "SCHOLAR V2",
         "niche": req.niche,
+        "web_search_enabled": True,
         "logged_to_knowledge": True,
         "aria_notified": True,
         "time_context": time_ctx,
@@ -551,7 +781,7 @@ For each major competitor:
 - Differentiation strategy"""
 
     messages = [{"role": "user", "content": prompt}]
-    response = await call_llm(messages, time_ctx)
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
 
     await update_aria_knowledge(
         "research",
@@ -566,8 +796,9 @@ For each major competitor:
 
     return {
         "competitive_analysis": response,
-        "agent": "SCHOLAR",
+        "agent": "SCHOLAR V2",
         "market": req.market,
+        "web_search_enabled": True,
         "logged_to_knowledge": True,
         "time_context": time_ctx,
         "timestamp": time_ctx['current_datetime']
@@ -636,7 +867,7 @@ async def develop_icp(req: ICPRequest):
 - Disqualification criteria:"""
 
     messages = [{"role": "user", "content": prompt}]
-    response = await call_llm(messages, time_ctx)
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
 
     await update_aria_knowledge(
         "research",
@@ -651,9 +882,10 @@ async def develop_icp(req: ICPRequest):
 
     return {
         "icp": response,
-        "agent": "SCHOLAR",
+        "agent": "SCHOLAR V2",
         "product_service": req.product_service,
         "target_market": req.target_market,
+        "web_search_enabled": True,
         "logged_to_knowledge": True,
         "time_context": time_ctx,
         "timestamp": time_ctx['current_datetime']
@@ -711,7 +943,7 @@ async def research_lead(req: LeadResearch):
 - What to say?"""
 
     messages = [{"role": "user", "content": prompt}]
-    response = await call_llm(messages, time_ctx)
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
 
     await update_aria_knowledge(
         "research",
@@ -726,8 +958,9 @@ async def research_lead(req: LeadResearch):
 
     return {
         "lead_research": response,
-        "agent": "SCHOLAR",
+        "agent": "SCHOLAR V2",
         "company": req.company_name,
+        "web_search_enabled": True,
         "logged_to_knowledge": True,
         "time_context": time_ctx,
         "timestamp": time_ctx['current_datetime']
@@ -788,7 +1021,7 @@ async def compare_niches(req: CompareNiches):
 - Send to CHIRON for strategic decision? (Yes/No)"""
 
     messages = [{"role": "user", "content": prompt}]
-    response = await call_llm(messages, time_ctx)
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
 
     # This is high importance - niche selection is critical
     await update_aria_knowledge(
@@ -807,9 +1040,10 @@ async def compare_niches(req: CompareNiches):
 
     return {
         "comparison": response,
-        "agent": "SCHOLAR",
+        "agent": "SCHOLAR V2",
         "niches": req.niches,
         "criteria": criteria,
+        "web_search_enabled": True,
         "logged_to_knowledge": True,
         "aria_notified": True,
         "time_context": time_ctx,
@@ -897,6 +1131,393 @@ Think like a research director upgrading a research agent."""
         "agent": "SCHOLAR",
         "logged_to_knowledge": True,
         "timestamp": time_ctx['current_datetime']
+    }
+
+# =============================================================================
+# V2 ENDPOINTS - Web Search Enabled
+# =============================================================================
+
+@app.post("/deep-research")
+async def deep_research(req: DeepResearchRequest):
+    """Deep research with web search and synthesis"""
+
+    time_ctx = get_time_context()
+
+    prompt = f"""Conduct deep research on this question:
+
+**Question:** {req.question}
+**Context:** {req.context or 'None provided'}
+**Required Sources:** Minimum {req.required_sources}
+**Deadline:** {req.deadline or 'ASAP'}
+**Days to Launch:** {time_ctx['days_to_launch']}
+
+Use web search to find current, accurate data. For each claim:
+- Cite the source
+- Note the date of the information
+- Assess reliability
+
+Structure your response:
+## Executive Summary
+[3-5 key findings]
+
+## Methodology
+[How you researched this]
+
+## Findings
+[Organized by theme, with citations]
+
+## Data Quality
+[Confidence levels for each major claim]
+
+## Implications for LeverEdge
+[So what? What does this mean for us?]
+
+## Recommendations
+[Specific actions based on findings]
+
+## Open Questions
+[What we still need to learn]
+
+## Sources
+[Full list with URLs]
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
+
+    await update_aria_knowledge(
+        "research",
+        f"Deep Research: {req.question[:50]}...",
+        response,
+        "high"
+    )
+
+    await notify_event_bus("deep_research_complete", {
+        "question": req.question[:100]
+    })
+
+    return {
+        "research": response,
+        "agent": "SCHOLAR V2",
+        "question": req.question,
+        "web_search_enabled": True,
+        "logged_to_knowledge": True,
+        "time_context": time_ctx
+    }
+
+@app.post("/competitor-profile")
+async def competitor_profile(req: CompetitorProfileRequest):
+    """Generate structured competitor profile with web search"""
+
+    time_ctx = get_time_context()
+
+    prompt = f"""Create a comprehensive competitor profile.
+
+**Company:** {req.company_name}
+**Website:** {req.website or 'Find it'}
+**Known Info:** {req.known_info or 'None - start fresh'}
+
+Use web search to find current information. Build this profile:
+
+## Company Overview
+- **Website:** [URL]
+- **Founded:** [Year]
+- **Headquarters:** [Location]
+- **Employees:** [Range]
+- **Funding:** [Amount, investors if known]
+
+## Product/Service
+- **Core Offering:** [What they sell]
+- **Target Market:** [Who they serve]
+- **Pricing:** [If discoverable]
+- **Key Features:** [Bullet list]
+
+## Market Position
+- **Positioning:** [How they describe themselves]
+- **Key Messages:** [Marketing themes]
+- **Differentiators:** [What makes them unique]
+
+## Strengths
+[What they do well - be specific]
+
+## Weaknesses
+[Where they fall short - be specific]
+
+## Customer Evidence
+- **Case Studies:** [Any public examples]
+- **Reviews:** [G2, Capterra, etc.]
+- **Testimonials:** [Quotes if available]
+
+## Technology
+- **Stack:** [If discoverable via BuiltWith, job postings, etc.]
+- **Integrations:** [What they connect to]
+
+## Team
+- **Leadership:** [Key people]
+- **Hiring:** [What roles are open - indicates priorities]
+
+## Threat Assessment
+- **Threat Level to LeverEdge:** [High/Medium/Low]
+- **Why:** [Reasoning]
+- **How They Could Hurt Us:** [Specific scenarios]
+- **How We Beat Them:** [Our advantages]
+
+## What We Can Steal
+[Specific tactics, messaging, features to learn from]
+
+## Sources
+[All URLs used]
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
+
+    await update_aria_knowledge(
+        "research",
+        f"Competitor Profile: {req.company_name}",
+        response,
+        "high"
+    )
+
+    return {
+        "competitor_profile": response,
+        "agent": "SCHOLAR V2",
+        "company": req.company_name,
+        "web_search_enabled": True,
+        "logged_to_knowledge": True,
+        "time_context": time_ctx
+    }
+
+@app.post("/market-size")
+async def market_size(req: MarketSizeRequest):
+    """Calculate TAM/SAM/SOM with sources using web search"""
+
+    time_ctx = get_time_context()
+
+    prompt = f"""Calculate market size for LeverEdge opportunity.
+
+**Market:** {req.market}
+**Geography:** {req.geography}
+**Segment Focus:** {req.segment or 'All segments'}
+**Time Horizon:** {req.time_horizon}
+
+Use web search to find real market data. Provide:
+
+## TAM (Total Addressable Market)
+- **Definition:** [What's included]
+- **Size:** $[X] billion
+- **Calculation:** [Show your work]
+- **Sources:** [Citations]
+- **Confidence:** 🟢/🟡/🔴
+
+## SAM (Serviceable Available Market)
+- **Definition:** [How we're filtering TAM]
+- **Size:** $[X] million
+- **Calculation:** [Show your work]
+- **Key Assumptions:** [What we're assuming]
+- **Sources:** [Citations]
+- **Confidence:** 🟢/🟡/🔴
+
+## SOM (Serviceable Obtainable Market)
+- **Definition:** [What we can realistically capture]
+- **Size:** $[X] million
+- **Calculation:** [Based on capacity, competition, sales cycle]
+- **Key Assumptions:** [What needs to be true]
+- **Confidence:** 🟢/🟡/🔴
+
+## Market Dynamics
+- **Growth Rate:** [X% CAGR]
+- **Key Drivers:** [What's fueling growth]
+- **Key Risks:** [What could slow it down]
+- **Timing:** [Is now the right time?]
+
+## Competitive Intensity
+- **# of Competitors:** [Estimate]
+- **Market Concentration:** [Fragmented vs consolidated]
+- **Entry Barriers:** [What makes it hard to compete]
+
+## Implications for LeverEdge
+- **Opportunity Size:** [Is this worth pursuing?]
+- **Win Rate Needed:** [To hit $30K MRR, we need X clients at Y ACV]
+- **Recommendation:** [Go/No-Go/Need More Data]
+
+## Sources
+[All URLs and reports cited]
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
+
+    await update_aria_knowledge(
+        "research",
+        f"Market Size: {req.market}",
+        response,
+        "high"
+    )
+
+    return {
+        "market_analysis": response,
+        "agent": "SCHOLAR V2",
+        "market": req.market,
+        "geography": req.geography,
+        "web_search_enabled": True,
+        "logged_to_knowledge": True,
+        "time_context": time_ctx
+    }
+
+@app.post("/pain-discovery")
+async def pain_discovery(req: PainDiscoveryRequest):
+    """Research and quantify pain points for target role with web search"""
+
+    time_ctx = get_time_context()
+
+    known_pains_str = chr(10).join(f'- {p}' for p in req.known_pains) if req.known_pains else 'None - discover them'
+
+    prompt = f"""Research pain points for target buyer.
+
+**Role:** {req.role}
+**Industry:** {req.industry}
+**Known Pains:** {known_pains_str}
+
+Use web search to find real evidence. Structure:
+
+## Role Context
+- **Day in the Life:** [What do they actually do?]
+- **Goals:** [What are they measured on?]
+- **Tools Used:** [Current tech stack]
+- **Reports To:** [Who's their boss?]
+- **Budget Authority:** [Can they buy $5K-50K solutions?]
+
+## Top 5 Pain Points
+
+### Pain 1: [Name]
+- **Description:** [What's the problem?]
+- **Frequency:** [How often does it occur?]
+- **Impact:** [What happens when it does?]
+- **Current Solution:** [How do they handle it now?]
+- **Quantified Cost:** [Hours/dollars wasted]
+- **Evidence:** [Source]
+- **Severity Score:** [1-10]
+
+### Pain 2: [Name]
+[Same structure]
+
+### Pain 3: [Name]
+[Same structure]
+
+### Pain 4: [Name]
+[Same structure]
+
+### Pain 5: [Name]
+[Same structure]
+
+## Pain Prioritization Matrix
+| Pain | Frequency | Impact | Urgency | Awareness | TOTAL |
+|------|-----------|--------|---------|-----------|-------|
+| [1]  | [1-10]    | [1-10] | [1-10]  | [1-10]    | [/40] |
+| [2]  | [1-10]    | [1-10] | [1-10]  | [1-10]    | [/40] |
+| [3]  | [1-10]    | [1-10] | [1-10]  | [1-10]    | [/40] |
+| [4]  | [1-10]    | [1-10] | [1-10]  | [1-10]    | [/40] |
+| [5]  | [1-10]    | [1-10] | [1-10]  | [1-10]    | [/40] |
+
+## Trigger Events
+[What causes them to seek solutions?]
+
+## Buying Objections
+[What would stop them from buying?]
+
+## Messaging Implications
+- **Hook:** [What gets their attention?]
+- **Pain Statement:** [How to articulate the problem]
+- **Solution Frame:** [How to position LeverEdge]
+
+## Sources
+[All citations]
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
+
+    await update_aria_knowledge(
+        "research",
+        f"Pain Discovery: {req.role} in {req.industry}",
+        response,
+        "high"
+    )
+
+    return {
+        "pain_research": response,
+        "agent": "SCHOLAR V2",
+        "role": req.role,
+        "industry": req.industry,
+        "web_search_enabled": True,
+        "logged_to_knowledge": True,
+        "time_context": time_ctx
+    }
+
+@app.post("/validate-assumption")
+async def validate_assumption(req: ValidateAssumptionRequest):
+    """Test a business assumption with research using web search"""
+
+    time_ctx = get_time_context()
+
+    prompt = f"""Validate or invalidate this business assumption.
+
+**Assumption:** {req.assumption}
+**Importance:** {req.importance}
+**Current Evidence:** {req.current_evidence or 'None - need to find it'}
+
+Use web search to find supporting and contradicting evidence.
+
+## Assumption Analysis
+
+### Evidence FOR (supports the assumption)
+1. [Finding + source]
+2. [Finding + source]
+3. [Finding + source]
+
+### Evidence AGAINST (contradicts the assumption)
+1. [Finding + source]
+2. [Finding + source]
+3. [Finding + source]
+
+### Verdict
+- **Status:** ✅ VALIDATED / ❌ INVALIDATED / ⚠️ UNCERTAIN
+- **Confidence:** 🟢 High / 🟡 Medium / 🔴 Low
+- **Reasoning:** [Why this verdict]
+
+### Implications
+- **If True:** [What this means for LeverEdge]
+- **If False:** [What this means for LeverEdge]
+
+### Recommended Action
+[What should Damon do based on this?]
+
+### Further Validation Needed
+[What would increase confidence?]
+
+## Sources
+[All citations]
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm_with_search(messages, time_ctx, enable_search=True)
+
+    await update_aria_knowledge(
+        "research",
+        f"Assumption Validated: {req.assumption[:50]}...",
+        response,
+        "high" if req.importance == "high" else "normal"
+    )
+
+    return {
+        "validation": response,
+        "agent": "SCHOLAR V2",
+        "assumption": req.assumption,
+        "importance": req.importance,
+        "web_search_enabled": True,
+        "logged_to_knowledge": True,
+        "time_context": time_ctx
     }
 
 
