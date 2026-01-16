@@ -20,6 +20,43 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-16 21:35 - [CHIRON V2 Elite Business Mentor Upgrade]
+**Upgrade:** CHIRON v1.0 → v2.0
+**Container:** Rebuilt and deployed to control-plane-net
+
+**New Endpoints (4):**
+- `/sprint-plan` - ADHD-optimized sprint planning with time blocks
+- `/pricing-help` - Value-based pricing strategy with ROI framing
+- `/fear-check` - Rapid fear analysis with portfolio evidence
+- `/weekly-review` - Structured accountability review
+
+**New Frameworks (4):**
+- `adhd` - ADHD Launch Framework (10 principles)
+- `pricing` - Pricing Framework (10 principles)
+- `sales` - Sales Framework (10 principles)
+- `mvp` - MVP-to-Scale Framework (10 principles)
+
+**Enhanced System Prompt:**
+- Strategic frameworks: OODA Loop, Eisenhower Matrix, 10X Thinking, Inversion, First Principles
+- ADHD-optimized patterns with procrastination decoder
+- Pricing psychology (anchoring, three-tier, ROI framing)
+- Sales psychology (Trust Equation, pain > features, objection reframes)
+- Hyperfocus trap detection with immediate callouts
+- Red flags section with specific responses
+
+**Deployment Note:** CHIRON container not in docker-compose.yml - runs standalone. Rebuild with:
+```bash
+cd /opt/leveredge/control-plane/agents/chiron
+docker build -t n8n-chiron:latest .
+docker stop chiron && docker rm chiron
+docker run -d --name chiron --network control-plane-net -p 8017:8017 \
+  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+  -e EVENT_BUS_URL=http://event-bus:8099 \
+  -e SUPABASE_URL=http://supabase-kong:8000 \
+  -e SUPABASE_ANON_KEY="..." \
+  n8n-chiron:latest
+```
+
 ### 2026-01-17 - [SCHOLAR Agent Built - CHIRON's Research Partner]
 **Port:** 8018
 **Container:** scholar (n8n-scholar:latest)
