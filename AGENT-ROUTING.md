@@ -19,6 +19,7 @@
 | Check monitoring/metrics | ARGUS | API call |
 | Audit logs/anomalies | ALOY | API call |
 | Generate documentation | ATHENA | API call |
+| Business decisions/accountability | CHIRON | API call (LLM-powered) |
 | Update portfolio | GSD → Supabase + Event Bus | Notify ARIA |
 | Update knowledge base | GSD → aria_knowledge + Event Bus | Notify ARIA |
 | Emergency restore | GAIA | Manual trigger only |
@@ -194,6 +195,56 @@ curl http://localhost:8015/anomalies
 curl -X POST http://localhost:8013/generate \
   -H "Content-Type: application/json" \
   -d '{"type": "readme", "path": "/opt/leveredge/"}'
+```
+
+---
+
+### CHIRON (Business Mentor) - Port 8017
+**Use for:**
+- Strategic business decisions
+- Accountability checks
+- Challenging assumptions and beliefs
+- Hype/motivation based on actual wins
+- Decision frameworks
+- Pushing through fear/procrastination
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /health | GET | Health + time context |
+| /time | GET | Current time awareness |
+| /team | GET | Agent roster |
+| /chat | POST | General conversation |
+| /decide | POST | Decision framework |
+| /accountability | POST | Accountability check |
+| /challenge | POST | Challenge assumptions |
+| /hype | POST | Evidence-based motivation |
+| /framework/{type} | GET | Get frameworks (decision, accountability, strategic, fear, launch) |
+| /agent/call | POST | Call other agents |
+| /upgrade-self | POST | Propose self-improvements |
+
+**Team Integration:**
+- Time-aware (days to launch, current phase)
+- Portfolio-aware (cites actual wins)
+- Event Bus integration
+- ARIA knowledge updates
+- HERMES notifications (critical decisions)
+- Inter-agent communication
+
+**Trigger Example:**
+```bash
+# Get accountability check
+curl -X POST http://localhost:8017/accountability \
+  -H "Content-Type: application/json" \
+  -d '{"commitment": "10 outreach messages", "deadline": "2026-01-17 5PM"}'
+
+# Challenge a belief
+curl -X POST http://localhost:8017/challenge \
+  -H "Content-Type: application/json" \
+  -d '{"assumption": "I need more features before outreach"}'
+
+# Get hype boost
+curl -X POST http://localhost:8017/hype
 ```
 
 ---
