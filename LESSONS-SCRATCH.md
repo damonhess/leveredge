@@ -20,6 +20,82 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-17 00:35 - [OLYMPUS Unified Orchestration System]
+**Status:** Deployed and verified
+**Scope:** ATLAS (8007), SENTINEL (8019), Agent Registry
+
+**Created:**
+- `/opt/leveredge/config/agent-registry.yaml` - Single source of truth (1526 lines)
+- `/opt/leveredge/control-plane/agents/atlas/` - FastAPI orchestration engine
+- `/opt/leveredge/control-plane/agents/sentinel/` - Smart router with failover
+
+**Architecture:**
+```
+ARIA/Telegram/CLI → SENTINEL (router) → ATLAS (orchestrator) → Agents
+                                      ↓
+                              n8n ATLAS (visual fallback)
+```
+
+**Agent Registry Contains:**
+- 11 agents: SCHOLAR, CHIRON, HERMES, CHRONOS, HADES, AEGIS, ARGUS, ALOY, ATHENA, HEPHAESTUS, EVENT-BUS
+- Full action definitions with params, returns, timeouts
+- 7 pre-built chains: research-and-plan, validate-and-decide, comprehensive-market-analysis, niche-evaluation, weekly-planning, fear-to-action, safe-deployment
+- Routing rules and intent patterns
+
+**SENTINEL Features:**
+- Smart routing (complexity-based: simple → direct, complex → ATLAS)
+- Health monitoring with circuit breaker
+- Auto-failover between n8n and FastAPI
+- Sync validation endpoint
+
+**ATLAS Features:**
+- Chain execution with parallel/sequential steps
+- Template rendering for dynamic params
+- Retry logic with configurable attempts
+- Cost tracking per execution
+- Event bus publishing
+
+**Container Setup:**
+```bash
+docker run -d --name atlas --network control-plane-net -p 8007:8007 \
+  -v /opt/leveredge/config:/opt/leveredge/config:ro \
+  -e REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml \
+  -e EVENT_BUS_URL=http://event-bus:8099 \
+  n8n-atlas:latest && docker network connect stack_net atlas
+
+docker run -d --name sentinel --network control-plane-net -p 8019:8019 \
+  -v /opt/leveredge/config:/opt/leveredge/config:ro \
+  -e REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml \
+  -e EVENT_BUS_URL=http://event-bus:8099 \
+  -e FASTAPI_ATLAS_URL=http://atlas:8007 \
+  n8n-sentinel:latest && docker network connect stack_net sentinel
+```
+
+**Test Commands:**
+```bash
+# Health checks
+curl http://localhost:8007/health  # ATLAS
+curl http://localhost:8019/health  # SENTINEL
+curl http://localhost:8019/status  # Engine status
+
+# Single agent via orchestration
+curl -X POST http://localhost:8019/orchestrate -H "Content-Type: application/json" \
+  -d '{"source":"test","type":"single","steps":[{"id":"t1","agent":"chiron","action":"hype","params":{}}]}'
+
+# Direct routing (bypass orchestration)
+curl -X POST http://localhost:8019/direct/argus/status
+
+# Sync validation
+curl http://localhost:8019/validate-sync
+
+# List chains
+curl http://localhost:8007/chains | jq '.chains[].name'
+```
+
+**Deferred Work:**
+- n8n ATLAS workflow (FastAPI handles orchestration)
+- ARIA integration (requires workflow updates)
+
 ### 2026-01-16 23:35 - [Universal Cost Tracking Infrastructure]
 **Status:** Deployed and verified
 **Scope:** CHIRON, SCHOLAR, ARGUS
