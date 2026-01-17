@@ -579,6 +579,29 @@ docker run -d --name chiron --network control-plane-net -p 8017:8017 \
 **Fix:** Add `HOSTNAME: "::"` env var to force binding to all interfaces (same as PROD)
 **Prevention:** Always include `HOSTNAME: "::"` in Supabase Studio container configs
 
+### 2026-01-17 00:35 - [HEPHAESTUS → OLYMPUS Bridge]
+**Scope:** MCP server orchestration tools for Claude Web
+**Changes:**
+- Added `orchestrate` MCP tool with chain_name OR agent+action support
+- Added `list_chains` and `list_agents` helper tools
+- Routes through SENTINEL (8019) with automatic fallback to ATLAS (8007)
+- Formats response for Claude Web consumption
+
+**New Environment Variables:**
+- `SENTINEL_URL` (default: http://sentinel:8019)
+- `ATLAS_URL` (default: http://atlas:8007)
+
+**Usage Pattern:**
+```python
+# Chain execution
+{"chain_name": "research-and-plan", "input": {"topic": "compliance automation"}}
+
+# Single agent call
+{"agent": "chiron", "action": "chat", "params": {"message": "..."}}
+```
+
+**Key Lesson:** HEPHAESTUS is MCP server (not FastAPI), so spec endpoints become MCP tools instead. Same logic, different interface.
+
 ---
 
 *Add new entries above this line*
