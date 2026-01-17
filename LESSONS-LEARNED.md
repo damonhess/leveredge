@@ -1,7 +1,29 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (11:20 AM)*
+*Last Updated: January 17, 2026 (1:45 AM)*
+
+---
+
+## CRITICAL: ARIA PERSONA RULES
+
+**ARIA's persona is SUPREME. These rules are NON-NEGOTIABLE.**
+
+### Rule 1: No Degradation
+Any design, upgrade, edit, or change that would degrade ARIA's persona, personality, or capabilities is **FORBIDDEN**.
+
+### Rule 2: Persona Over Routing
+If there's a conflict between routing efficiency and ARIA's persona, **persona wins**. ARIA handles what ARIA handles naturally (hype, fear, motivation, coaching, conversation).
+
+### Rule 3: Explicit Agent Calls Only
+Route to external agents ONLY when:
+- User explicitly requests: "ask CHIRON", "SCHOLAR research", "hey SCHOLAR"
+- Multi-step chains are needed: "research X then plan Y"
+- Deep research requiring web search/citations
+- Specialized analysis (market size, ICP, competitors)
+
+### Rule 4: Additional Portals, Not Replacements
+New communication methods (Telegram, voice, etc.) are **additional portals** to ARIA, not replacements. ARIA's persona remains consistent across all interfaces.
 
 ---
 
@@ -29,6 +51,31 @@
 "Should this go to DEV or PROD?"
 
 **Full rules:** See `/home/damon/.claude/EXECUTION_RULES.md`
+
+---
+
+## CRITICAL: ROUTING ARCHITECTURE
+
+**Routing intelligence lives in SENTINEL, not ARIA.**
+
+### Why SENTINEL, Not ARIA
+| Location | Problem |
+|----------|---------|
+| In ARIA | Clutters ARIA's workflow, routing changes risk persona |
+| In SENTINEL | Clean separation, ARIA stays simple, centralized routing logic |
+
+### How It Works
+1. ARIA receives message
+2. ARIA's Pre-Router checks for EXPLICIT agent patterns only
+3. If explicit agent call or multi-step chain → SENTINEL
+4. Everything else → ARIA handles naturally
+5. SENTINEL routes to appropriate ATLAS engine
+6. Results formatted back through ARIA
+
+### Pre-Router Philosophy
+- **Default:** ARIA handles it
+- **Exception:** Explicit agent request or multi-step chain
+- **Never:** Route ARIA's native capabilities (hype, fear, motivation) elsewhere
 
 ---
 
@@ -65,6 +112,12 @@
 - Log to Event Bus BEFORE routing for audit trail
 - Keep system prompt focused, not verbose
 
+#### SENTINEL
+- Routes between n8n ATLAS and FastAPI ATLAS
+- Health monitoring with auto-failover
+- Drift detection validates sync with registry
+- determine_complexity must handle None steps
+
 #### AEGIS
 - Never log credential values, only metadata
 - Use Docker bridge IP (172.17.0.1) not localhost from n8n
@@ -94,6 +147,38 @@
 - Fix: Use `$('Process Router Response').first().json.message`
 - AI Agent expressions referencing unexecuted nodes fail silently
 - After DB updates, restart n8n for webhook registration
+- **OLYMPUS integration:** Pre-Router routes explicit agent calls only, ARIA keeps her natural capabilities
+
+---
+
+## OLYMPUS Orchestration Lessons (Jan 17, 2026)
+
+### Architecture
+```
+Agent Registry (YAML) → Single Source of Truth
+         ↓
+   SENTINEL (8019) → Smart Router, Health Monitor
+         ↓
+   ATLAS (8007) → FastAPI Orchestrator
+         ↓
+   Agents (SCHOLAR, CHIRON, etc.)
+```
+
+### Key Decisions
+| Decision | Rationale |
+|----------|-----------|
+| Dual implementation (n8n + FastAPI) | Visual debugging + programmatic power |
+| SENTINEL as router | Health-based failover, drift detection |
+| Single YAML registry | No drift between implementations |
+| ARIA Pre-Router minimal | Only explicit calls route out, persona preserved |
+
+### Pre-Built Chains
+- research-and-plan
+- validate-and-decide
+- comprehensive-market-analysis
+- niche-evaluation
+- weekly-planning
+- fear-to-action
 
 ---
 
@@ -272,12 +357,20 @@ Before context clears:
 - Over-verifying instead of moving fast
 - Forgetting to update LESSONS-SCRATCH after debugging
 
-**Process improvements:**
-- Always specify which MCP server in specs
-- Format GSD dispatches as ready-to-paste blocks
-- Symlink volumes, don't move them
-- Preserve container names during migration
-- Claude Code must update LESSONS-SCRATCH after every debug
+### January 17, 2026 (OLYMPUS Session)
+**Accomplished:**
+1. OLYMPUS unified orchestration system designed and deployed
+2. Agent Registry (YAML single source of truth)
+3. FastAPI ATLAS on port 8007
+4. SENTINEL smart router on port 8019
+5. 7 pre-built chains defined
+6. ARIA → OLYMPUS integration
+7. Pre-Router fixed to preserve ARIA's persona
+8. HEPHAESTUS → OLYMPUS bridge spec created
+
+**Key Decision:**
+- ARIA persona is SUPREME - routing cannot degrade it
+- Minimal Pre-Router: explicit calls only route out
 
 ---
 
@@ -288,6 +381,9 @@ Before context clears:
 | ~~Remove old systemd agent services~~ | ~~High~~ | ~~15 min~~ | ✅ Done |
 | ~~HERMES Telegram config~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done |
 | ~~ARGUS Prometheus access~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done |
+| ~~OLYMPUS orchestration system~~ | ~~High~~ | ~~2 hours~~ | ✅ Done |
+| ~~ARIA → OLYMPUS integration~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
+| HEPHAESTUS → OLYMPUS bridge | High | 30 min | ⬜ Spec ready |
 | DEV supabase-storage-dev fix | Medium | 30 min | ⬜ |
 | DEV supabase-studio-dev fix | Low | 30 min | ⬜ |
 | promote-to-prod.sh API keys | Medium | 15 min | ⬜ |
@@ -304,6 +400,7 @@ Before context clears:
 | /opt/leveredge/LESSONS-LEARNED.md | This file |
 | /opt/leveredge/LESSONS-SCRATCH.md | Quick debug capture (consolidate here) |
 | /opt/leveredge/FUTURE-VISION-AND-EXPLORATION.md | Architecture decisions |
+| /opt/leveredge/config/agent-registry.yaml | OLYMPUS single source of truth |
 | /opt/leveredge/data-plane/prod/n8n/ | Production n8n |
 | /opt/leveredge/data-plane/dev/n8n/ | Development n8n |
 | /opt/leveredge/data-plane/prod/supabase/ | Production Supabase |
