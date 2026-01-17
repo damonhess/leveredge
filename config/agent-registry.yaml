@@ -7,8 +7,8 @@
 # ║  ATHENA can auto-generate n8n workflows from this.                            ║
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-version: "2.1"
-updated: "2026-01-17T20:00:00Z"
+version: "2.2"
+updated: "2026-01-17T22:00:00Z"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GLOBAL CONFIGURATION
@@ -22,18 +22,32 @@ config:
   retry_delay_ms: 1000
   circuit_breaker_threshold: 5
   circuit_breaker_reset_ms: 30000
-  
+
   # Cost tracking
   cost_tracking_enabled: true
   cost_log_table: agent_usage_logs
-  
+
   # Event bus
   event_bus_url: http://event-bus:8099
   publish_events: true
-  
+
   # Health check intervals
   health_check_interval_ms: 30000
   health_check_timeout_ms: 5000
+
+  # ARIA Omniscience (all agents report to ARIA)
+  aria_omniscience:
+    enabled: true
+    ingest_url: http://aria-omniscience:8112
+    shared_module: /opt/leveredge/shared/aria_reporter.py
+    required_events:
+      - action_taken
+      - decision_made
+      - error_occurred
+    optional_events:
+      - fact_learned
+      - task_completed
+      - external_call
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # AGENT DEFINITIONS
@@ -2732,6 +2746,277 @@ agents:
           type: object
           fields: [trends, implications, opportunities]
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SOLON - Legal Advisor
+  # ─────────────────────────────────────────────────────────────────────────────
+  solon:
+    name: SOLON
+    version: "1.0"
+    description: "Legal Advisor - Legal research, contract review, compliance"
+    category: professional
+    llm_powered: true
+
+    connection:
+      url: http://solon:8210
+      health_endpoint: /health
+      timeout_ms: 90000
+
+    capabilities:
+      - legal_research
+      - contract_review
+      - compliance_checking
+      - jurisdiction_guidance
+
+    aria_reporting:
+      enabled: true
+      domains: [legal, compliance]
+      importance_threshold: low
+
+    actions:
+
+      question:
+        endpoint: /legal/question
+        method: POST
+        description: "Ask a legal question"
+        timeout_ms: 60000
+        params:
+          - name: question
+            type: string
+            required: true
+          - name: jurisdiction
+            type: string
+            required: false
+            enum: [CA, NV, US, FEDERAL]
+          - name: context
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [answer, confidence_score, confidence_level, citations, disclaimer]
+
+      contract-review:
+        endpoint: /legal/contract-review
+        method: POST
+        description: "Analyze a contract for risks and key terms"
+        timeout_ms: 90000
+        params:
+          - name: contract_text
+            type: string
+            required: true
+          - name: contract_type
+            type: string
+            required: false
+          - name: focus_areas
+            type: array
+            required: false
+          - name: jurisdiction
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [summary, risk_assessment, flagged_clauses, recommendations, disclaimer]
+
+      compliance-check:
+        endpoint: /legal/compliance-check
+        method: POST
+        description: "Check business compliance with legal requirements"
+        timeout_ms: 60000
+        params:
+          - name: business_type
+            type: string
+            required: true
+            enum: [LLC, Corp, Sole_Prop]
+          - name: jurisdiction
+            type: string
+            required: true
+          - name: check_types
+            type: array
+            required: true
+        returns:
+          type: object
+          fields: [overall_status, checks, action_items, disclaimer]
+
+      research:
+        endpoint: /legal/research
+        method: POST
+        description: "Deep legal research on a topic"
+        timeout_ms: 120000
+        cost_tier: high
+        params:
+          - name: topic
+            type: string
+            required: true
+          - name: jurisdiction
+            type: string
+            required: false
+          - name: research_depth
+            type: string
+            required: false
+            enum: [quick, standard, comprehensive]
+        returns:
+          type: object
+          fields: [research_memo, statutes, cases, confidence_score, disclaimer]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CROESUS - Tax & Wealth Advisor
+  # ─────────────────────────────────────────────────────────────────────────────
+  croesus:
+    name: CROESUS
+    version: "1.0"
+    description: "Tax & Wealth Advisor - Tax planning, deductions, wealth building"
+    category: professional
+    llm_powered: true
+
+    connection:
+      url: http://croesus:8211
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - tax_planning
+      - deduction_identification
+      - tax_estimation
+      - wealth_building
+      - deadline_tracking
+
+    aria_reporting:
+      enabled: true
+      domains: [tax, finance, wealth]
+      importance_threshold: low
+
+    coordination:
+      solon: "legal/tax overlap"
+      plutus: "investment tax implications"
+
+    actions:
+
+      question:
+        endpoint: /tax/question
+        method: POST
+        description: "Ask a tax question"
+        timeout_ms: 45000
+        params:
+          - name: question
+            type: string
+            required: true
+          - name: jurisdiction
+            type: string
+            required: false
+            enum: [federal, CA, NV]
+          - name: context
+            type: object
+            required: false
+        returns:
+          type: object
+          fields: [answer, confidence_score, citations, disclaimer]
+
+      estimate:
+        endpoint: /tax/estimate
+        method: POST
+        description: "Estimate tax liability"
+        timeout_ms: 30000
+        params:
+          - name: tax_year
+            type: integer
+            required: true
+          - name: gross_income
+            type: number
+            required: true
+          - name: deductions
+            type: object
+            required: false
+          - name: filing_status
+            type: string
+            required: true
+          - name: state
+            type: string
+            required: true
+          - name: business_type
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [estimate, breakdown, quarterly_payments, disclaimer]
+
+      deductions:
+        endpoint: /tax/deductions
+        method: POST
+        description: "Find potential tax deductions"
+        timeout_ms: 45000
+        params:
+          - name: business_type
+            type: string
+            required: true
+          - name: industry
+            type: string
+            required: false
+          - name: work_from_home
+            type: boolean
+            required: false
+          - name: current_deductions
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [potential_deductions, commonly_missed, documentation_checklist]
+
+      planning:
+        endpoint: /tax/planning
+        method: POST
+        description: "Get tax planning strategies"
+        timeout_ms: 60000
+        cost_tier: medium
+        params:
+          - name: current_situation
+            type: object
+            required: true
+          - name: goals
+            type: array
+            required: false
+          - name: planning_horizon
+            type: string
+            required: false
+            enum: [annual, multi_year]
+        returns:
+          type: object
+          fields: [strategies, recommended_actions, timeline, disclaimer]
+
+      deadlines:
+        endpoint: /tax/deadlines
+        method: GET
+        description: "Get upcoming tax deadlines"
+        timeout_ms: 10000
+        params:
+          - name: days_ahead
+            type: integer
+            required: false
+            default: 90
+        returns:
+          type: object
+          fields: [deadlines, next_deadline, alerts]
+
+      wealth-strategy:
+        endpoint: /wealth/strategy
+        method: POST
+        description: "Get wealth building guidance"
+        timeout_ms: 45000
+        params:
+          - name: current_income
+            type: number
+            required: true
+          - name: savings_rate
+            type: number
+            required: false
+          - name: existing_accounts
+            type: array
+            required: false
+          - name: goals
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [recommendations, account_comparison, milestones, disclaimer]
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CHAIN DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3302,3 +3587,30 @@ intent_patterns:
       - "check (brand|quality|compliance)"
       - "fact.check"
       - "proofread"
+
+    # Professional Fleet routing
+    solon:
+      - "legal (question|advice|info)"
+      - "contract (review|analysis)"
+      - "compliance (check|requirement)"
+      - "is it legal"
+      - "llc|corporation|business formation"
+      - "employment (law|regulation)"
+      - "can i (legally|sue|do)"
+      - "what are my (rights|obligations)"
+      - "california (law|regulation)"
+      - "nevada (law|regulation)"
+
+    croesus:
+      - "tax (question|planning|strategy)"
+      - "deduction"
+      - "estimated tax"
+      - "quarterly (payment|tax)"
+      - "s.?corp"
+      - "llc tax"
+      - "retirement (account|planning|contribution)"
+      - "sep.?ira|solo 401k"
+      - "wealth (building|strategy)"
+      - "how much tax"
+      - "california tax"
+      - "nevada tax"
