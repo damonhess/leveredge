@@ -670,3 +670,37 @@ docker run -d --name chiron --network control-plane-net -p 8017:8017 \
 **Remaining Phases (Not Yet Built):**
 - Phase 2: grow_session, habit_designer, energy_optimizer, decision_accelerator, resistance_decoder
 - Phase 3: coaching_insights, system_architect, identity_shifter
+
+### 2026-01-17 02:57 - [ARIA Coaching Tools - Tier 2]
+**Status:** Deployed to DEV
+**Scope:** DEV n8n workflows + ARIA AI Agent
+
+**Tier 2 Tools Added:**
+1. **grow_session** (21 - GROW Session) - GROW model coaching (Goal → Reality → Options → Will)
+2. **habit_designer** (22 - Habit Designer) - Habit stacking, cue-routine-reward loops, 2-minute rule
+3. **energy_optimizer** (23 - Energy Optimizer) - Energy pattern mapping, ADHD support, optimal task matching
+4. **decision_accelerator** (24 - Decision Accelerator) - OODA Loop, Eisenhower Matrix, 10-10-10, Regret Minimization
+5. **resistance_decoder** (25 - Resistance Decoder) - Procrastination root cause analysis (fear, overwhelm, perfectionism, boredom)
+
+**Database Tables Created:**
+- aria_wheel_of_life, aria_values, aria_daily_checkins, aria_goals (Tier 1)
+- aria_grow_sessions, aria_habits, aria_habit_completions (Tier 2)
+- aria_energy_logs, aria_decisions, aria_resistance_patterns (Tier 2)
+- aria_commitments, aria_coaching_sessions, aria_tool_analytics (Shared)
+
+**Helper Functions:**
+- aria_get_latest_wheel() - Get most recent wheel of life assessment
+- aria_compare_wheels() - Compare current vs previous assessments
+- aria_record_tool_usage() - Track tool usage analytics
+
+**Lesson Learned:**
+- n8n import:workflow command requires workflow ID field, otherwise fails with FK constraint
+- Direct SQL inserts work better than n8n CLI for bulk workflow imports
+- Tool nodes use @n8n/n8n-nodes-langchain.toolWorkflow type with ai_tool connection
+
+**Trigger Phrases:**
+- grow_session: "coach me", "I'm stuck", "help me figure out"
+- habit_designer: "build a habit", "be more consistent", "daily routine"
+- energy_optimizer: "I'm tired", "no energy", "when am I most productive"
+- decision_accelerator: "I can't decide", "I'm torn between", "should I"
+- resistance_decoder: "I should probably", "I'll get to it later", "I don't feel like"

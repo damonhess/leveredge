@@ -1,0 +1,402 @@
+{
+  "name": "21 - GROW Session",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "grow-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        100,
+        300
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'start' }}"
+            },
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "type": "string",
+              "value": "={{ $json.session_id || '' }}"
+            },
+            {
+              "id": "topic",
+              "name": "topic",
+              "type": "string",
+              "value": "={{ $json.topic || '' }}"
+            },
+            {
+              "id": "response",
+              "name": "response",
+              "type": "string",
+              "value": "={{ $json.response || '' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "grow-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        320,
+        300
+      ],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "start",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "start",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "grow-router",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        540,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\n\n// Start new GROW session\nconst sessionId = crypto.randomUUID();\n\nreturn [{\n  json: {\n    status: 'new_session',\n    session_id: sessionId,\n    topic: input.topic,\n    current_phase: 'goal',\n    save_to_db: true,\n    questions: {\n      goal: [\n        \"What would you like to work on today?\",\n        \"What's the specific outcome you want to achieve?\",\n        \"What would success look like?\",\n        \"How will you know when you've achieved it?\",\n        \"On a scale of 1-10, how important is this goal?\"\n      ]\n    },\n    prompt: `Let's start a GROW coaching session.\\n\\n🎯 GOAL PHASE\\n\\nFirst, let's get crystal clear on what you want to achieve.\\n\\n1. What would you like to work on today?\\n2. What's the specific outcome you want?\\n3. What does success look like?\\n\\nTake your time - clarity here makes everything else easier.`\n  }\n}];"
+      },
+      "id": "grow-start",
+      "name": "Start Session",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        760,
+        180
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM aria_grow_sessions WHERE id = $1::uuid AND user_id = $2",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.user_id] }}"
+        }
+      },
+      "id": "grow-get-session",
+      "name": "Get Session",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        760,
+        420
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst session = $('Get Session').first().json;\nconst response = input.response;\n\nif (!session || !session.id) {\n  return [{\n    json: {\n      status: 'error',\n      message: 'Session not found. Start a new session with operation: start'\n    }\n  }];\n}\n\nconst phase = session.current_phase;\nlet nextPhase = phase;\nlet update = {};\nlet prompt = '';\n\n// Process response based on current phase\nswitch(phase) {\n  case 'goal':\n    update.goal_summary = response;\n    nextPhase = 'reality';\n    prompt = `Great goal clarity!\\n\\n📍 REALITY PHASE\\n\\nNow let's understand where you are right now:\\n\\n1. What's your current situation regarding this goal?\\n2. What have you tried so far?\\n3. What's working? What's not?\\n4. What resources do you have available?\\n5. What obstacles are you facing?\\n\\nBe honest - we need a clear picture of reality.`;\n    break;\n    \n  case 'reality':\n    update.reality_summary = response;\n    nextPhase = 'options';\n    prompt = `Good reality check.\\n\\n💡 OPTIONS PHASE\\n\\nNow let's brainstorm possibilities:\\n\\n1. What are ALL the ways you could approach this? (No judgment yet)\\n2. What would you do if money/time weren't constraints?\\n3. What would someone you admire do?\\n4. What's the smallest step you could take?\\n5. What's the boldest move you could make?\\n\\nList at least 5 options before evaluating any.`;\n    break;\n    \n  case 'options':\n    // Parse options from response\n    const options = response.split('\\n').filter(o => o.trim());\n    update.options_list = JSON.stringify(options);\n    nextPhase = 'will';\n    prompt = `Great options!\\n\\n⚡ WILL PHASE\\n\\nTime to commit to action:\\n\\n1. Which option will you pursue?\\n2. What's your FIRST concrete step?\\n3. When will you take it? (Be specific: day/time)\\n4. What might get in your way?\\n5. How will you handle those obstacles?\\n6. Who can support you?\\n7. On a scale of 1-10, how committed are you?\\n\\nLet's lock in a real commitment.`;\n    break;\n    \n  case 'will':\n    update.will_commitment = response;\n    nextPhase = 'complete';\n    update.completed_at = new Date().toISOString();\n    prompt = `GROW Session Complete! 🎯\\n\\n📋 SESSION SUMMARY:\\n\\n🎯 Goal: ${session.goal_summary}\\n📍 Reality: ${session.reality_summary}\\n💡 Options explored: ${session.options_list}\\n⚡ Commitment: ${response}\\n\\n✅ You've made a clear commitment. Now execute.\\n\\nI'll check in on your progress. What support do you need to make this happen?`;\n    break;\n}\n\nreturn [{\n  json: {\n    status: 'continue',\n    session_id: session.id,\n    previous_phase: phase,\n    current_phase: nextPhase,\n    update: update,\n    prompt: prompt,\n    save_to_db: true\n  }\n}];"
+      },
+      "id": "grow-process",
+      "name": "Process Response",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        980,
+        420
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "grow-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1200,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO aria_grow_sessions (id, user_id, topic, current_phase, goal_summary) VALUES ($1::uuid, $2, $3, 'goal', '') ON CONFLICT DO NOTHING RETURNING *",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $('Extract Input').first().json.user_id, $json.topic] }}"
+        }
+      },
+      "id": "grow-save-new",
+      "name": "Save New Session",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1420,
+        180
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE aria_grow_sessions SET current_phase = $1, goal_summary = COALESCE($2, goal_summary), reality_summary = COALESCE($3, reality_summary), options_list = COALESCE($4::jsonb, options_list), will_commitment = COALESCE($5, will_commitment), completed_at = $6::timestamptz WHERE id = $7::uuid RETURNING *",
+        "options": {
+          "queryReplacement": "={{ [$json.current_phase, $json.update?.goal_summary || null, $json.update?.reality_summary || null, $json.update?.options_list || null, $json.update?.will_commitment || null, $json.update?.completed_at || null, $json.session_id] }}"
+        }
+      },
+      "id": "grow-update",
+      "name": "Update Session",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1420,
+        420
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('grow_session', true, null)",
+        "options": {}
+      },
+      "id": "grow-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1640,
+        300
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ JSON.stringify($json.status === 'new_session' ? $('Start Session').first().json : $('Process Response').first().json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "grow-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1860,
+        300
+      ],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Start Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start Session": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Session": {
+      "main": [
+        [
+          {
+            "node": "Process Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Response": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Save New Session",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Update Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save New Session": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Session": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "kPXO69yh9vEo2bFQ"
+}

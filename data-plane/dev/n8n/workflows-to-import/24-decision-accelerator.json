@@ -1,0 +1,274 @@
+{
+  "name": "24 - Decision Accelerator",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "decision-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        100,
+        300
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'analyze' }}"
+            },
+            {
+              "id": "decision",
+              "name": "decision",
+              "type": "string",
+              "value": "={{ $json.decision || '' }}"
+            },
+            {
+              "id": "framework",
+              "name": "framework",
+              "type": "string",
+              "value": "={{ $json.framework || 'auto' }}"
+            },
+            {
+              "id": "options",
+              "name": "options",
+              "type": "string",
+              "value": "={{ $json.options || '' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "decision-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        320,
+        300
+      ],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst decision = input.decision;\nconst requestedFramework = input.framework;\n\nif (!decision) {\n  return [{\n    json: {\n      status: 'needs_input',\n      message: `What decision are you facing?\\n\\n📋 FRAMEWORKS AVAILABLE:\\n\\n1. OODA Loop - For fast, tactical decisions\\n   Use when: Quick action needed, competitive situation\\n\\n2. Eisenhower Matrix - For prioritization\\n   Use when: Too many tasks, need to triage\\n\\n3. 10-10-10 - For emotional decisions\\n   Use when: Feeling stuck, need perspective\\n\\n4. Regret Minimization - For life decisions\\n   Use when: Big life choices, career pivots\\n\\nTell me the decision and I'll pick the right framework, or specify one.`\n    }\n  }];\n}\n\n// Classify the decision\nconst decisionLower = decision.toLowerCase();\nlet decisionType = 'reversible';\nlet urgency = 'medium';\nlet impact = 'medium';\n\n// Check for irreversible markers\nconst irreversibleMarkers = ['quit', 'resign', 'marry', 'divorce', 'buy house', 'move country', 'have kids', 'surgery', 'sell business'];\nif (irreversibleMarkers.some(m => decisionLower.includes(m))) {\n  decisionType = 'irreversible';\n  impact = 'high';\n}\n\n// Check urgency\nconst urgentMarkers = ['today', 'tomorrow', 'deadline', 'asap', 'urgent', 'now', 'immediately'];\nif (urgentMarkers.some(m => decisionLower.includes(m))) urgency = 'high';\n\n// Auto-select framework if not specified\nlet framework = requestedFramework;\nif (framework === 'auto') {\n  if (urgency === 'high') framework = 'ooda';\n  else if (decisionType === 'irreversible') framework = 'regret_minimization';\n  else if (decisionLower.includes('priorit') || decisionLower.includes('which first') || decisionLower.includes('too many')) framework = 'eisenhower';\n  else framework = '10_10_10';\n}\n\n// Apply the framework\nlet analysis = '';\nlet nextSteps = [];\nlet biasWarnings = [];\n\nswitch(framework) {\n  case 'ooda':\n    analysis = `🔄 OODA LOOP ANALYSIS\\n\\n` +\n      `OBSERVE: What are the facts about \"${decision}\"?\\n` +\n      `- List what you know for certain\\n` +\n      `- What information is missing?\\n` +\n      `- What's changing in the environment?\\n\\n` +\n      `ORIENT: How does this fit your situation?\\n` +\n      `- What's your current position?\\n` +\n      `- What are your constraints?\\n` +\n      `- What assumptions are you making?\\n\\n` +\n      `DECIDE: Choose your course of action\\n` +\n      `- Based on observation, what's the best move?\\n` +\n      `- What's the smallest step to test your choice?\\n\\n` +\n      `ACT: Execute immediately\\n` +\n      `- Take action NOW\\n` +\n      `- Set a time to re-observe (loop back)`;\n    nextSteps = ['Make decision within 24 hours', 'Take first action today', 'Schedule review in 48 hours'];\n    biasWarnings = ['Action bias: Don\\'t act just to feel productive', 'Confirmation bias: Look for disconfirming evidence'];\n    break;\n    \n  case 'eisenhower':\n    analysis = `📊 EISENHOWER MATRIX\\n\\n` +\n      `For \"${decision}\", classify the task:\\n\\n` +\n      `┌─────────────────┬─────────────────┐\\n` +\n      `│   URGENT +      │   URGENT +      │\\n` +\n      `│   IMPORTANT     │   NOT IMPORTANT │\\n` +\n      `│   → DO NOW      │   → DELEGATE    │\\n` +\n      `├─────────────────┼─────────────────┤\\n` +\n      `│   NOT URGENT +  │   NOT URGENT +  │\\n` +\n      `│   IMPORTANT     │   NOT IMPORTANT │\\n` +\n      `│   → SCHEDULE    │   → ELIMINATE   │\\n` +\n      `└─────────────────┴─────────────────┘\\n\\n` +\n      `Questions to classify:\\n` +\n      `1. What happens if I don't do this today? (Urgency)\\n` +\n      `2. Does this move me toward my goals? (Importance)\\n` +\n      `3. Am I the only one who can do this? (Delegation)\\n` +\n      `4. Will this matter in 5 years? (Elimination test)`;\n    nextSteps = ['Classify in the matrix', 'If Q4, delete it', 'If Q1, do it now', 'If Q2, block time this week'];\n    biasWarnings = ['Urgency bias: Urgent often isn\\'t important', 'Completion bias: Starting new vs finishing existing'];\n    break;\n    \n  case '10_10_10':\n    analysis = `⏱️ 10-10-10 ANALYSIS\\n\\n` +\n      `For \"${decision}\":\\n\\n` +\n      `How will you feel about this decision...\\n\\n` +\n      `📅 10 MINUTES from now?\\n` +\n      `- Immediate emotional reaction\\n` +\n      `- Short-term discomfort or relief?\\n\\n` +\n      `📅 10 MONTHS from now?\\n` +\n      `- Will you remember this decision?\\n` +\n      `- What will have changed?\\n\\n` +\n      `📅 10 YEARS from now?\\n` +\n      `- Long-term impact\\n` +\n      `- Regret potential\\n\\n` +\n      `The goal: Don't let 10-minute emotions\\ndrive 10-year decisions.`;\n    nextSteps = ['Write out each timeframe', 'Notice if short-term fear is blocking long-term gain', 'Make the 10-year-regret-minimizing choice'];\n    biasWarnings = ['Present bias: Overweighting now vs future', 'Loss aversion: Fearing loss more than valuing gain'];\n    break;\n    \n  case 'regret_minimization':\n    analysis = `🎯 REGRET MINIMIZATION FRAMEWORK\\n\\n` +\n      `For \"${decision}\":\\n\\n` +\n      `Imagine yourself at 80 years old, looking back...\\n\\n` +\n      `🔮 PROJECTION:\\n` +\n      `\"When I'm 80 and looking back at my life,\\n` +\n      `will I regret NOT doing this?\"\\n\\n` +\n      `Ask yourself:\\n` +\n      `1. What's the worst realistic outcome if I do this?\\n` +\n      `2. What's the worst outcome if I DON'T do this?\\n` +\n      `3. Which regret would be harder to live with?\\n` +\n      `4. Am I avoiding this out of fear or wisdom?\\n\\n` +\n      `Jeff Bezos: \"I knew that when I was 80,\\nI would never regret trying this thing\\nthat I was super excited about.\"`;\n    nextSteps = ['Write your 80-year-old self\\'s perspective', 'Identify the fear vs the opportunity', 'Make the regret-minimizing choice'];\n    biasWarnings = ['Status quo bias: Preferring inaction', 'Fear disguised as prudence'];\n    break;\n}\n\nconst output = analysis + `\\n\\n` +\n  `📋 NEXT STEPS:\\n${nextSteps.map((s, i) => `${i+1}. ${s}`).join('\\n')}\\n\\n` +\n  `⚠️ BIAS WARNINGS:\\n${biasWarnings.map(b => '• ' + b).join('\\n')}\\n\\n` +\n  `Decision Type: ${decisionType.toUpperCase()}\\n` +\n  `Urgency: ${urgency.toUpperCase()}\\n` +\n  `Framework: ${framework.toUpperCase()}`;\n\nreturn [{\n  json: {\n    status: 'analyzed',\n    decision: decision,\n    decision_type: decisionType,\n    urgency: urgency,\n    impact: impact,\n    framework: framework,\n    analysis: analysis,\n    next_steps: nextSteps,\n    bias_warnings: biasWarnings,\n    save_to_db: true,\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "decision-analyze",
+      "name": "Analyze Decision",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        540,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "decision-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        760,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_decisions"
+        },
+        "columns": {
+          "value": {
+            "user_id": "={{ $('Extract Input').first().json.user_id }}",
+            "title": "={{ $json.decision.substring(0, 100) }}",
+            "description": "={{ $json.decision }}",
+            "decision_type": "={{ $json.decision_type }}",
+            "framework_used": "={{ $json.framework }}",
+            "options": "={{ JSON.stringify($json.next_steps) }}"
+          },
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "decision-save",
+      "name": "Save Decision",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        980,
+        180
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('decision_accelerator', true, null)",
+        "options": {}
+      },
+      "id": "decision-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1200,
+        300
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $json.formatted_output || JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "decision-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1420,
+        300
+      ],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Analyze Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Decision": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Save Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Decision": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "KTmd9xopiQuCmia0"
+}

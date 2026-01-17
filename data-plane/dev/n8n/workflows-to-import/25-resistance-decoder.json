@@ -1,0 +1,274 @@
+{
+  "name": "25 - Resistance Decoder",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "resistance-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        100,
+        300
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'decode' }}"
+            },
+            {
+              "id": "behavior",
+              "name": "behavior",
+              "type": "string",
+              "value": "={{ $json.behavior || '' }}"
+            },
+            {
+              "id": "task",
+              "name": "task",
+              "type": "string",
+              "value": "={{ $json.task || '' }}"
+            },
+            {
+              "id": "trigger_phrase",
+              "name": "trigger_phrase",
+              "type": "string",
+              "value": "={{ $json.trigger_phrase || '' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "resistance-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        320,
+        300
+      ],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst behavior = input.behavior || '';\nconst task = input.task || '';\nconst triggerPhrase = input.trigger_phrase || '';\n\n// Common resistance trigger phrases\nconst triggerPatterns = {\n  fear: [\n    'what if', 'not ready', 'fail', 'scared', 'nervous', 'anxious',\n    'might not work', 'risky', 'dangerous', 'unsafe'\n  ],\n  overwhelm: [\n    'too much', 'overwhelming', 'where do I start', 'so many things',\n    'can\\'t handle', 'too big', 'complicated', 'complex'\n  ],\n  perfectionism: [\n    'not perfect', 'not good enough', 'polish', 'refine', 'improve first',\n    'one more thing', 'just need to', 'almost ready'\n  ],\n  boredom: [\n    'boring', 'tedious', 'not interesting', 'don\\'t feel like',\n    'would rather', 'later', 'not in the mood'\n  ],\n  unclear: [\n    'not sure', 'don\\'t know how', 'confused', 'unclear',\n    'what exactly', 'need more info'\n  ]\n};\n\n// Detect resistance type\nlet resistanceType = 'unclear';\nlet confidence = 0;\nconst inputText = (behavior + ' ' + task + ' ' + triggerPhrase).toLowerCase();\n\nfor (const [type, patterns] of Object.entries(triggerPatterns)) {\n  const matches = patterns.filter(p => inputText.includes(p)).length;\n  if (matches > confidence) {\n    confidence = matches;\n    resistanceType = type;\n  }\n}\n\n// Root cause analysis based on type\nconst rootCauses = {\n  fear: {\n    root: 'Fear of failure, judgment, or unknown outcomes',\n    underlying: [\n      'Past failure experience creating protective avoidance',\n      'Imposter syndrome - fear of being \"found out\"',\n      'Catastrophizing - imagining worst-case scenarios',\n      'Fear of success and the responsibility it brings'\n    ],\n    questions: [\n      'What\\'s the actual worst case if this doesn\\'t work?',\n      'What would you do if you knew you couldn\\'t fail?',\n      'What evidence contradicts your fear?'\n    ]\n  },\n  overwhelm: {\n    root: 'Task feels too big or complex to tackle',\n    underlying: [\n      'No clear first step identified',\n      'Trying to hold everything in working memory',\n      'All-or-nothing thinking about completion',\n      'Energy depletion from decision fatigue'\n    ],\n    questions: [\n      'What\\'s the smallest possible next action?',\n      'If you could only do ONE thing, what would it be?',\n      'What could you delegate or eliminate?'\n    ]\n  },\n  perfectionism: {\n    root: 'Fear of imperfection masquerading as high standards',\n    underlying: [\n      'Using \"not ready\" as protection from judgment',\n      'Equating self-worth with performance',\n      'Fear of criticism or negative feedback',\n      'Procrastination through perpetual \"improvement\"'\n    ],\n    questions: [\n      'What would \"good enough\" look like?',\n      'When was the last time you shipped something imperfect?',\n      'Who benefits from you waiting for perfect?'\n    ]\n  },\n  boredom: {\n    root: 'Low dopamine reward signal for the task',\n    underlying: [\n      'Task doesn\\'t align with values or interests',\n      'No clear connection to meaningful outcome',\n      'Understimulation for ADHD brain',\n      'Need for novelty or challenge'\n    ],\n    questions: [\n      'How can you make this more interesting?',\n      'What reward will you give yourself after?',\n      'Can you pair this with something enjoyable?'\n    ]\n  },\n  unclear: {\n    root: 'Lack of clarity creates analysis paralysis',\n    underlying: [\n      'Missing information to make decision',\n      'Too many options without clear criteria',\n      'Fear of choosing wrong path',\n      'Perfectionist desire to find \"optimal\" solution'\n    ],\n    questions: [\n      'What information would make this clear?',\n      'What\\'s the cost of deciding vs not deciding?',\n      'What would a good mentor tell you to do?'\n    ]\n  }\n};\n\nconst cause = rootCauses[resistanceType];\n\n// Interventions based on type\nconst interventions = {\n  fear: [\n    '✅ Fear-setting: Write out worst case, most likely case, and best case',\n    '✅ Shrink the risk: Find smallest way to test the scary thing',\n    '✅ Evidence check: List 3 times you succeeded despite fear',\n    '✅ Identity shift: \"I\\'m someone who acts despite fear\"'\n  ],\n  overwhelm: [\n    '✅ Brain dump: Get everything out of your head onto paper',\n    '✅ 2-minute start: Commit to just 2 minutes on ONE thing',\n    '✅ Chunking: Break into chunks small enough to feel easy',\n    '✅ Body doubling: Work alongside someone (even virtually)'\n  ],\n  perfectionism: [\n    '✅ Ship ugly: Commit to publishing/sending TODAY',\n    '✅ B- work: Intentionally do B-minus quality on purpose',\n    '✅ Feedback first: Get input on rough draft, not polished version',\n    '✅ Version 1: Label it \"v1\" - implies future improvement is built in'\n  ],\n  boredom: [\n    '✅ Gamify: Set a timer and try to beat your record',\n    '✅ Stack: Pair with podcast, music, or enjoyable activity',\n    '✅ Delegate: Can someone else do this?',\n    '✅ Reward: Promise yourself something after completion'\n  ],\n  unclear: [\n    '✅ Time-box research: 15 minutes max, then decide',\n    '✅ Reversibility test: If reversible, decide now; if not, gather more data',\n    '✅ Advisor mode: What would you tell a friend in this situation?',\n    '✅ Minimum viable decision: What\\'s the smallest commitment you can make?'\n  ]\n};\n\nconst intervention = interventions[resistanceType];\n\n// Micro-commitment based on type\nconst microCommitments = {\n  fear: 'Do the scary thing for just 5 minutes. If it\\'s still unbearable, stop.',\n  overwhelm: 'Pick ONE item and work on it for 2 minutes only.',\n  perfectionism: 'Ship/send/publish something in the next 24 hours, regardless of readiness.',\n  boredom: 'Complete one cycle (e.g., one email, one call, one section) then reward yourself.',\n  unclear: 'Make a temporary decision that you can revisit in 48 hours.'\n};\n\nconst output = `🔍 RESISTANCE DECODED\\n\\n` +\n  `🎭 RESISTANCE TYPE: ${resistanceType.toUpperCase()}\\n\\n` +\n  `🔬 ROOT CAUSE:\\n${cause.root}\\n\\n` +\n  `📊 UNDERLYING PATTERNS:\\n${cause.underlying.map(u => '• ' + u).join('\\n')}\\n\\n` +\n  `❓ DIAGNOSTIC QUESTIONS:\\n${cause.questions.map((q, i) => `${i+1}. ${q}`).join('\\n')}\\n\\n` +\n  `💡 INTERVENTIONS:\\n${intervention.join('\\n')}\\n\\n` +\n  `⚡ MICRO-COMMITMENT (do NOW):\\n${microCommitments[resistanceType]}\\n\\n` +\n  `Remember: Resistance is information, not a stop sign.\\nThe task you're avoiding is usually the one that matters most.`;\n\nreturn [{\n  json: {\n    status: 'decoded',\n    resistance_type: resistanceType,\n    confidence: confidence,\n    root_cause: cause.root,\n    underlying_patterns: cause.underlying,\n    diagnostic_questions: cause.questions,\n    interventions: intervention,\n    micro_commitment: microCommitments[resistanceType],\n    save_to_db: true,\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "resistance-decode",
+      "name": "Decode Resistance",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        540,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "resistance-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        760,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_resistance_patterns"
+        },
+        "columns": {
+          "value": {
+            "user_id": "={{ $('Extract Input').first().json.user_id }}",
+            "behavior": "={{ $('Extract Input').first().json.behavior || $('Extract Input').first().json.task }}",
+            "resistance_type": "={{ $json.resistance_type }}",
+            "root_cause": "={{ $json.root_cause }}",
+            "trigger_phrase": "={{ $('Extract Input').first().json.trigger_phrase }}",
+            "intervention_used": "={{ $json.micro_commitment }}"
+          },
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "resistance-save",
+      "name": "Save Pattern",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        980,
+        180
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('resistance_decoder', true, null)",
+        "options": {}
+      },
+      "id": "resistance-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1200,
+        300
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $json.formatted_output || JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "resistance-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1420,
+        300
+      ],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Decode Resistance",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Decode Resistance": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Save Pattern",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Pattern": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "hhFwRWM4hj2jFRUq"
+}

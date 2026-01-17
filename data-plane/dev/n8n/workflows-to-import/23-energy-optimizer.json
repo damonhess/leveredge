@@ -1,0 +1,396 @@
+{
+  "name": "23 - Energy Optimizer",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "energy-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [
+        100,
+        300
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'check' }}"
+            },
+            {
+              "id": "energy_level",
+              "name": "energy_level",
+              "type": "number",
+              "value": "={{ $json.energy_level || 0 }}"
+            },
+            {
+              "id": "focus_level",
+              "name": "focus_level",
+              "type": "number",
+              "value": "={{ $json.focus_level || 0 }}"
+            },
+            {
+              "id": "mood",
+              "name": "mood",
+              "type": "number",
+              "value": "={{ $json.mood || 0 }}"
+            },
+            {
+              "id": "context",
+              "name": "context",
+              "type": "string",
+              "value": "={{ $json.context || '' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "energy-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        320,
+        300
+      ],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "check",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "log",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "log",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "energy-router",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        540,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM aria_energy_logs WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '7 days' ORDER BY timestamp DESC",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "energy-get-history",
+      "name": "Get Energy History",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        760,
+        180
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const history = $('Get Energy History').all();\nconst input = $('Extract Input').first().json;\n\nif (history.length === 0 || !history[0].json.id) {\n  return [{\n    json: {\n      status: 'no_data',\n      message: `No energy data yet. Let's start tracking!\\n\\n⚡ LOG YOUR CURRENT ENERGY\\n\\nRate 1-10:\\n• Energy level: How physically energized do you feel?\\n• Focus level: How mentally sharp are you?\\n• Mood: How's your emotional state?\\n\\nWhat's your current situation? (e.g., time of day, what you ate, sleep quality)\\n\\nUse operation: log with energy_level, focus_level, mood, and context.`,\n      prompt_for_log: true\n    }\n  }];\n}\n\n// Analyze patterns\nconst logs = history.map(h => h.json);\n\n// Calculate averages\nconst avgEnergy = (logs.reduce((s, l) => s + l.energy_level, 0) / logs.length).toFixed(1);\nconst avgFocus = (logs.reduce((s, l) => s + l.focus_level, 0) / logs.length).toFixed(1);\nconst avgMood = (logs.reduce((s, l) => s + l.mood, 0) / logs.length).toFixed(1);\n\n// Find peak times (if we have enough data with timestamps)\nconst peakHours = {};\nlogs.forEach(l => {\n  const hour = new Date(l.timestamp).getHours();\n  if (!peakHours[hour]) peakHours[hour] = { energy: [], focus: [] };\n  peakHours[hour].energy.push(l.energy_level);\n  peakHours[hour].focus.push(l.focus_level);\n});\n\nlet peakEnergyHour = null;\nlet peakFocusHour = null;\nlet maxEnergy = 0;\nlet maxFocus = 0;\n\nfor (const [hour, data] of Object.entries(peakHours)) {\n  const avgE = data.energy.reduce((a, b) => a + b, 0) / data.energy.length;\n  const avgF = data.focus.reduce((a, b) => a + b, 0) / data.focus.length;\n  if (avgE > maxEnergy) { maxEnergy = avgE; peakEnergyHour = hour; }\n  if (avgF > maxFocus) { maxFocus = avgF; peakFocusHour = hour; }\n}\n\n// ADHD pattern detection\nconst adhdPatterns = [];\nconst energyVariance = logs.map(l => l.energy_level).reduce((sum, e) => sum + Math.pow(e - avgEnergy, 2), 0) / logs.length;\nif (energyVariance > 4) {\n  adhdPatterns.push('High energy variance detected - typical ADHD pattern. Plan for variable productivity.');\n}\n\nconst lowFocusHighEnergy = logs.filter(l => l.focus_level < 5 && l.energy_level > 6).length;\nif (lowFocusHighEnergy > logs.length * 0.3) {\n  adhdPatterns.push('Pattern: High energy but low focus. This is hyperfocus-adjacent state. Channel into structured work.');\n}\n\n// Generate recommendations\nconst recommendations = [];\nif (avgEnergy < 5) recommendations.push('Low average energy - check sleep, nutrition, and movement.');\nif (avgFocus < 5) recommendations.push('Low average focus - reduce distractions, try Pomodoro technique.');\nif (peakEnergyHour) recommendations.push(`Schedule demanding tasks around ${peakEnergyHour}:00 (your peak energy time).`);\nif (peakFocusHour && peakFocusHour !== peakEnergyHour) recommendations.push(`Deep work best around ${peakFocusHour}:00 (your peak focus time).`);\n\n// Energy recovery protocols\nconst recoveryProtocols = {\n  low_energy: [\n    '5-minute walk outside',\n    'Cold water on face',\n    'Quick stretch routine',\n    '10 deep breaths',\n    'Protein-rich snack'\n  ],\n  low_focus: [\n    'Clear desk of clutter',\n    'Put phone in another room',\n    'Write down the ONE task',\n    '2-minute meditation',\n    'Change environment'\n  ],\n  both_low: [\n    'Take a 20-min power nap',\n    'Go for a 15-min walk',\n    'Eat a balanced meal',\n    'Do one tiny task for momentum',\n    'Switch to a \"fun\" task temporarily'\n  ]\n};\n\nlet currentProtocol = [];\nif (avgEnergy < 5 && avgFocus < 5) currentProtocol = recoveryProtocols.both_low;\nelse if (avgEnergy < 5) currentProtocol = recoveryProtocols.low_energy;\nelse if (avgFocus < 5) currentProtocol = recoveryProtocols.low_focus;\n\nconst output = `⚡ ENERGY OPTIMIZATION REPORT\\n\\n` +\n  `📊 7-DAY AVERAGES:\\n` +\n  `• Energy: ${avgEnergy}/10\\n` +\n  `• Focus: ${avgFocus}/10\\n` +\n  `• Mood: ${avgMood}/10\\n\\n` +\n  (peakEnergyHour ? `🔋 PEAK TIMES:\\n• Energy peaks around ${peakEnergyHour}:00\\n• Focus peaks around ${peakFocusHour}:00\\n\\n` : '') +\n  (adhdPatterns.length > 0 ? `🧠 ADHD PATTERNS DETECTED:\\n${adhdPatterns.map(p => '• ' + p).join('\\n')}\\n\\n` : '') +\n  (recommendations.length > 0 ? `💡 RECOMMENDATIONS:\\n${recommendations.map(r => '• ' + r).join('\\n')}\\n\\n` : '') +\n  (currentProtocol.length > 0 ? `🔄 RECOVERY PROTOCOLS (when energy/focus are low):\\n${currentProtocol.map((p, i) => `${i+1}. ${p}`).join('\\n')}\\n\\n` : '') +\n  `📝 Log more data for better insights: operation: log, energy_level: X, focus_level: X, mood: X`;\n\nreturn [{\n  json: {\n    status: 'analysis',\n    data_points: logs.length,\n    averages: { energy: avgEnergy, focus: avgFocus, mood: avgMood },\n    peak_times: { energy: peakEnergyHour, focus: peakFocusHour },\n    adhd_patterns: adhdPatterns,\n    recommendations: recommendations,\n    recovery_protocols: currentProtocol,\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "energy-analyze",
+      "name": "Analyze Energy",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        980,
+        180
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\n\nif (!input.energy_level || !input.focus_level || !input.mood) {\n  return [{\n    json: {\n      status: 'incomplete',\n      message: 'Please provide energy_level, focus_level, and mood (each 1-10).\\n\\nOptional: context (what you\\'re doing, time situation, etc.)'\n    }\n  }];\n}\n\nconst energy = input.energy_level;\nconst focus = input.focus_level;\nconst mood = input.mood;\n\n// Determine optimal task type based on current state\nlet optimalTask = '';\nlet duration = '';\n\nif (energy >= 7 && focus >= 7) {\n  optimalTask = 'DEEP WORK - tackle your most challenging task';\n  duration = '60-90 minutes';\n} else if (energy >= 7 && focus < 5) {\n  optimalTask = 'PHYSICAL/CREATIVE - exercise, brainstorm, organize';\n  duration = '30-45 minutes';\n} else if (energy < 5 && focus >= 7) {\n  optimalTask = 'READING/PLANNING - low energy but clear mind';\n  duration = '25-30 minutes';\n} else if (energy >= 5 && focus >= 5) {\n  optimalTask = 'ROUTINE WORK - emails, admin, follow-ups';\n  duration = '45 minutes';\n} else {\n  optimalTask = 'RECOVERY - rest, walk, or switch contexts';\n  duration = '15-20 minutes then reassess';\n}\n\n// Quick win if energy is low\nconst quickWin = energy < 5 ? 'Start with a 2-minute task for momentum' : null;\n\nconst output = `⚡ ENERGY CHECK-IN LOGGED\\n\\n` +\n  `📊 CURRENT STATE:\\n` +\n  `• Energy: ${energy}/10 ${energy >= 7 ? '🔋' : energy >= 5 ? '⚡' : '🪫'}\\n` +\n  `• Focus: ${focus}/10 ${focus >= 7 ? '🎯' : focus >= 5 ? '👁️' : '🌫️'}\\n` +\n  `• Mood: ${mood}/10 ${mood >= 7 ? '😊' : mood >= 5 ? '😐' : '😔'}\\n\\n` +\n  (input.context ? `📝 Context: ${input.context}\\n\\n` : '') +\n  `🎯 OPTIMAL TASK TYPE: ${optimalTask}\\n` +\n  `⏱️ RECOMMENDED DURATION: ${duration}\\n\\n` +\n  (quickWin ? `💡 QUICK WIN: ${quickWin}\\n\\n` : '') +\n  `This data helps map your energy patterns over time.`;\n\nreturn [{\n  json: {\n    status: 'logged',\n    energy_level: energy,\n    focus_level: focus,\n    mood: mood,\n    context: input.context || null,\n    optimal_task: optimalTask,\n    recommended_duration: duration,\n    quick_win: quickWin,\n    save_to_db: true,\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "energy-log",
+      "name": "Log Energy",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        760,
+        420
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "energy-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [
+        1200,
+        300
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_energy_logs"
+        },
+        "columns": {
+          "value": {
+            "user_id": "={{ $('Extract Input').first().json.user_id }}",
+            "energy_level": "={{ $json.energy_level }}",
+            "focus_level": "={{ $json.focus_level }}",
+            "mood": "={{ $json.mood }}",
+            "context": "={{ JSON.stringify({ context: $json.context, optimal_task: $json.optimal_task }) }}"
+          },
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "energy-save",
+      "name": "Save Log",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1420,
+        180
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('energy_optimizer', true, null)",
+        "options": {}
+      },
+      "id": "energy-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1640,
+        300
+      ],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $json.formatted_output || JSON.stringify($json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "energy-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        1860,
+        300
+      ],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Get Energy History",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Energy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Energy History": {
+      "main": [
+        [
+          {
+            "node": "Analyze Energy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Energy": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Energy": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Save Log",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Log": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "isZz7YAlhrv9uJLV"
+}
