@@ -1555,6 +1555,76 @@ Use web search to find supporting and contradicting evidence.
     }
 
 
+# =============================================================================
+# COUNCIL MEETING PARTICIPATION
+# =============================================================================
+
+class CouncilRespondRequest(BaseModel):
+    """Request model for council meeting participation"""
+    meeting_context: str
+    current_topic: str
+    previous_statements: List[Dict[str, str]] = []
+    directive: Optional[str] = None
+
+@app.post("/council/respond")
+async def council_respond(req: CouncilRespondRequest):
+    """Participate in a council meeting - respond as SCHOLAR"""
+
+    # Build context from previous statements
+    context_parts = [f"## MEETING CONTEXT\n{req.meeting_context}"]
+    context_parts.append(f"\n## CURRENT TOPIC\n{req.current_topic}")
+
+    if req.previous_statements:
+        context_parts.append("\n## RECENT DISCUSSION")
+        for stmt in req.previous_statements[-10:]:
+            speaker = stmt.get("speaker", "Unknown")
+            message = stmt.get("message", "")
+            context_parts.append(f"\n**{speaker}:** {message}")
+
+    user_content = "\n".join(context_parts)
+    if req.directive:
+        user_content += f"\n\n## DIRECTIVE FOR YOU\n{req.directive}"
+    else:
+        user_content += "\n\n## YOUR TURN\nContribute to the discussion as SCHOLAR, the research expert."
+
+    # Build council-specific system prompt
+    council_system = """You are SCHOLAR, participating in a council meeting.
+
+Domain: PANTHEON
+Expertise: research, information gathering
+Personality: Curious, thorough, evidence-based
+Speaking Style: Cites sources, presents findings
+You typically: research, validate, inform
+
+Respond in character. Be concise (2-4 sentences unless asked for detail).
+Build on what others have said. Disagree respectfully if warranted.
+Stay in your lane - defer to other experts when their domain is more relevant.
+When you cite information, be specific about sources when possible.
+Do not prefix your response with your name."""
+
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=512,
+            system=council_system,
+            messages=[{"role": "user", "content": user_content}]
+        )
+
+        return {
+            "agent": "SCHOLAR",
+            "response": response.content[0].text,
+            "domain": "PANTHEON",
+            "expertise": ["research", "information gathering"]
+        }
+    except Exception as e:
+        return {
+            "agent": "SCHOLAR",
+            "response": f"[SCHOLAR encountered an error: {str(e)}]",
+            "domain": "PANTHEON",
+            "expertise": ["research", "information gathering"]
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8018)

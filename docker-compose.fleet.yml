@@ -1505,3 +1505,85 @@ services:
       com.leveredge.agent: "aria-omniscience"
       com.leveredge.group: "core"
       com.leveredge.port: "8112"
+
+  # ---------------------------------------------------------------------------
+  # THE CONCLAVE - Council Meeting System
+  # ---------------------------------------------------------------------------
+
+  # ---------------------------------------------------------------------------
+  # Convener - Council Meeting Facilitator (Port 8300)
+  # ---------------------------------------------------------------------------
+  convener:
+    build:
+      context: ./control-plane/agents/convener
+      dockerfile: Dockerfile
+    container_name: convener
+    hostname: convener
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+      SCRIBE_URL: http://scribe:8301
+    volumes:
+      - ./control-plane/agents/convener:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${CONVENER_PORT:-8300}:8300"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8300/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "convener"
+      com.leveredge.group: "council"
+      com.leveredge.port: "8300"
+
+  # ---------------------------------------------------------------------------
+  # Scribe - Council Meeting Secretary (Port 8301)
+  # ---------------------------------------------------------------------------
+  scribe:
+    build:
+      context: ./control-plane/agents/scribe
+      dockerfile: Dockerfile
+    container_name: scribe
+    hostname: scribe
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+      ARIA_OMNISCIENCE_URL: http://aria-omniscience:8112
+    volumes:
+      - ./control-plane/agents/scribe:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${SCRIBE_PORT:-8301}:8301"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8301/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "scribe"
+      com.leveredge.group: "council"
+      com.leveredge.port: "8301"

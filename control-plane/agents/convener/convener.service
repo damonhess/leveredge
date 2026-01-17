@@ -1,0 +1,15 @@
+[Unit]
+Description=THE CONVENER - Council Meeting Facilitator
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/leveredge/control-plane/agents/convener
+Environment=PYTHONPATH=/opt/leveredge/control-plane
+ExecStart=/usr/bin/python3 -m uvicorn convener:app --host 0.0.0.0 --port 8300
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
