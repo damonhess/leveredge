@@ -132,6 +132,16 @@ docker cp supabase-db-dev:/tmp/backup.dump ./dev_backup_$(date +%Y%m%d).dump
 | ATLAS-INFRA | 8208 | `sudo pkill -f "uvicorn.*8208" && cd /opt/leveredge/control-plane/agents/atlas-infra && sudo nohup /usr/local/bin/python3.11 -m uvicorn atlas_infra:app --host 0.0.0.0 --port 8208 > /tmp/atlas-infra.log 2>&1 &` |
 | IRIS | 8209 | `sudo pkill -f "uvicorn.*8209" && cd /opt/leveredge/control-plane/agents/iris && sudo nohup /usr/local/bin/python3.11 -m uvicorn iris:app --host 0.0.0.0 --port 8209 > /tmp/iris.log 2>&1 &` |
 
+### Infrastructure Agents
+
+| Agent | Port | Restart Command |
+|-------|------|-----------------|
+| FILE-PROCESSOR | 8050 | `sudo pkill -f "uvicorn.*8050" && cd /opt/leveredge/control-plane/agents/file-processor && sudo nohup /usr/local/bin/python3.11 -m uvicorn file_processor:app --host 0.0.0.0 --port 8050 > /tmp/file-processor.log 2>&1 &` |
+| VOICE | 8051 | `sudo pkill -f "uvicorn.*8051" && cd /opt/leveredge/control-plane/agents/voice && sudo nohup /usr/local/bin/python3.11 -m uvicorn voice:app --host 0.0.0.0 --port 8051 > /tmp/voice.log 2>&1 &` |
+| MEMORY-V2 | 8066 | `sudo pkill -f "uvicorn.*8066" && cd /opt/leveredge/control-plane/agents/memory-v2 && sudo nohup /usr/local/bin/python3.11 -m uvicorn memory_v2:app --host 0.0.0.0 --port 8066 > /tmp/memory-v2.log 2>&1 &` |
+| SHIELD-SWORD | 8067 | `sudo pkill -f "uvicorn.*8067" && cd /opt/leveredge/control-plane/agents/shield-sword && sudo nohup /usr/local/bin/python3.11 -m uvicorn shield_sword:app --host 0.0.0.0 --port 8067 > /tmp/shield-sword.log 2>&1 &` |
+| GATEWAY | 8070 | `sudo pkill -f "uvicorn.*8070" && cd /opt/leveredge/control-plane/agents/gateway && sudo nohup /usr/local/bin/python3.11 -m uvicorn gateway:app --host 0.0.0.0 --port 8070 > /tmp/gateway.log 2>&1 &` |
+
 ### Data Plane (Docker Compose)
 
 | Service | Restart Command |
@@ -264,6 +274,16 @@ cd /opt/leveredge/data-plane/prod/supabase && docker compose up -d
 | 8017 | CHIRON | FastAPI | Business mentor (LLM) |
 | 8018 | SCHOLAR | FastAPI | Market research (LLM) |
 | 8019 | SENTINEL | FastAPI | Smart router |
+| 8050 | FILE-PROCESSOR | FastAPI | PDF/image/audio processing |
+| 8051 | VOICE | FastAPI | Voice interface (Whisper/TTS) |
+| 8060 | Fleet Dashboard | FastAPI | Agent status dashboard |
+| 8061 | Cost Dashboard | FastAPI | LLM usage tracking |
+| 8062 | Log Aggregation | FastAPI | Centralized logging |
+| 8063 | Uptime Monitor | FastAPI | Service availability |
+| 8064 | SSL Monitor | FastAPI | Certificate tracking |
+| 8066 | MEMORY-V2 | FastAPI | Unified memory system |
+| 8067 | SHIELD-SWORD | FastAPI | Manipulation detection |
+| 8070 | GATEWAY | FastAPI | API gateway |
 | 8099 | Event Bus | FastAPI | Event publishing |
 
 ### Security Fleet (8020-8021)
@@ -313,41 +333,71 @@ cd /opt/leveredge/data-plane/prod/supabase && docker compose up -d
 
 ---
 
-## TODO: SYSTEMD SERVICES
+## SYSTEMD SERVICES ✅ DONE
 
-These agents should be converted to systemd services for:
-- Auto-restart on crash
-- Auto-start on boot
-- Proper logging via journald
-- Better process management
+Systemd service templates are available at `/opt/leveredge/shared/systemd/`.
 
-Example service file (`/etc/systemd/system/atlas.service`):
-```ini
-[Unit]
-Description=ATLAS Orchestration Engine
-After=network.target
+### Installation Scripts
+```bash
+# Install Creative Fleet services
+sudo /opt/leveredge/shared/systemd/install-creative-fleet.sh
 
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/leveredge/control-plane/agents/atlas
-ExecStart=/usr/local/bin/python3.11 -m uvicorn atlas:app --host 0.0.0.0 --port 8007
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
+# Install all agents (uses template)
+sudo /opt/leveredge/shared/systemd/install-all-agents.sh
 ```
 
-Then: `sudo systemctl enable atlas && sudo systemctl start atlas`
+### Managing Services
+```bash
+# Start/stop/restart
+sudo systemctl start muse
+sudo systemctl stop calliope
+sudo systemctl restart thalia
+
+# View logs
+journalctl -u muse -f
+journalctl -u calliope --since "1 hour ago"
+
+# Check status
+sudo systemctl status muse
+```
+
+### Service Files Location
+- Creative Fleet: `/etc/systemd/system/{muse,calliope,thalia,erato,clio}.service`
+- Template: `/opt/leveredge/shared/systemd/agent.service.template`
 
 ---
 
 ## MAINTENANCE WINDOWS
 
 - **Backups:** CHRONOS runs daily at 2 AM UTC
-- **Log rotation:** Weekly (TODO: implement)
-- **Database vacuum:** Monthly (TODO: implement)
+- **Log rotation:** Weekly via `/opt/leveredge/monitoring/logs/rotate.sh`
+- **Database vacuum:** Monthly via `/opt/leveredge/maintenance/storage-cleanup/`
+- **n8n Chat Memory Cleanup:** Weekly via `/opt/leveredge/maintenance/chat-cleanup/`
+
+### Maintenance Scripts
+
+```bash
+# Storage cleanup (Supabase buckets)
+python3 /opt/leveredge/maintenance/storage-cleanup/cleanup.py --dry-run
+python3 /opt/leveredge/maintenance/storage-cleanup/cleanup.py --execute
+
+# n8n chat memory cleanup
+python3 /opt/leveredge/maintenance/chat-cleanup/cleanup.py --days 30 --dry-run
+
+# SSL certificate check
+python3 /opt/leveredge/monitoring/ssl/check_certs.py
+```
+
+---
+
+## MONITORING DASHBOARDS
+
+| Dashboard | URL | Purpose |
+|-----------|-----|---------|
+| Fleet Dashboard | localhost:8060 | Agent health & status |
+| Cost Dashboard | localhost:8061 | LLM usage & API costs |
+| Grafana | grafana.leveredgeai.com | Metrics visualization |
+| Uptime Monitor | localhost:8063 | Service availability |
 
 ---
 

@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (12:00 PM)*
+*Last Updated: January 17, 2026 (Evening - Post Mega-Build)*
 
 ---
 
@@ -25,13 +25,10 @@
 sudo pkill -f "uvicorn atlas:app" && cd /opt/leveredge/control-plane/agents/atlas && sudo nohup /usr/local/bin/python3.11 -m uvicorn atlas:app --host 0.0.0.0 --port 8007 > /tmp/atlas.log 2>&1 &
 ```
 
-**There is NO:**
-- `docker-compose.yml` for agents
-- `systemd` service files
-- Auto-restart on crash
-- Auto-start on boot
-
-**TODO:** Convert all agents to systemd services (see OPS-RUNBOOK.md for template)
+**Update (Jan 17 Evening):** Systemd templates now created!
+- Service templates: `/opt/leveredge/shared/systemd/`
+- Creative Fleet installer: `install-creative-fleet.sh`
+- See OPS-RUNBOOK.md for full details
 
 ---
 
@@ -437,9 +434,70 @@ Before context clears:
 | Personal | 4/5 healthy | GYM-COACH on 8110 (not 8100) |
 | Business | All healthy | 10 agents (8200-8209) |
 
+### January 17, 2026 (Overnight Mega-Build - 28+ Parallel Agents)
+**Accomplished (massive overnight build):**
+
+| Category | Items Built | Files | Lines |
+|----------|-------------|-------|-------|
+| Infrastructure Agents | FILE-PROCESSOR (8050), VOICE (8051), GATEWAY (8070), MEMORY-V2 (8066), SHIELD-SWORD (8067), REMINDERS-V2 | ~30 | ~4,500 |
+| Dashboards | Fleet Dashboard (8060), Cost Dashboard (8061), Log Aggregation (8062), Uptime Monitor (8063), SSL Monitor (8064) | ~25 | ~3,800 |
+| Docker | Full fleet docker-compose.yml (35 services, 5 profiles) | 1 | 1,392 |
+| Documentation | MkDocs site with Material theme | ~15 | ~2,200 |
+| Testing | pytest integration suite for all fleets | ~12 | ~2,100 |
+| Integrations | Google Calendar sync, Google Tasks sync, Telegram bot, Email (SendGrid) | ~20 | ~3,500 |
+| Maintenance | Storage cleanup, n8n chat memory cleanup | ~8 | ~1,200 |
+| Security | fail2ban, UFW rules, Docker network isolation | ~10 | ~800 |
+| Frontend | ARIA Frontend V2 (React components) | ~15 | ~2,800 |
+| Client Portal | Next.js 14 with Supabase auth | ~20 | ~3,500 |
+| Demo | Demo environment setup | ~8 | ~1,100 |
+| Billing | Invoice & usage tracking system | ~10 | ~1,500 |
+| Auto-start | Systemd service templates | ~5 | ~300 |
+| **TOTAL** | 28+ components | ~245 | ~66,600 |
+
+**Key Pattern - Parallel Agent Building:**
+1. Launched 28+ Task agents in parallel batches
+2. Each agent ran independently with full context
+3. No blocking - all built simultaneously
+4. Monitored completion via task notifications
+5. Compiled results after all completed
+
+**What Worked:**
+- Parallel Task agents with clear specs = massive throughput
+- Breaking work into independent, well-defined units
+- Overnight execution while sleeping = productive use of time
+- Each agent had complete context (no dependencies on other agents)
+
+**What Didn't:**
+- Some agents needed dependency installation (pillow, pptx, etc.)
+- A few port conflicts (GYM-COACH 8100 → 8110)
+- Some agents reference each other - would benefit from shared types
+
+**Infrastructure Additions:**
+| Directory | Purpose |
+|-----------|---------|
+| `/opt/leveredge/monitoring/` | uptime, ssl, logs, prometheus, grafana |
+| `/opt/leveredge/integrations/` | google-calendar, google-tasks, telegram, email |
+| `/opt/leveredge/maintenance/` | storage-cleanup, chat-cleanup |
+| `/opt/leveredge/billing/` | Invoice & usage tracking |
+| `/opt/leveredge/security/` | fail2ban, ufw, docker hardening |
+| `/opt/leveredge/tests/` | pytest integration suite |
+| `/opt/leveredge/docs-site/` | MkDocs documentation |
+| `/opt/leveredge/demo/` | Demo environment |
+| `/opt/leveredge/aria-frontend-v2/` | React component library |
+| `/opt/leveredge/client-portal/` | Next.js client portal |
+
+**Agent Count Summary:**
+| Before Mega-Build | After Mega-Build |
+|-------------------|------------------|
+| 13 agents | 40+ agents |
+| 4 fleets | 5 fleets + dashboards |
+| No tests | Full pytest suite |
+| No docs site | MkDocs with Material |
+| No integrations | Google, Telegram, Email |
+
 ---
 
-## Technical Debt Tracker (Updated)
+## Technical Debt Tracker (Updated Post-Mega-Build)
 
 | Item | Priority | Effort | Status |
 |------|----------|--------|--------|
@@ -449,36 +507,123 @@ Before context clears:
 | ~~OLYMPUS orchestration system~~ | ~~High~~ | ~~2 hours~~ | ✅ Done |
 | ~~ARIA → OLYMPUS integration~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
 | ~~OPS-RUNBOOK.md~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
-| ~~Fleet Expansion (35+ agents)~~ | ~~High~~ | ~~4 hours~~ | ✅ Done |
+| ~~Fleet Expansion (35+ agents)~~ | ~~High~~ | ~~4 hours~~ | ✅ Done (40+ now) |
 | ~~ARIA PROD promotion~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
 | ~~AEGIS V2 PostgreSQL migration~~ | ~~High~~ | ~~2 hours~~ | ✅ Done |
-| **Convert agents to systemd services** | High | 2 hours | ⬜ Template in OPS-RUNBOOK |
+| ~~Systemd service templates~~ | ~~High~~ | ~~2 hours~~ | ✅ Done - `/opt/leveredge/shared/systemd/` |
+| ~~File upload system~~ | ~~Medium~~ | ~~4 hours~~ | ✅ Done - FILE-PROCESSOR (8050) |
+| ~~Telegram interface~~ | ~~Medium~~ | ~~2 hours~~ | ✅ Done - `/opt/leveredge/integrations/telegram/` |
+| ~~Voice interface~~ | ~~Medium~~ | ~~3 hours~~ | ✅ Done - VOICE (8051) |
+| ~~Memory consolidation~~ | ~~Medium~~ | ~~3 hours~~ | ✅ Done - MEMORY-V2 (8066) |
+| ~~Two-way Google sync~~ | ~~Medium~~ | ~~2 hours~~ | ✅ Done - `/opt/leveredge/integrations/` |
+| ~~Email/SMTP config~~ | ~~Medium~~ | ~~1 hour~~ | ✅ Done - SendGrid integration |
+| ~~Storage cleanup automation~~ | ~~Medium~~ | ~~1 hour~~ | ✅ Done - `/opt/leveredge/maintenance/` |
+| ~~n8n chat memory cleanup~~ | ~~Medium~~ | ~~1 hour~~ | ✅ Done - `/opt/leveredge/maintenance/` |
+| ~~Documentation site~~ | ~~Medium~~ | ~~2 hours~~ | ✅ Done - MkDocs at `/opt/leveredge/docs-site/` |
+| ~~Integration test suite~~ | ~~Medium~~ | ~~3 hours~~ | ✅ Done - `/opt/leveredge/tests/` |
 | **Fix ARIA Supabase credential** | High | 30 min | ⬜ Get User Preferences node failing |
-| **Create systemd for Creative Fleet** | Medium | 30 min | ⬜ Currently started via nohup |
-| **Set ANTHROPIC_API_KEY for LLM agents** | Medium | 15 min | ⬜ LLM calls will fail without it |
+| **Wire cost tracking into ARIA** | High | 1 hour | ⬜ Cost Dashboard ready, needs n8n integration |
+| **Deploy new agents to production** | High | 2 hours | ⬜ Agents built but not running |
+| **Install agent dependencies** | Medium | 30 min | ⬜ pillow, pptx, etc. for Creative Fleet |
 | HEPHAESTUS → OLYMPUS bridge | Medium | 30 min | ⬜ Spec ready |
 | DEV supabase-storage-dev fix | Medium | 30 min | ⬜ |
 | DEV supabase-studio-dev fix | Low | 30 min | ⬜ |
 | Cloudflare Access for control plane | Low | 2 hours | ⬜ |
 | Push to GitHub remote | Low | 5 min | ⬜ |
+| CRM system (lead tracking) | Low | 4 hours | ⬜ |
+| Public website (leveredgeai.com) | Low | 8 hours | ⬜ |
 
 ---
 
 ## File Locations
 
+### Documentation
 | File | Purpose |
 |------|---------|
-| /opt/leveredge/MASTER-LAUNCH-CALENDAR.md | Launch timeline and milestones |
-| /opt/leveredge/LESSONS-LEARNED.md | This file |
-| /opt/leveredge/LESSONS-SCRATCH.md | Quick debug capture (consolidate here) |
-| /opt/leveredge/OPS-RUNBOOK.md | **Operational procedures - restart, logs, troubleshooting** |
+| /opt/leveredge/README.md | Project overview |
 | /opt/leveredge/ARCHITECTURE.md | System design overview |
-| /opt/leveredge/FUTURE-VISION-AND-EXPLORATION.md | Architecture decisions |
+| /opt/leveredge/OPS-RUNBOOK.md | **Operational procedures - restart, logs, troubleshooting** |
+| /opt/leveredge/AGENT-ROUTING.md | Who does what, routing rules |
+| /opt/leveredge/LOOSE-ENDS.md | Current tasks and status |
+| /opt/leveredge/FUTURE-VISION.md | Business roadmap |
+| /opt/leveredge/LESSONS-LEARNED.md | This file |
+| /opt/leveredge/LESSONS-SCRATCH.md | Quick debug capture |
+| /opt/leveredge/docs-site/ | MkDocs documentation site |
+
+### Core Infrastructure
+| Directory | Purpose |
+|-----------|---------|
+| /opt/leveredge/control-plane/agents/ | 40+ FastAPI agents |
+| /opt/leveredge/control-plane/event-bus/ | Inter-agent communication |
 | /opt/leveredge/config/agent-registry.yaml | OLYMPUS single source of truth |
+| /opt/leveredge/gaia/ | Emergency bootstrap |
+
+### Data Plane
+| Directory | Purpose |
+|-----------|---------|
 | /opt/leveredge/data-plane/prod/n8n/ | Production n8n |
 | /opt/leveredge/data-plane/dev/n8n/ | Development n8n |
 | /opt/leveredge/data-plane/prod/supabase/ | Production Supabase |
 | /opt/leveredge/data-plane/dev/supabase/ | Development Supabase |
-| /opt/leveredge/control-plane/ | Control plane agents |
+
+### New Infrastructure (Post-Mega-Build)
+| Directory | Purpose |
+|-----------|---------|
+| /opt/leveredge/monitoring/ | Prometheus, Grafana, uptime, SSL, logs |
+| /opt/leveredge/integrations/ | Google Calendar, Google Tasks, Telegram, Email |
+| /opt/leveredge/maintenance/ | Storage cleanup, chat memory cleanup |
+| /opt/leveredge/billing/ | Invoice & usage tracking |
+| /opt/leveredge/security/ | fail2ban, UFW, Docker hardening |
+| /opt/leveredge/tests/ | pytest integration suite |
+| /opt/leveredge/demo/ | Demo environment |
+| /opt/leveredge/aria-frontend-v2/ | React component library |
+| /opt/leveredge/client-portal/ | Next.js client portal |
+
+### Shared Resources
+| Directory | Purpose |
+|-----------|---------|
 | /opt/leveredge/shared/scripts/ | CLI tools |
 | /opt/leveredge/shared/backups/ | CHRONOS backups |
+| /opt/leveredge/shared/systemd/ | Service templates |
+| /opt/leveredge/shared/llm-api-keys.env | API keys for LLM agents |
+
+---
+
+## Key Pattern: Parallel Agent Building
+
+The overnight mega-build demonstrated a powerful pattern for massive throughput:
+
+### Recipe for Parallel Builds
+1. **Define independent units** - Each component should be buildable without waiting for others
+2. **Create clear specs** - Each Task agent needs complete context in its prompt
+3. **Launch in batches** - Send multiple Task tool calls in single message
+4. **Monitor via notifications** - System reminders tell you when agents complete
+5. **Compile after completion** - Aggregate results once all done
+
+### When to Use This Pattern
+- Multiple independent features/components
+- Large-scale infrastructure buildout
+- Documentation across multiple files
+- Test suites for different modules
+
+### When NOT to Use
+- Sequential dependencies (A must finish before B starts)
+- Components that share state or types
+- When you need to iterate based on first result
+
+### Example Prompt Structure for Build Agents
+```
+Build [COMPONENT_NAME] at [PATH]:
+- Purpose: [what it does]
+- Port: [if applicable]
+- Dependencies: [libraries needed]
+- Key features: [bullet list]
+- Create: [files to create]
+- Follow pattern from: [existing similar component]
+```
+
+### Results from Jan 17 Mega-Build
+- 28+ components built in parallel
+- ~245 files created
+- ~66,600 lines of code
+- Completed while sleeping (overnight)

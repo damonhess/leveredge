@@ -17,14 +17,15 @@ LeverEdge AI is an automation agency targeting compliance professionals, launchi
 
 ---
 
-## AGENT ROADMAP (31 Agents + 1 Product)
+## AGENT ROADMAP (40+ Agents Built)
 
 ### Naming Convention
 | Domain | Theme | Status |
 |--------|-------|--------|
 | Infrastructure | Greek Mythology | ✅ Decided |
-| Business | TBD | To explore |
-| Personal | TBD | To explore |
+| Business | Greek Mythology | ✅ Decided |
+| Personal | Descriptive | ✅ Decided |
+| Creative | Greek Muses | ✅ Decided |
 
 ---
 
@@ -55,38 +56,76 @@ LeverEdge AI is an automation agency targeting compliance professionals, launchi
 | Agent | Port | Purpose | Status |
 |-------|------|---------|--------|
 | **ARIA** | - | Personal AI assistant, human liaison | ✅ V3.2 PROD |
-| **VARYS** | TBD | Project Manager, task coordination | 🔮 To Design |
 
 ---
 
-### TIER 3: Business Agents
+### TIER 3: Security Fleet ✅ BUILT
 | Agent | Port | Purpose | Status |
-|-------|--------|---------|--------|
-| **CHIRON** | 8017 | Business coach, strategy advisor, accountability | ✅ Active |
-| **SCHOLAR** | 8018 | Competitive intel, market analysis, niche research | ✅ Active |
-| **ORACLE** | TBD | Business forecasting, trend analysis | 🔮 To Design |
-| **LIBRARIAN** | TBD | RAG system, document retrieval, memory | 🔮 To Design |
-| **SCRIBE** | TBD | Proposals, reports, case studies | 🔮 To Design |
-| **SAPPHO** | TBD | Ad copy, emails, landing pages, hooks | 🔮 To Design |
-| **MERCHANT** | TBD | CRM integration, lead scoring, outreach | 🔮 To Design |
-| **DAEDALUS** | TBD | Graphics, logos, social media images | 🔮 To Design |
-| **CICERO** | TBD | Pitch decks, slides, keynotes | 🔮 To Design |
-| **THOTH** | TBD | Data analysis, dashboards, executive summaries | 🔮 To Design |
+|-------|------|---------|--------|
+| **CERBERUS** | 8020 | Security gateway, auth, rate limiting | ✅ Built |
+| **PORT-MANAGER** | 8021 | Port allocation, conflict resolution | ✅ Built |
 
 ---
 
-### TIER 4: Personal Life Agents
-| Agent | Domain | Purpose | Status |
-|-------|--------|---------|--------|
-| **APOLLO** | Creativity | Music, art, creative projects | 🔮 To Design |
-| **NIKE** | Fitness | Workout programming, exercise coaching | 🔮 To Design |
-| **DEMETER** | Nutrition | Meal planning, recipes, diet optimization | 🔮 To Design |
-| **MENTOR** | Learning | Skill development, course tracking | 🔮 To Design |
-| **EROS** | Relationships | Social calendar, relationship management | 🔮 To Design |
-| **MIDAS** | Shopping | Procurement, deals, purchases | 🔮 To Design |
-| **NICHOLAS** | Gifting | Gift research, holiday shopping, wishlists | 🔮 To Design |
-| **COCO** | Fashion | Style advice, outfit planning, wardrobe | 🔮 To Design |
-| **PHILEAS** | Travel | Trip planning, bookings, itineraries | 🔮 To Design |
+### TIER 3: Creative Fleet ✅ BUILT
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| **MUSE** | 8030 | Creative director, project orchestration | ✅ Built |
+| **CALLIOPE** | 8031 | Writer - articles, scripts, copy (LLM) | ✅ Built |
+| **THALIA** | 8032 | Designer - presentations, UI, landing pages | ✅ Built |
+| **ERATO** | 8033 | Media producer - images, video, voiceover | ✅ Built |
+| **CLIO** | 8034 | Reviewer - QA, fact-check, brand compliance | ✅ Built |
+
+---
+
+### TIER 3: Business Fleet ✅ BUILT
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| **CHIRON** | 8017 | Business coach, strategy advisor, accountability | ✅ Active |
+| **SCHOLAR** | 8018 | Competitive intel, market analysis, web search | ✅ Active |
+| **HERACLES** | 8200 | Project management, task breakdown (LLM) | ✅ Built |
+| **LIBRARIAN** | 8201 | Knowledge management, document org (LLM) | ✅ Built |
+| **DAEDALUS** | 8202 | Workflow builder, n8n automation (LLM) | ✅ Built |
+| **THEMIS** | 8203 | Legal advisor, contracts, compliance (LLM) | ✅ Built |
+| **MENTOR** | 8204 | Business coach, leadership dev (LLM) | ✅ Built |
+| **PLUTUS** | 8205 | Financial analyst, budgets, ROI (LLM) | ✅ Built |
+| **PROCUREMENT** | 8206 | Vendor evaluation, cost optimization (LLM) | ✅ Built |
+| **HEPHAESTUS-SERVER** | 8207 | Server admin, DevOps guidance (LLM) | ✅ Built |
+| **ATLAS-INFRA** | 8208 | Cloud architecture, scaling (LLM) | ✅ Built |
+| **IRIS** | 8209 | World events, news, trends (LLM) | ✅ Built |
+
+---
+
+### TIER 4: Personal Fleet ✅ BUILT
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| **GYM-COACH** | 8110 | Workout programming, exercise coaching (LLM) | ✅ Built |
+| **NUTRITIONIST** | 8101 | Nutrition advice, diet planning (LLM) | ✅ Built |
+| **MEAL-PLANNER** | 8102 | Recipes, grocery lists, meal prep (LLM) | ✅ Built |
+| **ACADEMIC-GUIDE** | 8103 | Learning paths, study optimization (LLM) | ✅ Built |
+| **EROS** | 8104 | Relationship advice, dating coaching (LLM) | ✅ Built |
+
+---
+
+### TIER 4: Infrastructure Agents ✅ BUILT
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| **FILE-PROCESSOR** | 8050 | PDF, image, audio processing | ✅ Built |
+| **VOICE** | 8051 | Voice interface (Whisper + TTS) | ✅ Built |
+| **MEMORY-V2** | 8066 | Unified cross-conversation memory | ✅ Built |
+| **SHIELD-SWORD** | 8067 | Manipulation detection/influence | ✅ Built |
+| **GATEWAY** | 8070 | API gateway, rate limiting | ✅ Built |
+
+---
+
+### TIER 4: Dashboards & Monitoring ✅ BUILT
+| Dashboard | Port | Purpose | Status |
+|-----------|------|---------|--------|
+| Fleet Dashboard | 8060 | Agent status, health monitoring | ✅ Built |
+| Cost Dashboard | 8061 | LLM usage tracking, cost analysis | ✅ Built |
+| Log Aggregation | 8062 | Centralized logging | ✅ Built |
+| Uptime Monitor | 8063 | Service availability checks | ✅ Built |
+| SSL Monitor | 8064 | Certificate expiration tracking | ✅ Built |
 
 ---
 
@@ -101,35 +140,49 @@ LeverEdge AI is an automation agency targeting compliance professionals, launchi
 
 | Category | Count | Status |
 |----------|-------|--------|
-| Tier 0-1: Infrastructure | 11 | ✅ BUILT |
-| Tier 2: Data Plane | 1 | ✅ ARIA built, VARYS to design |
-| Tier 3: Business | 2 built, 8 to design | CHIRON + SCHOLAR ✅ |
-| Tier 4: Personal | 9 | 🔮 All to design |
+| Tier 0-1: Core Infrastructure | 14 | ✅ BUILT |
+| Tier 2: Data Plane | 1 | ✅ ARIA V3.2 |
+| Tier 3: Security Fleet | 2 | ✅ BUILT |
+| Tier 3: Creative Fleet | 5 | ✅ BUILT |
+| Tier 3: Business Fleet | 12 | ✅ BUILT |
+| Tier 4: Personal Fleet | 5 | ✅ BUILT |
+| Tier 4: Infrastructure Agents | 5 | ✅ BUILT |
+| Tier 4: Dashboards | 5 | ✅ BUILT |
 | Tier 5: Product | 1 | 🔮 To design |
-| **TOTAL** | 31 + 1 product | 13 built, 18 to design |
+| **TOTAL** | 40+ agents | Only 1 product remaining |
 
 ---
 
-## INFRASTRUCTURE TO DESIGN (by March 1)
+## INFRASTRUCTURE STATUS
 
-### Command Center (Internal)
-- Monitoring dashboard (Grafana exists, needs polish)
-- Deployment UI
-- Agent orchestration panel
-- Cost tracking dashboard
+### Command Center (Internal) ✅ MOSTLY BUILT
+- Monitoring dashboard - ✅ Grafana + Fleet Dashboard (8060)
+- Cost tracking dashboard - ✅ Cost Dashboard (8061)
+- Agent health monitoring - ✅ Uptime Monitor (8063)
+- SSL certificate tracking - ✅ SSL Monitor (8064)
+- Log aggregation - ✅ Log Aggregation (8062)
+- Deployment UI - ⬜ To build
 
-### Public Side (External)
-- Website (leveredgeai.com)
-- Demo portal with public demos
-- Sales portal (tailored demos per prospect)
-- Chatbot for lead capture
-- Blog/content area
+### Public Side (External) ✅ PARTIALLY BUILT
+- Demo portal - ✅ `/opt/leveredge/demo/`
+- Client portal - ✅ `/opt/leveredge/client-portal/` (Next.js 14)
+- Website (leveredgeai.com) - ⬜ To build
+- Sales portal - ⬜ To build
+- Chatbot for lead capture - ⬜ To build
+- Blog/content area - ⬜ To build
+
+### Infrastructure Built ✅
+- Billing/Invoice system - ✅ `/opt/leveredge/billing/`
+- Documentation site - ✅ MkDocs at `/opt/leveredge/docs-site/`
+- Integration test suite - ✅ `/opt/leveredge/tests/`
+- Docker Compose fleet - ✅ 35 services, 5 profiles
+- Security hardening - ✅ fail2ban, UFW, Docker isolation
+- Integrations - ✅ Google Cal/Tasks, Telegram, Email
 
 ### CRM System
-- Lead tracking
-- Pipeline management
-- Follow-up automation
-- Integration with MERCHANT agent
+- Lead tracking - ⬜ To build
+- Pipeline management - ⬜ To build
+- Follow-up automation - ⬜ To build
 
 ### Product Packages
 - Tier 1: Lead Capture ($500-2,500)
@@ -188,14 +241,20 @@ CHIRON + SCHOLAR self-upgrade planning:
 - Time-aware responses
 - Dynamic portfolio injection
 
-### V4.0 (To Design)
-- Multi-modal file processing (PDF, images, audio)
-- Proactive reminders
-- Telegram interface
-- Voice interface
-- LIBRARIAN integration (cross-conversation memory)
-- Event feed (see what agents are doing)
-- Email/phone/voice integration
+### V4.0 Components Built ✅
+- Multi-modal file processing - ✅ FILE-PROCESSOR (8050)
+- Proactive reminders - ✅ REMINDERS-V2 built
+- Telegram interface - ✅ `/opt/leveredge/integrations/telegram/`
+- Voice interface - ✅ VOICE (8051) with Whisper + TTS
+- Cross-conversation memory - ✅ MEMORY-V2 (8066)
+- Email integration - ✅ `/opt/leveredge/integrations/email/`
+- Shield/Sword upgrade - ✅ SHIELD-SWORD agent (8067)
+- ARIA Frontend V2 - ✅ React components at `/opt/leveredge/aria-frontend-v2/`
+
+### V4.0 Remaining (Integration Work)
+- Event feed (see what agents are doing) - ⬜ Wire up Fleet Dashboard
+- Wire cost tracking into ARIA workflow - ⬜ Pending
+- Integrate new components into main ARIA n8n workflow - ⬜ Pending
 
 ---
 

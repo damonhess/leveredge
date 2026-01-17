@@ -112,36 +112,87 @@ Multi-agent AI automation infrastructure with control plane / data plane separat
 |-------|------|---------|--------|
 | GAIA | 8000 | Emergency bootstrap/rebuild | ✅ Ready |
 
-### Tier 1: Control Plane - Infrastructure
+### Tier 1: Control Plane - Core Infrastructure
 | Agent | Port | Purpose | Status |
 |-------|------|---------|--------|
 | ATLAS | 8007 | Orchestration engine, chain execution | ✅ Active |
-| SENTINEL | 8019 | Smart routing, health monitoring | ✅ Active |
-| HEPHAESTUS | 8011 | Builder/deployer, MCP server for Claude Web | ✅ Active |
-| AEGIS | 8012 | Credential vault, secret management | ✅ Active |
-| CHRONOS | 8010 | Backup manager, scheduled snapshots | ✅ Active |
 | HADES | 8008 | Rollback/recovery system | ✅ Active |
-| HERMES | 8014 | Notifications (Telegram, Event Bus) | ✅ Active |
-| ARGUS | 8016 | Monitoring, Prometheus integration | ✅ Active |
-| ALOY | 8015 | Audit log analysis, anomaly detection | ✅ Active |
+| CHRONOS | 8010 | Backup manager, scheduled snapshots | ✅ Active |
+| HEPHAESTUS | 8011 | Builder/deployer, MCP server | ✅ Active |
+| AEGIS | 8012 | Credential vault, secret management | ✅ Active |
 | ATHENA | 8013 | Documentation generation | ✅ Active |
-| VARYS | 8020 | Mission Guardian, accountability | ✅ Active |
+| HERMES | 8014 | Notifications (Telegram, Event Bus) | ✅ Active |
+| ALOY | 8015 | Audit log analysis, anomaly detection | ✅ Active |
+| ARGUS | 8016 | Monitoring, Prometheus integration | ✅ Active |
+| CHIRON | 8017 | Business strategy, ADHD planning (LLM) | ✅ Active |
+| SCHOLAR | 8018 | Market research, web search (LLM) | ✅ Active |
+| SENTINEL | 8019 | Smart routing, health monitoring | ✅ Active |
 | Event Bus | 8099 | Inter-agent communication | ✅ Active |
 
-### Tier 1: Control Plane - Business Intelligence (LLM-Powered)
+### Tier 1: Control Plane - New Infrastructure Agents
 | Agent | Port | Purpose | Status |
 |-------|------|---------|--------|
-| SCHOLAR | 8018 | Market research, competitive intelligence | ✅ Active |
-| CHIRON | 8017 | Business strategy, ADHD planning | ✅ Active |
+| FILE-PROCESSOR | 8050 | PDF, image, audio processing | ✅ Built |
+| VOICE | 8051 | Voice interface (Whisper + TTS) | ✅ Built |
+| MEMORY-V2 | 8066 | Unified cross-conversation memory | ✅ Built |
+| SHIELD-SWORD | 8067 | Manipulation detection/influence | ✅ Built |
+| GATEWAY | 8070 | API gateway, rate limiting | ✅ Built |
+
+### Tier 1: Security Fleet (8020-8021)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| CERBERUS | 8020 | Security gateway, auth, rate limiting | ✅ Built |
+| PORT-MANAGER | 8021 | Port allocation, conflict resolution | ✅ Built |
+
+### Tier 1: Creative Fleet (8030-8034)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| MUSE | 8030 | Creative director, project orchestration | ✅ Built |
+| CALLIOPE | 8031 | Writer - articles, scripts, copy (LLM) | ✅ Built |
+| THALIA | 8032 | Designer - presentations, UI, landing pages | ✅ Built |
+| ERATO | 8033 | Media producer - images, video, voiceover | ✅ Built |
+| CLIO | 8034 | Reviewer - QA, fact-check, brand compliance (LLM) | ✅ Built |
+
+### Tier 1: Personal Fleet (8100-8110)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| NUTRITIONIST | 8101 | Nutrition advice, diet planning (LLM) | ✅ Built |
+| MEAL-PLANNER | 8102 | Recipes, grocery lists, meal prep (LLM) | ✅ Built |
+| ACADEMIC-GUIDE | 8103 | Learning paths, study optimization (LLM) | ✅ Built |
+| EROS | 8104 | Relationship advice, dating coaching (LLM) | ✅ Built |
+| GYM-COACH | 8110 | Workout programming, fitness tracking (LLM) | ✅ Built |
+
+### Tier 1: Business Fleet (8200-8209)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| HERACLES | 8200 | Project management, task breakdown (LLM) | ✅ Built |
+| LIBRARIAN | 8201 | Knowledge management, document org (LLM) | ✅ Built |
+| DAEDALUS | 8202 | Workflow builder, n8n automation (LLM) | ✅ Built |
+| THEMIS | 8203 | Legal advisor, contracts, compliance (LLM) | ✅ Built |
+| MENTOR | 8204 | Business coach, leadership dev (LLM) | ✅ Built |
+| PLUTUS | 8205 | Financial analyst, budgets, ROI (LLM) | ✅ Built |
+| PROCUREMENT | 8206 | Vendor evaluation, cost optimization (LLM) | ✅ Built |
+| HEPHAESTUS-SERVER | 8207 | Server admin, DevOps guidance (LLM) | ✅ Built |
+| ATLAS-INFRA | 8208 | Cloud architecture, scaling (LLM) | ✅ Built |
+| IRIS | 8209 | World events, news, trends (LLM) | ✅ Built |
+
+### Tier 1: Dashboards & Monitoring
+| Dashboard | Port | Purpose | Status |
+|-----------|------|---------|--------|
+| Fleet Dashboard | 8060 | Agent status, health monitoring | ✅ Built |
+| Cost Dashboard | 8061 | LLM usage tracking, cost analysis | ✅ Built |
+| Log Aggregation | 8062 | Centralized logging | ✅ Built |
+| Uptime Monitor | 8063 | Service availability checks | ✅ Built |
+| SSL Monitor | 8064 | Certificate expiration tracking | ✅ Built |
 
 ### Tier 2: Data Plane
 | Component | Port | Purpose | Status |
 |-----------|------|---------|--------|
-| ARIA | 5678 | Personal AI assistant | ✅ Active |
+| ARIA | 5678 | Personal AI assistant | ✅ V3.2 Active |
 | PROD n8n | 5678 | Production workflows | ✅ Active |
 | DEV n8n | 5680 | Development/testing | ✅ Active |
-| PROD Supabase | 5432 | Production database | ✅ Active |
-| DEV Supabase | - | Development database (shared container) | ⚠️ Partial |
+| PROD Supabase | 54322 | Production database | ✅ Active |
+| DEV Supabase | 54323 | Development database (isolated) | ✅ Active |
 
 ---
 

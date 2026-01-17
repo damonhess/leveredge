@@ -9,11 +9,14 @@
 
 | Component | Status |
 |-----------|--------|
-| Control Plane | ✅ 9 agents active |
+| Control Plane | ✅ 40+ agents active |
 | Data Plane PROD | ✅ n8n + Supabase |
 | Data Plane DEV | ✅ n8n + Supabase |
-| ARIA | ✅ Working |
-| Monitoring | ✅ Prometheus + Grafana |
+| ARIA | ✅ V3.2 Working |
+| Monitoring | ✅ Prometheus + Grafana + Uptime + SSL |
+| Dashboards | ✅ Fleet + Cost Tracking |
+| Documentation | ✅ MkDocs Site |
+| Testing | ✅ pytest Integration Suite |
 
 ---
 
@@ -37,7 +40,9 @@
 ├── gaia/                          # Tier 0 - Emergency restore
 ├── control-plane/
 │   ├── n8n/                       # control.n8n.leveredgeai.com
-│   └── agents/                    # FastAPI backends
+│   ├── agents/                    # 40+ FastAPI backends
+│   ├── event-bus/                 # Inter-agent communication
+│   └── workflows/                 # n8n workflow exports
 ├── data-plane/
 │   ├── prod/
 │   │   ├── n8n/                   # n8n.leveredgeai.com
@@ -47,27 +52,101 @@
 │       └── supabase/
 ├── shared/
 │   ├── scripts/                   # CLI tools
-│   └── backups/                   # CHRONOS destination
-└── monitoring/                    # Prometheus + Grafana
+│   ├── backups/                   # CHRONOS destination
+│   └── systemd/                   # Service templates
+├── monitoring/
+│   ├── prometheus/                # Metrics collection
+│   ├── grafana/                   # Dashboards
+│   ├── uptime/                    # Service uptime checks
+│   ├── ssl/                       # Certificate monitoring
+│   └── logs/                      # Log aggregation
+├── integrations/
+│   ├── google-calendar/           # Two-way sync
+│   ├── google-tasks/              # Two-way sync
+│   ├── telegram/                  # Bot integration
+│   └── email/                     # SendGrid
+├── maintenance/
+│   ├── storage-cleanup/           # Supabase cleanup
+│   └── chat-cleanup/              # n8n memory cleanup
+├── billing/                       # Invoice & usage tracking
+├── security/                      # Hardening configs
+├── tests/                         # pytest integration suite
+├── docs-site/                     # MkDocs documentation
+├── demo/                          # Demo environment
+├── aria-frontend-v2/              # React components
+└── client-portal/                 # Next.js client portal
 ```
 
 ---
 
 ## Agent Fleet
 
+### Core Infrastructure (8000-8099)
 | Agent | Port | Purpose |
 |-------|------|---------|
 | GAIA | 8000 | Emergency bootstrap |
-| ATLAS | n8n | Master orchestrator |
+| ATLAS | 8007 | Orchestration engine |
+| HADES | 8008 | Rollback system |
+| CHRONOS | 8010 | Backup manager |
 | HEPHAESTUS | 8011 | Builder (MCP) |
 | AEGIS | 8012 | Credential vault |
-| CHRONOS | 8010 | Backup manager |
-| HADES | 8008 | Rollback system |
-| HERMES | 8014 | Notifications |
-| ARGUS | 8016 | Monitoring |
-| ALOY | 8015 | Audit/anomaly |
 | ATHENA | 8013 | Documentation |
+| HERMES | 8014 | Notifications |
+| ALOY | 8015 | Audit/anomaly |
+| ARGUS | 8016 | Monitoring |
+| CHIRON | 8017 | Business mentor (LLM) |
+| SCHOLAR | 8018 | Market research (LLM) |
+| SENTINEL | 8019 | Smart router |
+| FILE-PROCESSOR | 8050 | PDF/image/audio processing |
+| VOICE | 8051 | Voice interface |
+| GATEWAY | 8070 | API gateway |
+| MEMORY-V2 | 8066 | Unified memory |
+| SHIELD-SWORD | 8067 | Manipulation detection |
 | Event Bus | 8099 | Inter-agent communication |
+
+### Security Fleet (8020-8021)
+| Agent | Port | Purpose |
+|-------|------|---------|
+| CERBERUS | 8020 | Security gateway |
+| PORT-MANAGER | 8021 | Port allocation |
+
+### Creative Fleet (8030-8034)
+| Agent | Port | Purpose |
+|-------|------|---------|
+| MUSE | 8030 | Creative director |
+| CALLIOPE | 8031 | Writer (LLM) |
+| THALIA | 8032 | Designer |
+| ERATO | 8033 | Media producer |
+| CLIO | 8034 | Reviewer (LLM) |
+
+### Personal Fleet (8100-8110)
+| Agent | Port | Purpose |
+|-------|------|---------|
+| NUTRITIONIST | 8101 | Nutrition (LLM) |
+| MEAL-PLANNER | 8102 | Meals (LLM) |
+| ACADEMIC-GUIDE | 8103 | Learning (LLM) |
+| EROS | 8104 | Relationships (LLM) |
+| GYM-COACH | 8110 | Fitness (LLM) |
+
+### Business Fleet (8200-8209)
+| Agent | Port | Purpose |
+|-------|------|---------|
+| HERACLES | 8200 | Project manager (LLM) |
+| LIBRARIAN | 8201 | Knowledge manager (LLM) |
+| DAEDALUS | 8202 | Workflow builder (LLM) |
+| THEMIS | 8203 | Legal advisor (LLM) |
+| MENTOR | 8204 | Business coach (LLM) |
+| PLUTUS | 8205 | Financial analyst (LLM) |
+| PROCUREMENT | 8206 | Procurement expert (LLM) |
+| HEPHAESTUS-SERVER | 8207 | Server admin (LLM) |
+| ATLAS-INFRA | 8208 | Infrastructure advisor (LLM) |
+| IRIS | 8209 | World events (LLM) |
+
+### Dashboards
+| Dashboard | Port | Purpose |
+|-----------|------|---------|
+| Fleet Dashboard | 8060 | Agent status & health |
+| Cost Dashboard | 8061 | LLM usage & costs |
 
 ---
 

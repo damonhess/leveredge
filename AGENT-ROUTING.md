@@ -47,6 +47,13 @@
 | **Server admin** | HEPHAESTUS-SERVER (8207) | Infrastructure |
 | **Cloud architecture** | ATLAS-INFRA (8208) | Scaling, costs |
 | **Current events** | IRIS (8209) | News, trends |
+| **File processing** | FILE-PROCESSOR (8050) | PDF, images, audio |
+| **Voice interface** | VOICE (8051) | Speech-to-text, TTS |
+| **API gateway** | GATEWAY (8070) | Rate limiting, routing |
+| **Memory consolidation** | MEMORY-V2 (8066) | Cross-conversation facts |
+| **Manipulation detection** | SHIELD-SWORD (8067) | Influence patterns |
+| **Agent status** | Fleet Dashboard (8060) | Health monitoring |
+| **Cost tracking** | Cost Dashboard (8061) | LLM usage/costs |
 
 ---
 
@@ -513,6 +520,100 @@ curl -X POST http://localhost:8018/compare \
 - Service discovery
 - Network health monitoring
 - Port conflict resolution
+
+---
+
+## INFRASTRUCTURE AGENTS
+
+### FILE-PROCESSOR (File Processing) - Port 8050
+**Use for:**
+- PDF parsing with page-level citations
+- Image analysis via Vision API
+- Audio transcription via Whisper
+- Document extraction
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /process/pdf | POST | Extract text from PDF |
+| /process/image | POST | Analyze image |
+| /process/audio | POST | Transcribe audio |
+| /health | GET | Health check |
+
+### VOICE (Voice Interface) - Port 8051
+**Use for:**
+- Speech-to-text via Whisper
+- Text-to-speech via ElevenLabs
+- Voice command processing
+- Audio response generation
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /transcribe | POST | Audio to text |
+| /synthesize | POST | Text to speech |
+| /health | GET | Health check |
+
+### GATEWAY (API Gateway) - Port 8070
+**Use for:**
+- API rate limiting
+- Request routing
+- Authentication verification
+- Load balancing
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /route | POST | Route request to agent |
+| /health | GET | Health check |
+| /stats | GET | Request statistics |
+
+### MEMORY-V2 (Unified Memory) - Port 8066
+**Use for:**
+- Cross-conversation fact extraction
+- Semantic memory search
+- Memory consolidation
+- Context retrieval
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /remember | POST | Store fact |
+| /recall | POST | Retrieve memories |
+| /consolidate | POST | Merge memories |
+| /health | GET | Health check |
+
+### SHIELD-SWORD (Manipulation Detection) - Port 8067
+**Use for:**
+- Detecting manipulation patterns (Shield)
+- Applying influence techniques (Sword)
+- Pattern analysis
+- Conversation safety
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /analyze | POST | Detect patterns |
+| /apply | POST | Apply technique |
+| /health | GET | Health check |
+
+---
+
+## DASHBOARDS & MONITORING
+
+### Fleet Dashboard - Port 8060
+**Use for:**
+- Real-time agent health status
+- Service uptime monitoring
+- Quick restart controls
+- Fleet overview
+
+### Cost Dashboard - Port 8061
+**Use for:**
+- LLM API usage tracking
+- Cost analysis and trends
+- Budget alerts
+- Per-agent cost breakdown
 
 ---
 
