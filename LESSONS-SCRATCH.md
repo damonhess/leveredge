@@ -704,3 +704,40 @@ docker run -d --name chiron --network control-plane-net -p 8017:8017 \
 - energy_optimizer: "I'm tired", "no energy", "when am I most productive"
 - decision_accelerator: "I can't decide", "I'm torn between", "should I"
 - resistance_decoder: "I should probably", "I'll get to it later", "I don't feel like"
+
+### 2026-01-17 - [ARIA Async Multitasking]
+**Built:** Complete async task system with privacy controls
+
+**Components:**
+1. Database:
+   - `aria_async_tasks` - Task storage with privacy fields
+   - `aria_task_progress` - Step-by-step progress tracking
+   - `aria_cleanup_tasks()` - Auto-delete function
+   
+2. n8n Workflows (DEV):
+   - `30 - Task Dispatcher` (task-dispatcher-001) - Privacy detection + all CRUD operations
+   - `31 - Task Listener` (task-listener-001) - Event Bus subscriber for task lifecycle
+   - `32 - Task Cleanup Scheduler` (task-cleanup-001) - Hourly cleanup job
+   
+3. ARIA Tools (7 new):
+   - `dispatch_task` - Background task dispatch with privacy options
+   - `check_tasks` - Status check with include_private flag
+   - `get_task_result` - Retrieve completed task output
+   - `delete_task` - Permanent task deletion
+   - `get_task_privacy` - Check privacy settings
+   - `set_task_privacy` - Modify privacy level
+   - `clear_task_history` - Bulk delete old tasks
+
+**Privacy Levels:**
+- 📊 Normal: Saved, Telegram notifications OK
+- 🔒 Private: Hidden from history, no external notifications
+- 💨 Ephemeral: Auto-delete after delivery
+
+**Auto-Detection:** Sensitive patterns (salary, health, legal, financial) auto-upgrade to private
+
+**Key Patterns:**
+- Privacy detection uses regex patterns in Code node
+- Tasks connect to AI Agent via ai_tool connections
+- Event Bus integration for task lifecycle events
+- Delete_at column enables scheduled deletion
+

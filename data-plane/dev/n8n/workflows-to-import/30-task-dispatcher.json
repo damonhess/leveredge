@@ -1,0 +1,371 @@
+{
+  "id": "task-dispatcher-001",
+  "name": "30 - Task Dispatcher",
+  "active": false,
+  "versionId": "fc21091e-555d-4e3b-ac5c-38a0ff8b0414",
+  "nodes": [
+    {
+      "id": "dispatcher-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "dispatcher-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "operation", "name": "operation", "type": "string", "value": "={{ $json.operation || 'dispatch' }}"},
+            {"id": "task_type", "name": "task_type", "type": "string", "value": "={{ $json.task_type || 'research' }}"},
+            {"id": "chain_name", "name": "chain_name", "type": "string", "value": "={{ $json.chain_name }}"},
+            {"id": "agent", "name": "agent", "type": "string", "value": "={{ $json.agent }}"},
+            {"id": "action", "name": "action", "type": "string", "value": "={{ $json.action }}"},
+            {"id": "input", "name": "input", "type": "object", "value": "={{ $json.input || {} }}"},
+            {"id": "privacy_level", "name": "privacy_level", "type": "string", "value": "={{ $json.privacy_level || 'normal' }}"},
+            {"id": "auto_delete", "name": "auto_delete", "type": "boolean", "value": "={{ $json.auto_delete || false }}"},
+            {"id": "delete_after", "name": "delete_after", "type": "string", "value": "={{ $json.delete_after }}"},
+            {"id": "user_id", "name": "user_id", "type": "string", "value": "={{ $json.user_id || 'damon' }}"},
+            {"id": "trigger_message", "name": "trigger_message", "type": "string", "value": "={{ $json.trigger_message }}"},
+            {"id": "estimated_duration", "name": "estimated_duration", "type": "string", "value": "={{ $json.estimated_duration }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "dispatcher-privacy",
+      "name": "Privacy Detection",
+      "type": "n8n-nodes-base.code",
+      "position": [540, 300],
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// Sensitive content patterns\nconst SENSITIVE_PATTERNS = [\n  /\\b(private|confidential|secret)\\b/i,\n  /\\b(salary|compensation|pay|income)\\b/i,\n  /\\b(health|medical|diagnosis|symptom|therapy)\\b/i,\n  /\\b(legal|lawsuit|attorney|lawyer)\\b/i,\n  /\\b(financial|debt|loan|credit|taxes)\\b/i,\n  /\\b(relationship|divorce|dating)\\b/i,\n  /\\bdon't\\s+(share|tell|save)\\b/i,\n  /\\bkeep.*(between us|private)\\b/i,\n  /\\bdelete.*(after|when done)\\b/i\n];\n\n// Privacy command patterns\nconst PRIVACY_COMMANDS = {\n  private: /^privately\\s|\\bkeep this private\\b/i,\n  ephemeral: /\\bdon't save\\b|\\bforget this\\b/i,\n  auto_delete: /\\bdelete after\\b|\\bdelete when done\\b/i\n};\n\n// Check trigger message for privacy signals\nconst message = (input.trigger_message || '').toLowerCase();\nconst inputStr = JSON.stringify(input.input || {}).toLowerCase();\nconst combined = message + ' ' + inputStr;\n\nlet privacy_level = input.privacy_level || 'normal';\nlet is_sensitive = false;\nlet notify_external = true;\nlet auto_delete_after_delivery = input.auto_delete || false;\nlet delete_after = input.delete_after;\n\n// Check for explicit privacy commands\nfor (const [level, pattern] of Object.entries(PRIVACY_COMMANDS)) {\n  if (pattern.test(combined)) {\n    if (level === 'private') {\n      privacy_level = 'private';\n      notify_external = false;\n    } else if (level === 'ephemeral') {\n      privacy_level = 'ephemeral';\n      notify_external = false;\n      auto_delete_after_delivery = true;\n    } else if (level === 'auto_delete') {\n      auto_delete_after_delivery = true;\n      // Try to extract duration\n      const durationMatch = combined.match(/delete\\s+after\\s+(\\d+\\s*[hmds]|\\d+\\s*(?:hour|minute|day|second)s?)/i);\n      if (durationMatch) {\n        delete_after = durationMatch[1];\n      } else {\n        delete_after = delete_after || '1h';\n      }\n    }\n  }\n}\n\n// Check for sensitive content (auto-upgrade to private if normal)\nfor (const pattern of SENSITIVE_PATTERNS) {\n  if (pattern.test(combined)) {\n    is_sensitive = true;\n    if (privacy_level === 'normal') {\n      privacy_level = 'private';\n      notify_external = false;\n    }\n    break;\n  }\n}\n\n// Calculate delete_at timestamp\nlet delete_at = null;\nif (auto_delete_after_delivery && delete_after) {\n  const now = new Date();\n  const match = delete_after.match(/(\\d+)\\s*([hmds])/i);\n  if (match) {\n    const amount = parseInt(match[1]);\n    const unit = match[2].toLowerCase();\n    const multipliers = { h: 3600000, m: 60000, d: 86400000, s: 1000 };\n    delete_at = new Date(now.getTime() + amount * (multipliers[unit] || 3600000)).toISOString();\n  }\n}\n\n// Privacy icon for response\nconst privacyIcon = {\n  normal: '📊',\n  private: '🔒',\n  ephemeral: '💨'\n};\n\nreturn [{\n  json: {\n    ...input,\n    privacy_level,\n    is_sensitive,\n    notify_external,\n    auto_delete_after_delivery,\n    delete_at,\n    hide_from_history: privacy_level !== 'normal',\n    privacy_icon: privacyIcon[privacy_level] || '📊',\n    privacy_warning: is_sensitive && input.privacy_level !== 'private' ? \n      `⚠️ Detected sensitive content - upgraded to private mode` : null\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "dispatcher-route",
+      "name": "Route by Operation",
+      "type": "n8n-nodes-base.switch",
+      "position": [760, 300],
+      "parameters": {
+        "rules": {
+          "rules": [
+            {"outputKey": "dispatch", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "dispatch", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "check", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "check", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "get_result", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "get_result", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "delete", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "delete", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "get_privacy", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "get_privacy", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "set_privacy", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "set_privacy", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "clear_history", "conditions": {"conditions": [{"leftValue": "={{ $json.operation }}", "rightValue": "clear_history", "operator": {"type": "string", "operation": "equals"}}]}}
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "dispatcher-create-task",
+      "name": "Create Task",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 100],
+      "parameters": {
+        "query": "INSERT INTO aria_async_tasks (\n  user_id, task_type, chain_name, agent, action, input,\n  privacy_level, is_sensitive, hide_from_history, notify_external,\n  auto_delete_after_delivery, delete_at, trigger_message,\n  estimated_duration_ms\n) VALUES (\n  $1, $2, $3, $4, $5, $6::jsonb,\n  $7, $8, $9, $10,\n  $11, $12::timestamptz, $13,\n  $14\n) RETURNING id, created_at, expires_at",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id, $json.task_type, $json.chain_name, $json.agent, $json.action, JSON.stringify($json.input), $json.privacy_level, $json.is_sensitive, $json.hide_from_history, $json.notify_external, $json.auto_delete_after_delivery, $json.delete_at, $json.trigger_message, $json.estimated_duration_ms || null] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-notify-event-bus",
+      "name": "Notify Event Bus",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1220, 100],
+      "parameters": {
+        "url": "http://gaia-event-bus:8099/publish",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event: 'task_dispatched', agent: 'aria', data: { task_id: $('Create Task').first().json.id, task_type: $('Privacy Detection').first().json.task_type, chain_name: $('Privacy Detection').first().json.chain_name, agent: $('Privacy Detection').first().json.agent, action: $('Privacy Detection').first().json.action, input: $('Privacy Detection').first().json.input, privacy_level: $('Privacy Detection').first().json.privacy_level }, timestamp: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    },
+    {
+      "id": "dispatcher-response",
+      "name": "Format Dispatch Response",
+      "type": "n8n-nodes-base.set",
+      "position": [1440, 100],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "task_id", "name": "task_id", "type": "string", "value": "={{ $('Create Task').first().json.id }}"},
+            {"id": "status", "name": "status", "type": "string", "value": "dispatched"},
+            {"id": "privacy_level", "name": "privacy_level", "type": "string", "value": "={{ $('Privacy Detection').first().json.privacy_level }}"},
+            {"id": "privacy_icon", "name": "privacy_icon", "type": "string", "value": "={{ $('Privacy Detection').first().json.privacy_icon }}"},
+            {"id": "privacy_warning", "name": "privacy_warning", "type": "string", "value": "={{ $('Privacy Detection').first().json.privacy_warning }}"},
+            {"id": "notify_external", "name": "notify_external", "type": "boolean", "value": "={{ $('Privacy Detection').first().json.notify_external }}"},
+            {"id": "auto_delete", "name": "auto_delete", "type": "boolean", "value": "={{ $('Privacy Detection').first().json.auto_delete_after_delivery }}"},
+            {"id": "created_at", "name": "created_at", "type": "string", "value": "={{ $('Create Task').first().json.created_at }}"},
+            {"id": "expires_at", "name": "expires_at", "type": "string", "value": "={{ $('Create Task').first().json.expires_at }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ $('Privacy Detection').first().json.privacy_icon }} Task dispatched successfully"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "dispatcher-check-tasks",
+      "name": "Check Tasks",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 250],
+      "parameters": {
+        "query": "SELECT \n  id, task_type, chain_name, agent, action, status, progress, progress_message,\n  privacy_level, is_sensitive, notify_external,\n  created_at, started_at, completed_at, expires_at,\n  CASE WHEN privacy_level = 'normal' THEN '📊'\n       WHEN privacy_level = 'private' THEN '🔒'\n       WHEN privacy_level = 'ephemeral' THEN '💨'\n       ELSE '📊' END as privacy_icon\nFROM aria_async_tasks\nWHERE user_id = $1\n  AND deleted_at IS NULL\n  AND ($2::boolean = true OR hide_from_history = false)\n  AND ($3::text IS NULL OR id::text = $3)\n  AND status = ANY($4::text[])\nORDER BY created_at DESC\nLIMIT 20",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id, $json.include_private || false, $json.task_id || null, $json.status_filter || ['pending', 'running', 'complete']] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-format-check",
+      "name": "Format Check Response",
+      "type": "n8n-nodes-base.code",
+      "position": [1220, 250],
+      "parameters": {
+        "jsCode": "const tasks = $input.all().map(item => item.json);\nconst input = $('Extract Input').first().json;\n\nconst running = tasks.filter(t => t.status === 'running');\nconst pending = tasks.filter(t => t.status === 'pending');\nconst complete = tasks.filter(t => t.status === 'complete');\nconst hidden = tasks.filter(t => t.privacy_level !== 'normal' && !input.include_private);\n\nreturn [{\n  json: {\n    tasks: tasks,\n    summary: {\n      running: running.length,\n      pending: pending.length,\n      complete: complete.length,\n      hidden: input.include_private ? 0 : hidden.length\n    },\n    has_ready_results: complete.length > 0,\n    message: tasks.length > 0 ? \n      `Found ${tasks.length} task(s)` : \n      'No matching tasks found'\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "dispatcher-get-result",
+      "name": "Get Task Result",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 400],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET delivered_at = NOW(), status = CASE WHEN status = 'complete' THEN 'delivered' ELSE status END\nWHERE id = $1::uuid AND user_id = $2\nRETURNING id, task_type, status, output, error, privacy_level, is_sensitive,\n  auto_delete_after_delivery, delete_at, completed_at, actual_duration_ms,\n  CASE WHEN privacy_level = 'normal' THEN '📊'\n       WHEN privacy_level = 'private' THEN '🔒'\n       WHEN privacy_level = 'ephemeral' THEN '💨'\n       ELSE '📊' END as privacy_icon",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.user_id] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-format-result",
+      "name": "Format Result Response",
+      "type": "n8n-nodes-base.code",
+      "position": [1220, 400],
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nif (!result || !result.id) {\n  return [{ json: { error: 'Task not found', found: false } }];\n}\n\nlet deleteInfo = '';\nif (result.auto_delete_after_delivery) {\n  if (result.privacy_level === 'ephemeral') {\n    deleteInfo = ' | Auto-deleting now...';\n  } else if (result.delete_at) {\n    const deleteTime = new Date(result.delete_at);\n    const now = new Date();\n    const diffMs = deleteTime - now;\n    const diffMins = Math.round(diffMs / 60000);\n    deleteInfo = ` | Auto-delete in ${diffMins}m`;\n  }\n}\n\nreturn [{\n  json: {\n    found: true,\n    task_id: result.id,\n    task_type: result.task_type,\n    status: result.status,\n    output: result.output,\n    error: result.error,\n    privacy_level: result.privacy_level,\n    privacy_icon: result.privacy_icon,\n    duration_ms: result.actual_duration_ms,\n    message: result.status === 'delivered' ? \n      `${result.privacy_icon} Result delivered${deleteInfo}` :\n      `Task status: ${result.status}`\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "dispatcher-delete-task",
+      "name": "Delete Task",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 550],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET status = 'deleted',\n    deleted_at = NOW(),\n    input = NULL,\n    output = NULL,\n    conversation_context = NULL,\n    trigger_message = NULL\nWHERE id = $1::uuid AND user_id = $2 AND $3::boolean = true\nRETURNING id",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.user_id, $json.confirm || false] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-format-delete",
+      "name": "Format Delete Response",
+      "type": "n8n-nodes-base.set",
+      "position": [1220, 550],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "deleted", "name": "deleted", "type": "boolean", "value": "={{ $json.id ? true : false }}"},
+            {"id": "task_id", "name": "task_id", "type": "string", "value": "={{ $json.id }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ $json.id ? '✓ Task and all data permanently deleted' : 'Task not found or confirmation required' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "dispatcher-get-privacy",
+      "name": "Get Task Privacy",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 700],
+      "parameters": {
+        "query": "SELECT \n  id as task_id, privacy_level, is_sensitive, notify_external,\n  auto_delete_after_delivery as auto_delete, delete_at,\n  hide_from_history as hidden_from_history,\n  CASE WHEN privacy_level = 'normal' THEN '📊'\n       WHEN privacy_level = 'private' THEN '🔒'\n       WHEN privacy_level = 'ephemeral' THEN '💨'\n       ELSE '📊' END as privacy_icon\nFROM aria_async_tasks\nWHERE (id::text = $1 OR $1 IS NULL)\n  AND user_id = $2\n  AND deleted_at IS NULL\nORDER BY created_at DESC\nLIMIT 1",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id || null, $json.user_id] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-set-privacy",
+      "name": "Set Task Privacy",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 850],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET \n  privacy_level = $3,\n  notify_external = CASE WHEN $3 = 'normal' THEN true ELSE false END,\n  hide_from_history = CASE WHEN $3 = 'normal' THEN false ELSE true END,\n  auto_delete_after_delivery = CASE WHEN $3 = 'ephemeral' OR $4::text IS NOT NULL THEN true ELSE auto_delete_after_delivery END,\n  delete_at = CASE \n    WHEN $4 IS NOT NULL THEN NOW() + ($4 || ' hours')::interval\n    WHEN $3 = 'ephemeral' THEN NOW() + interval '5 seconds'\n    ELSE delete_at END\nWHERE id = $1::uuid AND user_id = $2\nRETURNING id, privacy_level, notify_external, hide_from_history, auto_delete_after_delivery, delete_at,\n  CASE WHEN privacy_level = 'normal' THEN '📊'\n       WHEN privacy_level = 'private' THEN '🔒'\n       WHEN privacy_level = 'ephemeral' THEN '💨'\n       ELSE '📊' END as privacy_icon",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.user_id, $json.privacy_level, $json.auto_delete_after || null] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-format-set-privacy",
+      "name": "Format Set Privacy Response",
+      "type": "n8n-nodes-base.set",
+      "position": [1220, 850],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "updated", "name": "updated", "type": "boolean", "value": "={{ $json.id ? true : false }}"},
+            {"id": "new_settings", "name": "new_settings", "type": "object", "value": "={{ { privacy_level: $json.privacy_level, privacy_icon: $json.privacy_icon, notify_external: $json.notify_external, hidden_from_history: $json.hide_from_history, auto_delete: $json.auto_delete_after_delivery, delete_at: $json.delete_at } }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ $json.id ? `${$json.privacy_icon} Privacy updated to ${$json.privacy_level}` : 'Task not found' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "dispatcher-clear-history",
+      "name": "Clear Task History",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 1000],
+      "parameters": {
+        "query": "WITH deleted AS (\n  UPDATE aria_async_tasks\n  SET status = 'deleted',\n      deleted_at = NOW(),\n      input = NULL,\n      output = NULL,\n      conversation_context = NULL,\n      trigger_message = NULL\n  WHERE user_id = $1\n    AND $2::boolean = true\n    AND deleted_at IS NULL\n    AND status IN ('complete', 'delivered', 'failed', 'expired', 'dismissed')\n    AND ($3::text IS NULL OR created_at < NOW() - ($3 || ' days')::interval)\n  RETURNING id\n)\nSELECT COUNT(*) as deleted_count FROM deleted",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id, $json.confirm || false, $json.older_than_days || null] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "dispatcher-format-clear",
+      "name": "Format Clear Response",
+      "type": "n8n-nodes-base.set",
+      "position": [1220, 1000],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "deleted_count", "name": "deleted_count", "type": "number", "value": "={{ parseInt($json.deleted_count) || 0 }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ $json.deleted_count > 0 ? `✓ Deleted ${$json.deleted_count} task(s) from history` : 'No tasks to delete (or confirmation required)' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Extract Input", "type": "main", "index": 0}]]
+    },
+    "Extract Input": {
+      "main": [[{"node": "Privacy Detection", "type": "main", "index": 0}]]
+    },
+    "Privacy Detection": {
+      "main": [[{"node": "Route by Operation", "type": "main", "index": 0}]]
+    },
+    "Route by Operation": {
+      "main": [
+        [{"node": "Create Task", "type": "main", "index": 0}],
+        [{"node": "Check Tasks", "type": "main", "index": 0}],
+        [{"node": "Get Task Result", "type": "main", "index": 0}],
+        [{"node": "Delete Task", "type": "main", "index": 0}],
+        [{"node": "Get Task Privacy", "type": "main", "index": 0}],
+        [{"node": "Set Task Privacy", "type": "main", "index": 0}],
+        [{"node": "Clear Task History", "type": "main", "index": 0}]
+      ]
+    },
+    "Create Task": {
+      "main": [[{"node": "Notify Event Bus", "type": "main", "index": 0}]]
+    },
+    "Notify Event Bus": {
+      "main": [[{"node": "Format Dispatch Response", "type": "main", "index": 0}]]
+    },
+    "Check Tasks": {
+      "main": [[{"node": "Format Check Response", "type": "main", "index": 0}]]
+    },
+    "Get Task Result": {
+      "main": [[{"node": "Format Result Response", "type": "main", "index": 0}]]
+    },
+    "Delete Task": {
+      "main": [[{"node": "Format Delete Response", "type": "main", "index": 0}]]
+    },
+    "Set Task Privacy": {
+      "main": [[{"node": "Format Set Privacy Response", "type": "main", "index": 0}]]
+    },
+    "Clear Task History": {
+      "main": [[{"node": "Format Clear Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

@@ -1,0 +1,292 @@
+{
+  "id": "task-listener-001",
+  "name": "31 - Task Listener",
+  "active": false,
+  "versionId": "3339596b-14b6-4db5-b84c-a63b80b4b594",
+  "nodes": [
+    {
+      "id": "listener-webhook",
+      "name": "Event Bus Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 300],
+      "webhookId": "aria-task-events",
+      "parameters": {
+        "path": "aria-task-events",
+        "httpMethod": "POST",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "listener-extract",
+      "name": "Extract Event",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "event", "name": "event", "type": "string", "value": "={{ $json.body?.event || $json.event }}"},
+            {"id": "task_id", "name": "task_id", "type": "string", "value": "={{ $json.body?.data?.task_id || $json.data?.task_id }}"},
+            {"id": "agent", "name": "agent", "type": "string", "value": "={{ $json.body?.agent || $json.agent }}"},
+            {"id": "data", "name": "data", "type": "object", "value": "={{ $json.body?.data || $json.data || {} }}"},
+            {"id": "timestamp", "name": "timestamp", "type": "string", "value": "={{ $json.body?.timestamp || $json.timestamp }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "listener-route",
+      "name": "Route by Event",
+      "type": "n8n-nodes-base.switch",
+      "position": [540, 300],
+      "parameters": {
+        "rules": {
+          "rules": [
+            {"outputKey": "dispatched", "conditions": {"conditions": [{"leftValue": "={{ $json.event }}", "rightValue": "task_dispatched", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "progress", "conditions": {"conditions": [{"leftValue": "={{ $json.event }}", "rightValue": "task_progress", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "complete", "conditions": {"conditions": [{"leftValue": "={{ $json.event }}", "rightValue": "task_complete", "operator": {"type": "string", "operation": "equals"}}]}},
+            {"outputKey": "failed", "conditions": {"conditions": [{"leftValue": "={{ $json.event }}", "rightValue": "task_failed", "operator": {"type": "string", "operation": "equals"}}]}}
+          ]
+        },
+        "options": {"fallbackOutput": "extra"}
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "listener-start-task",
+      "name": "Start Task Execution",
+      "type": "n8n-nodes-base.postgres",
+      "position": [780, 100],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET status = 'running', started_at = NOW()\nWHERE id = $1::uuid AND status = 'pending'\nRETURNING id, task_type, chain_name, agent, action, input, user_id, privacy_level, notify_external",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "listener-call-olympus",
+      "name": "Call OLYMPUS",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 100],
+      "parameters": {
+        "url": "http://olympus-orchestrator:8020/execute",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ task_id: $json.id, chain_name: $json.chain_name, agent: $json.agent, action: $json.action, input: $json.input, user_id: $json.user_id, callback_url: 'http://dev-n8n:5678/webhook/aria-task-events' }) }}",
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    },
+    {
+      "id": "listener-update-progress",
+      "name": "Update Progress",
+      "type": "n8n-nodes-base.postgres",
+      "position": [780, 250],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET progress = $2, progress_message = $3\nWHERE id = $1::uuid\nRETURNING id, progress, progress_message",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.data?.progress || 0, $json.data?.message] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "listener-record-progress",
+      "name": "Record Progress Step",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1000, 250],
+      "parameters": {
+        "query": "INSERT INTO aria_task_progress (task_id, step_name, step_status, message)\nVALUES ($1::uuid, $2, $3, $4)\nRETURNING id",
+        "options": {
+          "queryReplacement": "={{ [$('Extract Event').first().json.task_id, $('Extract Event').first().json.data?.step_name, $('Extract Event').first().json.data?.step_status || 'progress', $('Extract Event').first().json.data?.message] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "listener-complete-task",
+      "name": "Complete Task",
+      "type": "n8n-nodes-base.postgres",
+      "position": [780, 400],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET status = 'complete',\n    progress = 100,\n    output = $2::jsonb,\n    completed_at = NOW(),\n    actual_duration_ms = EXTRACT(EPOCH FROM (NOW() - started_at)) * 1000,\n    cost = $3\nWHERE id = $1::uuid\nRETURNING id, user_id, task_type, output, privacy_level, notify_external, auto_delete_after_delivery, delete_at",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, JSON.stringify($json.data?.output || {}), $json.data?.cost || 0] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "listener-check-notify",
+      "name": "Check Notification",
+      "type": "n8n-nodes-base.if",
+      "position": [1000, 400],
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "strict"},
+          "combinator": "and",
+          "conditions": [
+            {"id": "notify", "leftValue": "={{ $json.notify_external }}", "rightValue": true, "operator": {"type": "boolean", "operation": "equals"}},
+            {"id": "privacy", "leftValue": "={{ $json.privacy_level }}", "rightValue": "normal", "operator": {"type": "string", "operation": "equals"}}
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "listener-notify-hermes",
+      "name": "Notify via HERMES",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1220, 350],
+      "parameters": {
+        "url": "http://control-n8n:5678/webhook/hermes-notify",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ user_id: $json.user_id, channel: 'telegram', message: `📊 Your ${$json.task_type} task is complete! Check ARIA for results.`, priority: 'normal' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    },
+    {
+      "id": "listener-fail-task",
+      "name": "Fail Task",
+      "type": "n8n-nodes-base.postgres",
+      "position": [780, 550],
+      "parameters": {
+        "query": "UPDATE aria_async_tasks\nSET status = 'failed',\n    error = $2,\n    completed_at = NOW(),\n    actual_duration_ms = EXTRACT(EPOCH FROM (NOW() - COALESCE(started_at, created_at))) * 1000\nWHERE id = $1::uuid\nRETURNING id, user_id, task_type, error, privacy_level, notify_external",
+        "options": {
+          "queryReplacement": "={{ [$json.task_id, $json.data?.error || 'Unknown error'] }}"
+        },
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "listener-notify-failure",
+      "name": "Notify Failure",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 550],
+      "parameters": {
+        "url": "http://control-n8n:5678/webhook/hermes-notify",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ user_id: $json.user_id, channel: 'telegram', message: `⚠️ Your ${$json.task_type} task failed: ${$json.error}`, priority: 'high' }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "listener-respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1400, 300],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'ok', event: $('Extract Event').first().json.event, task_id: $('Extract Event').first().json.task_id } }}"
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "Event Bus Webhook": {
+      "main": [[{"node": "Extract Event", "type": "main", "index": 0}]]
+    },
+    "Extract Event": {
+      "main": [[{"node": "Route by Event", "type": "main", "index": 0}]]
+    },
+    "Route by Event": {
+      "main": [
+        [{"node": "Start Task Execution", "type": "main", "index": 0}],
+        [{"node": "Update Progress", "type": "main", "index": 0}],
+        [{"node": "Complete Task", "type": "main", "index": 0}],
+        [{"node": "Fail Task", "type": "main", "index": 0}],
+        [{"node": "Respond OK", "type": "main", "index": 0}]
+      ]
+    },
+    "Start Task Execution": {
+      "main": [[{"node": "Call OLYMPUS", "type": "main", "index": 0}]]
+    },
+    "Call OLYMPUS": {
+      "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+    },
+    "Update Progress": {
+      "main": [[{"node": "Record Progress Step", "type": "main", "index": 0}]]
+    },
+    "Record Progress Step": {
+      "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+    },
+    "Complete Task": {
+      "main": [[{"node": "Check Notification", "type": "main", "index": 0}]]
+    },
+    "Check Notification": {
+      "main": [
+        [{"node": "Notify via HERMES", "type": "main", "index": 0}],
+        [{"node": "Respond OK", "type": "main", "index": 0}]
+      ]
+    },
+    "Notify via HERMES": {
+      "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+    },
+    "Fail Task": {
+      "main": [[{"node": "Notify Failure", "type": "main", "index": 0}]]
+    },
+    "Notify Failure": {
+      "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

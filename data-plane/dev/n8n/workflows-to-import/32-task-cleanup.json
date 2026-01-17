@@ -1,0 +1,59 @@
+{
+  "id": "task-cleanup-001",
+  "name": "32 - Task Cleanup Scheduler",
+  "active": false,
+  "versionId": "4064129f-f66c-4286-94e3-35bcff1d222f",
+  "nodes": [
+    {
+      "id": "cleanup-schedule",
+      "name": "Hourly Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [100, 300],
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "hours", "hoursInterval": 1}]
+        }
+      },
+      "typeVersion": 1.2
+    },
+    {
+      "id": "cleanup-run",
+      "name": "Run Cleanup Function",
+      "type": "n8n-nodes-base.postgres",
+      "position": [320, 300],
+      "parameters": {
+        "query": "SELECT aria_cleanup_tasks();\n\n-- Also expire old pending tasks\nUPDATE aria_async_tasks\nSET status = 'expired'\nWHERE status = 'pending'\n  AND expires_at < NOW()\n  AND deleted_at IS NULL;\n\n-- Return cleanup stats\nSELECT \n  (SELECT COUNT(*) FROM aria_async_tasks WHERE deleted_at IS NOT NULL AND deleted_at > NOW() - INTERVAL '1 hour') as deleted_this_hour,\n  (SELECT COUNT(*) FROM aria_async_tasks WHERE status = 'expired' AND completed_at > NOW() - INTERVAL '1 hour') as expired_this_hour,\n  (SELECT COUNT(*) FROM aria_async_tasks WHERE status = 'pending') as pending_count,\n  (SELECT COUNT(*) FROM aria_async_tasks WHERE status = 'running') as running_count",
+        "options": {},
+        "operation": "executeQuery"
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "cleanup-log",
+      "name": "Log Cleanup",
+      "type": "n8n-nodes-base.code",
+      "position": [540, 300],
+      "parameters": {
+        "jsCode": "const stats = $input.first().json;\n\nconsole.log(`[Task Cleanup] Deleted: ${stats.deleted_this_hour}, Expired: ${stats.expired_this_hour}, Pending: ${stats.pending_count}, Running: ${stats.running_count}`);\n\nreturn [{\n  json: {\n    timestamp: new Date().toISOString(),\n    cleanup_stats: stats,\n    message: 'Task cleanup completed'\n  }\n}];"
+      },
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Hourly Trigger": {
+      "main": [[{"node": "Run Cleanup Function", "type": "main", "index": 0}]]
+    },
+    "Run Cleanup Function": {
+      "main": [[{"node": "Log Cleanup", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
