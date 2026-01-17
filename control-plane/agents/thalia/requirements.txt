@@ -1,0 +1,25 @@
+# THALIA - Creative Fleet Designer
+# Visual design, layouts, presentations
+
+# Core framework
+fastapi==0.109.0
+uvicorn==0.27.0
+httpx==0.26.0
+pydantic==2.5.3
+
+# Presentation generation
+python-pptx==0.6.23
+
+# Document generation
+python-docx==1.1.0
+
+# Image processing
+Pillow==10.2.0
+
+# Charts and graphs
+matplotlib==3.8.2
+numpy==1.26.3
+
+# Optional: for enhanced features
+# plotly==5.18.0  # Interactive charts (if needed)
+# python-docx2pdf==0.1.8  # PDF conversion (requires LibreOffice)

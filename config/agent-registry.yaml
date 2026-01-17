@@ -1305,6 +1305,419 @@ agents:
           type: object
           fields: [batch_id, status, results, errors, tasks]
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # CREATIVE FLEET AGENTS (Greek Muses)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  muse:
+    name: MUSE
+    version: "1.0"
+    description: "Creative Director - Coordinator for content production"
+    category: creative
+    llm_powered: true
+
+    connection:
+      url: http://muse:8030
+      health_endpoint: /health
+      timeout_ms: 120000
+
+    capabilities:
+      - project_coordination
+      - task_decomposition
+      - storyboarding
+      - workflow_management
+
+    actions:
+
+      create-project:
+        endpoint: /projects/create
+        method: POST
+        description: "Create new creative project with task decomposition"
+        timeout_ms: 60000
+        cost_tier: medium
+        params:
+          - name: type
+            type: string
+            required: true
+            enum: [presentation, document, image, video, social]
+          - name: brief
+            type: string
+            required: true
+          - name: brand_id
+            type: string
+            required: false
+          - name: priority
+            type: string
+            required: false
+            default: "medium"
+        returns:
+          type: object
+          fields: [project_id, status, task_breakdown]
+
+      get-project:
+        endpoint: /projects/{id}
+        method: GET
+        description: "Get project status and progress"
+        timeout_ms: 10000
+        params:
+          - name: id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [project, tasks, current_stage, progress_pct]
+
+      storyboard:
+        endpoint: /storyboard
+        method: POST
+        description: "Create video storyboard"
+        timeout_ms: 60000
+        params:
+          - name: topic
+            type: string
+            required: true
+          - name: duration_target
+            type: integer
+            required: false
+          - name: style
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [scenes, total_duration]
+
+  calliope:
+    name: CALLIOPE
+    version: "1.0"
+    description: "Elite Writer - Content, copy, scripts"
+    category: creative
+    llm_powered: true
+
+    connection:
+      url: http://calliope:8031
+      health_endpoint: /health
+      timeout_ms: 120000
+
+    capabilities:
+      - long_form_content
+      - short_form_copy
+      - video_scripts
+      - technical_writing
+      - social_media
+
+    actions:
+
+      write:
+        endpoint: /write
+        method: POST
+        description: "Generate content"
+        timeout_ms: 60000
+        cost_tier: medium
+        params:
+          - name: type
+            type: string
+            required: true
+            enum: [article, case_study, report, headline, tagline, cta, slide_deck, video_script, linkedin_post]
+          - name: brief
+            type: string
+            required: true
+          - name: tone
+            type: string
+            required: false
+            default: "professional"
+          - name: length
+            type: string
+            required: false
+            default: "medium"
+        returns:
+          type: object
+          fields: [content, word_count, sections]
+
+      script-video:
+        endpoint: /script/video
+        method: POST
+        description: "Generate video script with scenes"
+        timeout_ms: 60000
+        cost_tier: medium
+        params:
+          - name: topic
+            type: string
+            required: true
+          - name: duration_target
+            type: integer
+            required: true
+          - name: style
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [script, scenes, total_duration, word_count]
+
+      rewrite:
+        endpoint: /rewrite
+        method: POST
+        description: "Revise content based on feedback"
+        timeout_ms: 45000
+        params:
+          - name: original
+            type: string
+            required: true
+          - name: feedback
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [revised_content, changes_made]
+
+  thalia:
+    name: THALIA
+    version: "1.0"
+    description: "Designer - Presentations, charts, layouts"
+    category: creative
+    llm_powered: false
+
+    connection:
+      url: http://thalia:8032
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - presentation_design
+      - document_formatting
+      - chart_generation
+      - thumbnail_creation
+
+    actions:
+
+      design-presentation:
+        endpoint: /design/presentation
+        method: POST
+        description: "Create branded presentation"
+        timeout_ms: 60000
+        params:
+          - name: content
+            type: object
+            required: true
+          - name: brand_id
+            type: string
+            required: false
+          - name: style
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [file_path, preview_url, slide_count]
+
+      design-chart:
+        endpoint: /design/chart
+        method: POST
+        description: "Generate chart/graph"
+        timeout_ms: 30000
+        params:
+          - name: type
+            type: string
+            required: true
+            enum: [bar, line, pie, area, scatter, donut]
+          - name: data
+            type: object
+            required: true
+        returns:
+          type: object
+          fields: [image_path, svg_path]
+
+      design-thumbnail:
+        endpoint: /design/thumbnail
+        method: POST
+        description: "Create thumbnail in multiple sizes"
+        timeout_ms: 30000
+        params:
+          - name: title
+            type: string
+            required: true
+          - name: style
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [image_path, sizes]
+
+  erato:
+    name: ERATO
+    version: "1.0"
+    description: "Media Producer - Images, video, audio"
+    category: creative
+    llm_powered: false
+
+    connection:
+      url: http://erato:8033
+      health_endpoint: /health
+      timeout_ms: 300000
+
+    capabilities:
+      - image_generation
+      - video_production
+      - voice_synthesis
+      - avatar_videos
+      - stock_sourcing
+
+    actions:
+
+      generate-image:
+        endpoint: /generate/image
+        method: POST
+        description: "Generate AI image via DALL-E 3"
+        timeout_ms: 60000
+        cost_tier: medium
+        params:
+          - name: prompt
+            type: string
+            required: true
+          - name: size
+            type: string
+            required: false
+            default: "1024x1024"
+        returns:
+          type: object
+          fields: [images, generation_id]
+
+      generate-video:
+        endpoint: /generate/video
+        method: POST
+        description: "Full video production pipeline"
+        timeout_ms: 300000
+        cost_tier: high
+        params:
+          - name: script
+            type: string
+            required: true
+          - name: style
+            type: string
+            required: true
+            enum: [avatar, motion_graphics, slideshow, stock_footage]
+        returns:
+          type: object
+          fields: [video_path, thumbnail_path, duration, cost_breakdown]
+
+      generate-voiceover:
+        endpoint: /generate/voiceover
+        method: POST
+        description: "Generate voiceover via ElevenLabs"
+        timeout_ms: 60000
+        cost_tier: medium
+        params:
+          - name: text
+            type: string
+            required: true
+          - name: voice_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [audio_path, duration, characters_used]
+
+      source-stock:
+        endpoint: /source/stock
+        method: POST
+        description: "Find stock footage/photos"
+        timeout_ms: 30000
+        params:
+          - name: query
+            type: string
+            required: true
+          - name: type
+            type: string
+            required: true
+            enum: [video, image]
+        returns:
+          type: object
+          fields: [assets, source]
+
+  clio:
+    name: CLIO
+    version: "1.0"
+    description: "Reviewer - QA, brand compliance, fact-check"
+    category: creative
+    llm_powered: true
+
+    connection:
+      url: http://clio:8034
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - brand_compliance
+      - quality_assurance
+      - fact_checking
+      - video_review
+      - accessibility_check
+
+    actions:
+
+      review:
+        endpoint: /review
+        method: POST
+        description: "Review any content type"
+        timeout_ms: 60000
+        params:
+          - name: content_type
+            type: string
+            required: true
+            enum: [presentation, document, image, video, copy]
+          - name: content_path
+            type: string
+            required: true
+          - name: brand_id
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [passed, score, issues]
+
+      review-video:
+        endpoint: /review/video
+        method: POST
+        description: "Review video quality"
+        timeout_ms: 60000
+        params:
+          - name: video_path
+            type: string
+            required: true
+          - name: checks
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [passed, scores, issues]
+
+      review-text:
+        endpoint: /review/text
+        method: POST
+        description: "Review text for grammar and tone"
+        timeout_ms: 30000
+        params:
+          - name: content
+            type: string
+            required: true
+          - name: target_tone
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [score, issues, suggestions]
+
+      fact-check:
+        endpoint: /fact-check
+        method: POST
+        description: "Verify facts via SCHOLAR"
+        timeout_ms: 120000
+        params:
+          - name: claims
+            type: array
+            required: true
+        returns:
+          type: object
+          fields: [results, verified, unverified]
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CHAIN DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1839,3 +2252,39 @@ intent_patterns:
       - "niche"
       - "pain point"
       - "validate"
+
+    # Creative Fleet routing
+    muse:
+      - "create (presentation|deck|slides)"
+      - "make (a|me) (video|presentation|document)"
+      - "design"
+      - "creative project"
+      - "content (for|about)"
+      - "social (post|content)"
+
+    calliope:
+      - "write (content|copy|article|report)"
+      - "script (for|about)"
+      - "rewrite"
+      - "expand (bullets|points)"
+      - "copywriting"
+      - "blog post"
+      - "case study"
+
+    thalia:
+      - "format (presentation|document)"
+      - "create (chart|graph)"
+      - "design (thumbnail|layout)"
+      - "brand (template|styling)"
+
+    erato:
+      - "generate (image|video|avatar)"
+      - "create (voiceover|audio)"
+      - "find stock (footage|photos)"
+      - "assemble video"
+
+    clio:
+      - "review (content|video|document)"
+      - "check (brand|quality|compliance)"
+      - "fact.check"
+      - "proofread"
