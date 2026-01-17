@@ -42,22 +42,46 @@ SCRIBE_URL = os.getenv("SCRIBE_URL", "http://scribe:8301")
 
 # Agent endpoints for calling council members
 AGENT_ENDPOINTS = {
-    # Pantheon
+    # Pantheon (Core Infrastructure)
     "ATLAS": "http://atlas:8007",
     "ATHENA": "http://athena:8013",
     "CHIRON": "http://chiron:8017",
     "SCHOLAR": "http://scholar:8018",
-    # Alchemy (future)
+    # Alchemy (Creative)
     "CATALYST": "http://catalyst:8030",
     "SAGA": "http://saga:8031",
     "PRISM": "http://prism:8032",
     "ELIXIR": "http://elixir:8033",
     "RELIC": "http://relic:8034",
-    # Guild (future)
+    # Guild (Project Management)
     "GUILDMASTER": "http://guildmaster:8200",
     "LOREKEEPER": "http://lorekeeper:8201",
     "ARTIFICER": "http://artificer:8202",
     "PROCTOR": "http://proctor:8203",
+    # THE SHIRE (Personal - LOTR theme)
+    "ARAGORN": "http://aragorn:8110",      # Fitness (was gym-coach)
+    "BOMBADIL": "http://bombadil:8101",    # Nutrition (was nutritionist)
+    "SAMWISE": "http://samwise:8102",      # Meal planning (was meal-planner)
+    "GANDALF": "http://gandalf:8103",      # Learning (was academic-guide)
+    "ARWEN": "http://arwen:8104",          # Relationships (was eros)
+    # THE KEEP (Business - GoT theme)
+    "TYRION": "http://tyrion:8200",        # Project leadership (was heracles)
+    "SAMWELL-TARLY": "http://samwell-tarly:8201",  # Knowledge management (was librarian)
+    "GENDRY": "http://gendry:8202",        # Workflow building (was workflow-builder)
+    "STANNIS": "http://stannis:8203",      # QA/Compliance (was themis)
+    "DAVOS": "http://davos:8204",          # Business advice (was mentor)
+    "LITTLEFINGER": "http://littlefinger:8205",    # Finance (was plutus)
+    "BRONN": "http://bronn:8206",          # Procurement (was procurement)
+    "RAVEN": "http://raven:8209",          # Communications (was iris)
+    # SENTINELS (Security - Mythic beasts)
+    "GRIFFIN": "http://griffin:8019",      # Perimeter monitoring (was sentinel)
+    "CERBERUS": "http://cerberus:8020",    # Active defense (stays cerberus)
+    "SPHINX": "http://sphinx:8021",        # Access control (was port-manager)
+    # CHANCERY (Advisory)
+    "MAGISTRATE": "http://magistrate:8210",  # Legal counsel (was solon)
+    "EXCHEQUER": "http://exchequer:8211",    # Tax strategy (was croesus)
+    # ARIA SANCTUM
+    "VARYS": "http://varys:8112",          # Portfolio tracking
 }
 
 # Topic-to-agent mapping for auto-selection

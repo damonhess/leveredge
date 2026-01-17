@@ -444,7 +444,7 @@ services:
   hephaestus-mcp:
     build:
       context: ./control-plane/agents/hephaestus
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.mcp
     container_name: hephaestus-mcp
     hostname: hephaestus-mcp
     <<: [*restart-policy, *resource-limits-medium]

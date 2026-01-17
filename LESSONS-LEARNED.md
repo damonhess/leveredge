@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (Evening - Post Mega-Build)*
+*Last Updated: January 17, 2026 (Evening - HEPHAESTUS SSE/CORS Fix)*
 
 ---
 
@@ -123,6 +123,9 @@ New communication methods (Telegram, voice, etc.) are **additional portals** to 
 | Docker network `stack_net` required for cross-compose communication | New containers can't reach Supabase | Add `stack_net` as external network in docker-compose |
 | **Agents run as raw uvicorn, not Docker/systemd** | "Unit not found" when trying to restart | Use `pkill` + `nohup uvicorn` pattern (see OPS-RUNBOOK.md) |
 | **ATLAS template params not resolving** | `{{input.topic}}` passed literally | Fixed: resolve templates in params before making requests |
+| **Starlette `request._send` doesn't exist** | SSE endpoints crash with `TypeError: 'NoneType'` | Use raw ASGI pattern: `async def app(scope, receive, send)` |
+| **Caddy CORS doesn't intercept before reverse_proxy** | OPTIONS requests hit backend instead of 204 | Add CORS handling in application code for SSE endpoints |
+| **Docker containers need multiple networks** | Caddy can't reach agent on control-plane-net | Connect to both `stack_net` (Caddy) AND `control-plane-net` (agents) |
 
 ### MCP Server Mapping (CRITICAL)
 
@@ -159,6 +162,9 @@ New communication methods (Telegram, voice, etc.) are **additional portals** to 
 - Path whitelist: /opt/leveredge/, /home/damon/shared/, /tmp/leveredge/
 - Command whitelist: ls, cat, grep, find, head, tail, git status, git log, git diff, docker ps, docker logs
 - curl NOT in whitelist - use Claude Code for HTTP requests
+- **SSE Bug (Jan 17 fix):** `request._send` is a private Starlette attribute that doesn't exist - use raw ASGI pattern instead
+- **CORS for Claude.ai:** Must add CORS headers in ASGI app (Caddy proxy CORS unreliable for SSE)
+- **Docker networking:** Container must be on `stack_net` for Caddy to reach it, plus `control-plane-net` for agent communication
 
 #### CHRONOS
 - Backup directory must exist before first backup

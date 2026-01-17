@@ -394,7 +394,7 @@ agents:
   chiron:
     name: CHIRON
     version: "2.0"
-    description: "Elite business davos with ADHD-optimized frameworks"
+    description: "Elite business mentor with ADHD-optimized frameworks"
     category: business
     llm_powered: true
     
@@ -1912,7 +1912,7 @@ agents:
           type: object
           fields: [authorized, reason]
 
-  sphinx:
+  port-manager:
     name: PORT-MANAGER
     version: "1.0"
     description: "Network Manager - Port allocation, service discovery"
@@ -1920,7 +1920,7 @@ agents:
     llm_powered: false
 
     connection:
-      url: http://sphinx:8021
+      url: http://port-manager:8021
       health_endpoint: /health
       timeout_ms: 10000
 
@@ -1973,7 +1973,7 @@ agents:
   # PERSONAL FLEET AGENTS (Life Management)
   # ─────────────────────────────────────────────────────────────────────────────
 
-  aragorn:
+  gym-coach:
     name: GYM-COACH
     version: "1.0"
     description: "Fitness Coach - Workout planning, progress tracking"
@@ -1982,7 +1982,7 @@ agents:
     # NOTE: Uses port 8110 (not 8100) due to conflict with supabase-kong-dev
 
     connection:
-      url: http://aragorn:8110
+      url: http://gym-coach:8110
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2029,7 +2029,7 @@ agents:
           type: object
           fields: [logged, stats]
 
-  bombadil:
+  nutritionist:
     name: NUTRITIONIST
     version: "1.0"
     description: "Nutrition Advisor - Diet planning, macro tracking"
@@ -2037,7 +2037,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://bombadil:8101
+      url: http://nutritionist:8101
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2081,7 +2081,7 @@ agents:
           type: object
           fields: [supplements, reasoning]
 
-  samwise:
+  meal-planner:
     name: MEAL-PLANNER
     version: "1.0"
     description: "Meal Planning - Weekly menus, grocery lists"
@@ -2089,7 +2089,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://samwise:8102
+      url: http://meal-planner:8102
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2133,7 +2133,7 @@ agents:
           type: object
           fields: [recipes, instructions]
 
-  gandalf:
+  academic-guide:
     name: ACADEMIC-GUIDE
     version: "1.0"
     description: "Education Coach - Learning paths, study optimization"
@@ -2141,7 +2141,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://gandalf:8103
+      url: http://academic-guide:8103
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2185,7 +2185,7 @@ agents:
           type: object
           fields: [courses, rationale]
 
-  arwen:
+  eros:
     name: EROS
     version: "1.0"
     description: "Relationship Coach - Dating advice, communication"
@@ -2193,7 +2193,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://arwen:8104
+      url: http://eros:8104
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2241,7 +2241,7 @@ agents:
   # BUSINESS FLEET AGENTS (Professional Services)
   # ─────────────────────────────────────────────────────────────────────────────
 
-  tyrion:
+  heracles:
     name: HERACLES
     version: "1.0"
     description: "Project Manager - Planning, tracking, sprints"
@@ -2249,7 +2249,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://tyrion:8200
+      url: http://heracles:8200
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2293,7 +2293,7 @@ agents:
           type: object
           fields: [subtasks, estimates, dependencies]
 
-  samwell-tarly:
+  librarian:
     name: LIBRARIAN
     version: "1.0"
     description: "Knowledge Manager - Document organization, search"
@@ -2301,7 +2301,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://samwell-tarly:8201
+      url: http://librarian:8201
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2391,7 +2391,7 @@ agents:
           type: object
           fields: [improvements, savings]
 
-  stannis:
+  themis:
     name: THEMIS
     version: "1.0"
     description: "Legal Advisor - Contracts, compliance"
@@ -2399,7 +2399,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://stannis:8203
+      url: http://themis:8203
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2443,7 +2443,7 @@ agents:
           type: object
           fields: [compliant, issues, remediation]
 
-  davos:
+  mentor:
     name: MENTOR
     version: "1.0"
     description: "Business Coach - Mentorship, leadership"
@@ -2451,22 +2451,22 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://davos:8204
+      url: http://mentor:8204
       health_endpoint: /health
       timeout_ms: 60000
 
     capabilities:
-      - business_davosship
+      - business_mentorship
       - career_guidance
       - leadership_development
       - professional_growth
 
     actions:
 
-      davos-session:
+      mentor-session:
         endpoint: /session
         method: POST
-        description: "Get davosship advice"
+        description: "Get mentorship advice"
         timeout_ms: 60000
         params:
           - name: topic
@@ -2495,7 +2495,7 @@ agents:
           type: object
           fields: [path, skills_needed, timeline]
 
-  littlefinger:
+  plutus:
     name: PLUTUS
     version: "1.0"
     description: "Financial Analyst - Budgets, ROI, analysis"
@@ -2503,7 +2503,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://littlefinger:8205
+      url: http://plutus:8205
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2547,7 +2547,7 @@ agents:
           type: object
           fields: [roi, payback_period, analysis]
 
-  bronn:
+  procurement:
     name: PROCUREMENT
     version: "1.0"
     description: "Procurement Expert - Vendors, costs"
@@ -2555,7 +2555,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://bronn:8206
+      url: http://procurement:8206
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2697,7 +2697,7 @@ agents:
           type: object
           fields: [recommendations, savings, tradeoffs]
 
-  raven:
+  iris:
     name: IRIS
     version: "1.0"
     description: "World Events Reporter - News, trends"
@@ -2705,7 +2705,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://raven:8209
+      url: http://iris:8209
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2749,7 +2749,7 @@ agents:
   # ─────────────────────────────────────────────────────────────────────────────
   # SOLON - Legal Advisor
   # ─────────────────────────────────────────────────────────────────────────────
-  magistrate:
+  solon:
     name: SOLON
     version: "1.0"
     description: "Legal Advisor - Legal research, contract review, compliance"
@@ -2757,7 +2757,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://magistrate:8210
+      url: http://solon:8210
       health_endpoint: /health
       timeout_ms: 90000
 
@@ -2860,7 +2860,7 @@ agents:
   # ─────────────────────────────────────────────────────────────────────────────
   # CROESUS - Tax & Wealth Advisor
   # ─────────────────────────────────────────────────────────────────────────────
-  exchequer:
+  croesus:
     name: CROESUS
     version: "1.0"
     description: "Tax & Wealth Advisor - Tax planning, deductions, wealth building"
@@ -2868,7 +2868,7 @@ agents:
     llm_powered: true
 
     connection:
-      url: http://exchequer:8211
+      url: http://croesus:8211
       health_endpoint: /health
       timeout_ms: 60000
 
@@ -2885,8 +2885,8 @@ agents:
       importance_threshold: low
 
     coordination:
-      magistrate: "legal/tax overlap"
-      littlefinger: "investment tax implications"
+      solon: "legal/tax overlap"
+      plutus: "investment tax implications"
 
     actions:
 
@@ -3589,7 +3589,7 @@ intent_patterns:
       - "proofread"
 
     # Professional Fleet routing
-    magistrate:
+    solon:
       - "legal (question|advice|info)"
       - "contract (review|analysis)"
       - "compliance (check|requirement)"
@@ -3601,7 +3601,7 @@ intent_patterns:
       - "california (law|regulation)"
       - "nevada (law|regulation)"
 
-    exchequer:
+    croesus:
       - "tax (question|planning|strategy)"
       - "deduction"
       - "estimated tax"

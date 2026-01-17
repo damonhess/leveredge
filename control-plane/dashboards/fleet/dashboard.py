@@ -23,26 +23,26 @@ app = FastAPI(title="LeverEdge Fleet Dashboard", version="1.0.0")
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Agent configuration
+# Agent configuration with themed domains
 AGENTS = {
-    # Core Fleet
-    "ATLAS": {"port": 8007, "category": "core", "description": "Infrastructure orchestrator"},
-    "HADES": {"port": 8008, "category": "core", "description": "Data persistence layer"},
-    "CHRONOS": {"port": 8010, "category": "core", "description": "Scheduler & time management"},
-    "HEPHAESTUS": {"port": 8011, "category": "core", "description": "Code generation & tooling"},
-    "AEGIS": {"port": 8012, "category": "core", "description": "Security & access control"},
-    "ATHENA": {"port": 8013, "category": "core", "description": "Knowledge & reasoning"},
-    "HERMES": {"port": 8014, "category": "core", "description": "Communication & messaging"},
-    "ALOY": {"port": 8015, "category": "core", "description": "Resource management"},
-    "ARGUS": {"port": 8016, "category": "core", "description": "Monitoring & alerting"},
-    "CHIRON": {"port": 8017, "category": "core", "description": "Training & mentoring"},
-    "SCHOLAR": {"port": 8018, "category": "core", "description": "Research & analysis"},
-    "SENTINEL": {"port": 8019, "category": "core", "description": "Threat detection"},
-    "EVENT-BUS": {"port": 8099, "category": "core", "description": "Event messaging backbone"},
+    # Core Fleet (Pantheon)
+    "ATLAS": {"port": 8007, "category": "pantheon", "description": "Infrastructure orchestrator"},
+    "HADES": {"port": 8008, "category": "pantheon", "description": "Data persistence layer"},
+    "CHRONOS": {"port": 8010, "category": "pantheon", "description": "Scheduler & time management"},
+    "HEPHAESTUS": {"port": 8011, "category": "pantheon", "description": "Code generation & tooling"},
+    "AEGIS": {"port": 8012, "category": "pantheon", "description": "Security & access control"},
+    "ATHENA": {"port": 8013, "category": "pantheon", "description": "Knowledge & reasoning"},
+    "HERMES": {"port": 8014, "category": "pantheon", "description": "Communication & messaging"},
+    "ALOY": {"port": 8015, "category": "pantheon", "description": "Resource management"},
+    "ARGUS": {"port": 8016, "category": "pantheon", "description": "Monitoring & alerting"},
+    "CHIRON": {"port": 8017, "category": "pantheon", "description": "Training & mentoring"},
+    "SCHOLAR": {"port": 8018, "category": "pantheon", "description": "Research & analysis"},
+    "EVENT-BUS": {"port": 8099, "category": "pantheon", "description": "Event messaging backbone"},
 
-    # Security Fleet
-    "CERBERUS": {"port": 8020, "category": "security", "description": "Authentication guardian"},
-    "PORT-MANAGER": {"port": 8021, "category": "security", "description": "Network port control"},
+    # SENTINELS (Security - Mythic Beasts)
+    "GRIFFIN": {"port": 8019, "category": "sentinels", "description": "Perimeter monitoring (was sentinel)"},
+    "CERBERUS": {"port": 8020, "category": "sentinels", "description": "Active defense guardian"},
+    "SPHINX": {"port": 8021, "category": "sentinels", "description": "Access control & authentication"},
 
     # Creative Fleet
     "MUSE": {"port": 8030, "category": "creative", "description": "Creative inspiration"},
@@ -51,24 +51,31 @@ AGENTS = {
     "ERATO": {"port": 8033, "category": "creative", "description": "Lyric & poetry"},
     "CLIO": {"port": 8034, "category": "creative", "description": "History & documentation"},
 
-    # Personal Fleet
-    "GYM-COACH": {"port": 8110, "category": "personal", "description": "Fitness training"},
-    "NUTRITIONIST": {"port": 8101, "category": "personal", "description": "Diet planning"},
-    "MEAL-PLANNER": {"port": 8102, "category": "personal", "description": "Meal scheduling"},
-    "ACADEMIC-GUIDE": {"port": 8103, "category": "personal", "description": "Education support"},
-    "EROS": {"port": 8104, "category": "personal", "description": "Relationship coaching"},
+    # THE SHIRE (Personal - LOTR Theme)
+    "ARAGORN": {"port": 8110, "category": "shire", "description": "Fitness & ranger discipline"},
+    "BOMBADIL": {"port": 8101, "category": "shire", "description": "Nutrition & natural health"},
+    "SAMWISE": {"port": 8102, "category": "shire", "description": "Meal planning & provisions"},
+    "GANDALF": {"port": 8103, "category": "shire", "description": "Learning & wisdom"},
+    "ARWEN": {"port": 8104, "category": "shire", "description": "Relationships & connection"},
 
-    # Business Fleet
-    "HERACLES": {"port": 8200, "category": "business", "description": "Strength & performance"},
-    "LIBRARIAN": {"port": 8201, "category": "business", "description": "Knowledge management"},
-    "DAEDALUS": {"port": 8202, "category": "business", "description": "Architecture & design"},
-    "THEMIS": {"port": 8203, "category": "business", "description": "Legal & compliance"},
-    "MENTOR": {"port": 8204, "category": "business", "description": "Professional guidance"},
-    "PLUTUS": {"port": 8205, "category": "business", "description": "Financial analysis"},
-    "PROCUREMENT": {"port": 8206, "category": "business", "description": "Purchasing & supply"},
-    "HEPHAESTUS-SERVER": {"port": 8207, "category": "business", "description": "Server tooling"},
-    "ATLAS-INFRA": {"port": 8208, "category": "business", "description": "Infrastructure management"},
-    "IRIS": {"port": 8209, "category": "business", "description": "Communication bridge"},
+    # THE KEEP (Business - GoT Theme)
+    "TYRION": {"port": 8200, "category": "keep", "description": "Project leadership & strategy"},
+    "SAMWELL-TARLY": {"port": 8201, "category": "keep", "description": "Knowledge management & archives"},
+    "GENDRY": {"port": 8202, "category": "keep", "description": "Workflow building & automation"},
+    "STANNIS": {"port": 8203, "category": "keep", "description": "QA & compliance"},
+    "DAVOS": {"port": 8204, "category": "keep", "description": "Business advice & counsel"},
+    "LITTLEFINGER": {"port": 8205, "category": "keep", "description": "Finance & investments"},
+    "BRONN": {"port": 8206, "category": "keep", "description": "Procurement & resources"},
+    "HEPHAESTUS-SERVER": {"port": 8207, "category": "keep", "description": "Server tooling"},
+    "ATLAS-INFRA": {"port": 8208, "category": "keep", "description": "Infrastructure management"},
+    "RAVEN": {"port": 8209, "category": "keep", "description": "Communications & intelligence"},
+
+    # CHANCERY (Advisory)
+    "MAGISTRATE": {"port": 8210, "category": "chancery", "description": "Legal counsel & compliance"},
+    "EXCHEQUER": {"port": 8211, "category": "chancery", "description": "Tax strategy & wealth management"},
+
+    # ARIA SANCTUM
+    "VARYS": {"port": 8112, "category": "sanctum", "description": "Portfolio tracking & intelligence"},
 }
 
 # Store activity logs in memory
