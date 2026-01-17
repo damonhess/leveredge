@@ -11,8 +11,8 @@ RUN mkdir -p /opt/leveredge/control-plane/shared
 # Copy shared modules (built with context from parent directory)
 COPY shared/ /opt/leveredge/control-plane/shared/
 
-COPY atlas.py .
+COPY workflow_builder.py .
 
-EXPOSE 8208
+EXPOSE 8202
 
-CMD ["uvicorn", "atlas:app", "--host", "0.0.0.0", "--port", "8208"]
+CMD ["uvicorn", "workflow_builder:app", "--host", "0.0.0.0", "--port", "8202"]

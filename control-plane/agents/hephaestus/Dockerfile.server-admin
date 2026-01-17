@@ -2,17 +2,21 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.server-admin.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
-
 # Create shared modules directory
 RUN mkdir -p /opt/leveredge/control-plane/shared
 
-# Copy shared modules
+# Copy shared modules (built with context from parent directory)
 COPY shared/ /opt/leveredge/control-plane/shared/
 
+# Install Python dependencies
+COPY requirements.server-admin.txt ./requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application
 COPY hephaestus.py .
 
+# Expose port
 EXPOSE 8207
 
+# Run the server
 CMD ["uvicorn", "hephaestus:app", "--host", "0.0.0.0", "--port", "8207"]

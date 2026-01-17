@@ -11,8 +11,8 @@ RUN mkdir -p /opt/leveredge/control-plane/shared
 # Copy shared modules (built with context from parent directory)
 COPY shared/ /opt/leveredge/control-plane/shared/
 
-COPY atlas.py .
+COPY nutritionist.py .
 
-EXPOSE 8208
+EXPOSE 8101
 
-CMD ["uvicorn", "atlas:app", "--host", "0.0.0.0", "--port", "8208"]
+CMD ["uvicorn", "nutritionist:app", "--host", "0.0.0.0", "--port", "8101"]
