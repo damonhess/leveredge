@@ -1,0 +1,169 @@
+# Email Configuration for LeverEdge
+# =================================
+# This file contains email settings for SendGrid integration.
+# Sensitive values should be set via environment variables.
+
+# SendGrid API Configuration
+sendgrid:
+  # API key - Set via environment variable SENDGRID_API_KEY
+  api_key: ${SENDGRID_API_KEY}
+
+  # Sandbox mode for testing (no emails actually sent)
+  sandbox_mode: false
+
+  # API endpoint (usually not changed)
+  api_url: https://api.sendgrid.com/v3
+
+# Default Sender Information
+sender:
+  # From email address (must be verified in SendGrid)
+  from_email: noreply@leveredge.io
+
+  # Display name for sender
+  from_name: LeverEdge
+
+  # Reply-to email address
+  reply_to: support@leveredge.io
+
+  # Reply-to display name
+  reply_to_name: LeverEdge Support
+
+# Email Categories/Tags for Analytics
+categories:
+  transactional:
+    - welcome
+    - password-reset
+    - invoice
+    - receipt
+  notifications:
+    - reminder
+    - notification
+    - alert
+  marketing:
+    - newsletter
+    - weekly-summary
+    - promotion
+
+# Template Configuration
+templates:
+  # Path to email templates directory
+  directory: ./templates
+
+  # Default template settings
+  defaults:
+    # Company information for footers
+    company_name: LeverEdge
+    company_address: "123 Business St, Suite 100, City, ST 12345"
+    company_website: https://leveredge.io
+    company_support_email: support@leveredge.io
+
+    # Social media links
+    social:
+      twitter: https://twitter.com/leveredge
+      linkedin: https://linkedin.com/company/leveredge
+
+    # Unsubscribe URL (required for marketing emails)
+    unsubscribe_url: https://leveredge.io/unsubscribe
+
+    # Privacy policy URL
+    privacy_url: https://leveredge.io/privacy
+
+    # Current year for copyright
+    year: 2026
+
+# Tracking Settings
+tracking:
+  # Enable click tracking
+  click_tracking: true
+
+  # Enable open tracking
+  open_tracking: true
+
+  # Google Analytics UTM parameters
+  google_analytics:
+    enabled: true
+    utm_source: email
+    utm_medium: transactional
+
+# Rate Limiting
+rate_limits:
+  # Maximum emails per second
+  max_per_second: 10
+
+  # Maximum emails per minute
+  max_per_minute: 500
+
+  # Maximum emails per hour
+  max_per_hour: 5000
+
+  # Retry configuration
+  retry:
+    max_attempts: 3
+    initial_delay_seconds: 1
+    max_delay_seconds: 60
+    exponential_base: 2
+
+# Suppression Settings
+suppression:
+  # Respect SendGrid suppression lists
+  use_sendgrid_suppressions: true
+
+  # Additional suppression list (emails that should never receive email)
+  custom_suppressions: []
+
+# Webhook Configuration
+webhooks:
+  # Endpoint to receive SendGrid events
+  endpoint: /webhooks/sendgrid
+
+  # Events to receive
+  events:
+    - processed
+    - delivered
+    - open
+    - click
+    - bounce
+    - dropped
+    - spamreport
+    - unsubscribe
+    - group_unsubscribe
+    - group_resubscribe
+
+  # Webhook signing secret
+  signing_secret: ${SENDGRID_WEBHOOK_SECRET}
+
+# Logging Configuration
+logging:
+  # Log level (DEBUG, INFO, WARNING, ERROR)
+  level: INFO
+
+  # Log sent emails to database
+  log_to_database: true
+
+  # Database table for email logs
+  log_table: email_logs
+
+  # Include email content in logs (disable for privacy)
+  log_content: false
+
+# Environment Overrides
+# These can be overridden by environment-specific config files
+environment:
+  development:
+    sandbox_mode: true
+    tracking:
+      click_tracking: false
+      open_tracking: false
+    rate_limits:
+      max_per_second: 1
+      max_per_minute: 10
+
+  staging:
+    sandbox_mode: false
+    sender:
+      from_email: staging@leveredge.io
+
+  production:
+    sandbox_mode: false
+    logging:
+      level: WARNING

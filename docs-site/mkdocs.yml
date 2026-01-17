@@ -1,0 +1,103 @@
+site_name: LeverEdge Documentation
+site_description: Multi-agent AI automation infrastructure documentation
+site_author: LeverEdge AI
+site_url: https://docs.leveredgeai.com
+
+repo_name: leveredge
+repo_url: https://github.com/leveredge/leveredge
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.annotation
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+  logo: assets/logo.png
+  favicon: assets/favicon.ico
+
+plugins:
+  - search
+  - tags
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - def_list
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/leveredge
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Configuration: getting-started/configuration.md
+  - Agents:
+    - Core Agents: agents/core.md
+    - Creative Fleet: agents/creative.md
+    - Security Fleet: agents/security.md
+    - Personal Fleet: agents/personal.md
+    - Business Fleet: agents/business.md
+  - API Reference:
+    - ATLAS API: api/atlas.md
+    - AEGIS API: api/aegis.md
+    - Event Bus API: api/event-bus.md
+  - Architecture:
+    - System Overview: architecture/overview.md
+    - Event Bus: architecture/event-bus.md
+    - Cost Tracking: architecture/cost-tracking.md
+  - Operations:
+    - Monitoring: operations/monitoring.md
+    - Backup & Restore: operations/backup-restore.md
+    - Troubleshooting: operations/troubleshooting.md
+
+copyright: Copyright &copy; 2026 LeverEdge AI

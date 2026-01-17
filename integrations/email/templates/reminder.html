@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Reminder from LeverEdge</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+
+        @media screen and (max-width: 600px) {
+            .mobile-wrapper { width: 100% !important; max-width: 100% !important; }
+            .mobile-padding { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        {{ preview_text | default('Reminder: ' + reminder_title) }}
+        &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" class="mobile-wrapper" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+                    <!-- Header with accent bar -->
+                    <tr>
+                        <td style="padding: 0;">
+                            <div style="height: 6px; background: linear-gradient(90deg, #ff6b6b 0%, #feca57 100%); border-radius: 8px 8px 0 0;"></div>
+                        </td>
+                    </tr>
+
+                    <!-- Logo -->
+                    <tr>
+                        <td align="center" style="padding: 30px 40px 20px 40px;">
+                            <img src="{{ logo_url | default('https://leveredge.io/logo.png') }}" alt="LeverEdge" width="150" style="display: block;">
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 20px 40px 40px 40px;">
+                            <!-- Bell icon -->
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 25px;">
+                                        <div style="width: 70px; height: 70px; background-color: #fff3cd; border-radius: 50%; text-align: center; line-height: 70px;">
+                                            <span style="font-size: 35px;">&#128276;</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <h1 style="margin: 0 0 20px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 700; color: #333333; text-align: center;">
+                                {{ reminder_title | default('Friendly Reminder') }}
+                            </h1>
+
+                            <p style="margin: 0 0 20px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 26px; color: #666666;">
+                                Hi {{ user_name | default('there') }},
+                            </p>
+
+                            <p style="margin: 0 0 25px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 26px; color: #666666;">
+                                {{ reminder_message }}
+                            </p>
+
+                            <!-- Reminder details box -->
+                            {% if reminder_details %}
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        {% if due_date %}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td width="30" valign="top">
+                                                    <span style="font-size: 20px;">&#128197;</span>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                                        <strong>Due Date:</strong> {{ due_date }}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {% endif %}
+
+                                        {% if amount_due %}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding-top: 10px;">
+                                            <tr>
+                                                <td width="30" valign="top">
+                                                    <span style="font-size: 20px;">&#128176;</span>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                                        <strong>Amount:</strong> ${{ amount_due }}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {% endif %}
+
+                                        {% if reference_number %}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="padding-top: 10px;">
+                                            <tr>
+                                                <td width="30" valign="top">
+                                                    <span style="font-size: 20px;">&#128203;</span>
+                                                </td>
+                                                <td>
+                                                    <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                                        <strong>Reference:</strong> {{ reference_number }}
+                                                    </p>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- CTA Button -->
+                            {% if action_url %}
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center" style="padding-bottom: 20px;">
+                                        <a href="{{ action_url }}" style="display: inline-block; padding: 16px 40px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); text-decoration: none; border-radius: 8px;">
+                                            {{ action_text | default('Take Action') }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- Additional notes -->
+                            {% if additional_note %}
+                            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: #999999; text-align: center;">
+                                {{ additional_note }}
+                            </p>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Help section -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 25px 40px; background-color: #f8f9fa;">
+                            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666; text-align: center;">
+                                Questions? <a href="mailto:{{ support_email | default('support@leveredge.io') }}" style="color: #667eea; text-decoration: none;">Contact our support team</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 25px 40px; border-top: 1px solid #eeeeee;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <p style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999;">
+                                            {{ company_name | default('LeverEdge') }} | {{ company_address | default('123 Business St, Suite 100, City, ST 12345') }}
+                                        </p>
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999;">
+                                            <a href="{{ unsubscribe_url | default('#') }}" style="color: #999999; text-decoration: underline;">Unsubscribe</a>
+                                            &nbsp;|&nbsp;
+                                            <a href="{{ preferences_url | default('#') }}" style="color: #999999; text-decoration: underline;">Email Preferences</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

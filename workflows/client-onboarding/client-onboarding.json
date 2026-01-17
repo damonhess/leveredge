@@ -1,0 +1,836 @@
+{
+  "name": "Client Onboarding Workflow",
+  "nodes": [
+    {
+      "name": "New Client Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [200, 400],
+      "webhookId": "client-onboarding-001",
+      "parameters": {
+        "path": "client-onboarding",
+        "options": {
+          "responseCode": 202
+        },
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "={\"status\": \"processing\", \"message\": \"Client onboarding initiated\", \"client_email\": \"{{ $json.body.email }}\"}"
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "position": [400, 400],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ $json.body.company_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ $json.body.contact_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "Validation Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [600, 600],
+      "parameters": {
+        "url": "http://hermes:8014/notify",
+        "method": "POST",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "channel",
+              "value": "telegram"
+            },
+            {
+              "name": "message",
+              "value": "Client onboarding failed - missing required fields. Received: {{ JSON.stringify($json.body) }}"
+            },
+            {
+              "name": "priority",
+              "value": "high"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Set Client Data",
+      "type": "n8n-nodes-base.set",
+      "position": [600, 400],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "client_id",
+              "name": "client_id",
+              "type": "string",
+              "value": "={{ 'cli_' + $now.format('yyyyMMdd') + '_' + Math.random().toString(36).substring(2, 8) }}"
+            },
+            {
+              "id": "email",
+              "name": "email",
+              "type": "string",
+              "value": "={{ $json.body.email }}"
+            },
+            {
+              "id": "company_name",
+              "name": "company_name",
+              "type": "string",
+              "value": "={{ $json.body.company_name }}"
+            },
+            {
+              "id": "contact_name",
+              "name": "contact_name",
+              "type": "string",
+              "value": "={{ $json.body.contact_name }}"
+            },
+            {
+              "id": "phone",
+              "name": "phone",
+              "type": "string",
+              "value": "={{ $json.body.phone || '' }}"
+            },
+            {
+              "id": "plan_tier",
+              "name": "plan_tier",
+              "type": "string",
+              "value": "={{ $json.body.plan_tier || 'starter' }}"
+            },
+            {
+              "id": "notes",
+              "name": "notes",
+              "type": "string",
+              "value": "={{ $json.body.notes || '' }}"
+            },
+            {
+              "id": "created_at",
+              "name": "created_at",
+              "type": "string",
+              "value": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.4
+    },
+    {
+      "name": "Create Client Record",
+      "type": "n8n-nodes-base.supabase",
+      "position": [800, 400],
+      "parameters": {
+        "operation": "create",
+        "tableId": "clients",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldName": "client_id",
+              "fieldValue": "={{ $json.client_id }}"
+            },
+            {
+              "fieldName": "email",
+              "fieldValue": "={{ $json.email }}"
+            },
+            {
+              "fieldName": "company_name",
+              "fieldValue": "={{ $json.company_name }}"
+            },
+            {
+              "fieldName": "contact_name",
+              "fieldValue": "={{ $json.contact_name }}"
+            },
+            {
+              "fieldName": "phone",
+              "fieldValue": "={{ $json.phone }}"
+            },
+            {
+              "fieldName": "plan_tier",
+              "fieldValue": "={{ $json.plan_tier }}"
+            },
+            {
+              "fieldName": "notes",
+              "fieldValue": "={{ $json.notes }}"
+            },
+            {
+              "fieldName": "status",
+              "fieldValue": "onboarding"
+            },
+            {
+              "fieldName": "created_at",
+              "fieldValue": "={{ $json.created_at }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Production"
+        }
+      }
+    },
+    {
+      "name": "Generate API Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1000, 400],
+      "parameters": {
+        "url": "http://aegis:8012/credentials/generate",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"client_id\": \"{{ $('Set Client Data').item.json.client_id }}\",\n  \"company_name\": \"{{ $('Set Client Data').item.json.company_name }}\",\n  \"scopes\": [\"api:read\", \"api:write\"],\n  \"expires_in_days\": 365\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Create Project Folder",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1200, 400],
+      "parameters": {
+        "url": "={{ 'https://api.leveredgeai.com/storage/v1/object/clients/' + $('Set Client Data').item.json.client_id + '/.keep' }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.supabaseApi.serviceRoleKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/octet-stream"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Create Subfolders",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [1400, 400],
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "typeVersion": 3
+    },
+    {
+      "name": "Folder List",
+      "type": "n8n-nodes-base.set",
+      "position": [1200, 200],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "folders",
+              "name": "folders",
+              "type": "array",
+              "value": "=[\"documents\", \"contracts\", \"reports\", \"assets\", \"communications\"]"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.4
+    },
+    {
+      "name": "Create Subfolder",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1600, 400],
+      "parameters": {
+        "url": "={{ 'https://api.leveredgeai.com/storage/v1/object/clients/' + $('Set Client Data').item.json.client_id + '/' + $json.folder + '/.keep' }}",
+        "method": "POST",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "",
+        "options": {
+          "timeout": 30000
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.supabaseApi.serviceRoleKey }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/octet-stream"
+            }
+          ]
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Merge Client Data",
+      "type": "n8n-nodes-base.merge",
+      "position": [1800, 400],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "typeVersion": 3
+    },
+    {
+      "name": "Prepare Email Data",
+      "type": "n8n-nodes-base.set",
+      "position": [2000, 400],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "to_email",
+              "name": "to_email",
+              "type": "string",
+              "value": "={{ $('Set Client Data').item.json.email }}"
+            },
+            {
+              "id": "contact_name",
+              "name": "contact_name",
+              "type": "string",
+              "value": "={{ $('Set Client Data').item.json.contact_name }}"
+            },
+            {
+              "id": "company_name",
+              "name": "company_name",
+              "type": "string",
+              "value": "={{ $('Set Client Data').item.json.company_name }}"
+            },
+            {
+              "id": "client_id",
+              "name": "client_id",
+              "type": "string",
+              "value": "={{ $('Set Client Data').item.json.client_id }}"
+            },
+            {
+              "id": "api_key",
+              "name": "api_key",
+              "type": "string",
+              "value": "={{ $('Generate API Credentials').item.json.api_key || 'API_KEY_PENDING' }}"
+            },
+            {
+              "id": "plan_tier",
+              "name": "plan_tier",
+              "type": "string",
+              "value": "={{ $('Set Client Data').item.json.plan_tier }}"
+            },
+            {
+              "id": "portal_url",
+              "name": "portal_url",
+              "type": "string",
+              "value": "https://portal.leveredgeai.com"
+            },
+            {
+              "id": "docs_url",
+              "name": "docs_url",
+              "type": "string",
+              "value": "https://docs.leveredgeai.com"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 3.4
+    },
+    {
+      "name": "Send Welcome Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2200, 400],
+      "parameters": {
+        "url": "http://hermes:8014/send-email",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"to\": \"{{ $json.to_email }}\",\n  \"subject\": \"Welcome to LeverEdge AI - {{ $json.company_name }}\",\n  \"template\": \"welcome\",\n  \"template_data\": {\n    \"contact_name\": \"{{ $json.contact_name }}\",\n    \"company_name\": \"{{ $json.company_name }}\",\n    \"client_id\": \"{{ $json.client_id }}\",\n    \"api_key\": \"{{ $json.api_key }}\",\n    \"plan_tier\": \"{{ $json.plan_tier }}\",\n    \"portal_url\": \"{{ $json.portal_url }}\",\n    \"docs_url\": \"{{ $json.docs_url }}\"\n  },\n  \"priority\": \"high\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Calculate Kickoff Date",
+      "type": "n8n-nodes-base.dateTime",
+      "position": [2400, 400],
+      "parameters": {
+        "operation": "calculation",
+        "duration": 3,
+        "timeUnit": "days",
+        "options": {}
+      },
+      "typeVersion": 2
+    },
+    {
+      "name": "Schedule Kickoff Call",
+      "type": "n8n-nodes-base.googleCalendar",
+      "position": [2600, 400],
+      "parameters": {
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "mode": "list",
+          "value": "primary"
+        },
+        "start": "={{ $json.newDate }}T10:00:00",
+        "end": "={{ $json.newDate }}T11:00:00",
+        "additionalFields": {
+          "summary": "Kickoff Call: {{ $('Set Client Data').item.json.company_name }}",
+          "description": "Client Onboarding Kickoff Call\n\nClient ID: {{ $('Set Client Data').item.json.client_id }}\nCompany: {{ $('Set Client Data').item.json.company_name }}\nContact: {{ $('Set Client Data').item.json.contact_name }}\nEmail: {{ $('Set Client Data').item.json.email }}\nPlan: {{ $('Set Client Data').item.json.plan_tier }}\n\nAgenda:\n1. Welcome and introductions\n2. Review service agreement\n3. Technical requirements gathering\n4. Access and integration setup\n5. Timeline and milestones\n6. Q&A",
+          "attendees": [
+            "={{ $('Set Client Data').item.json.email }}"
+          ],
+          "sendUpdates": "all",
+          "conferenceDataUi": {
+            "conferenceSolutionKeyValue": {
+              "conferenceSolution": "hangoutsMeet"
+            }
+          }
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_WITH_GOOGLE_CREDENTIAL_ID",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "name": "Update Client Status",
+      "type": "n8n-nodes-base.supabase",
+      "position": [2800, 400],
+      "parameters": {
+        "operation": "update",
+        "tableId": "clients",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "client_id",
+              "keyValue": "={{ $('Set Client Data').item.json.client_id }}"
+            }
+          ]
+        },
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldName": "status",
+              "fieldValue": "active"
+            },
+            {
+              "fieldName": "onboarded_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldName": "kickoff_scheduled",
+              "fieldValue": "={{ $('Calculate Kickoff Date').item.json.newDate }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Production"
+        }
+      }
+    },
+    {
+      "name": "Log Onboarding Event",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3000, 400],
+      "parameters": {
+        "url": "http://event-bus:8099/events",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"source_agent\": \"CLIENT_ONBOARDING\",\n  \"action\": \"client_onboarded\",\n  \"target\": \"{{ $('Set Client Data').item.json.client_id }}\",\n  \"details\": {\n    \"company_name\": \"{{ $('Set Client Data').item.json.company_name }}\",\n    \"contact_name\": \"{{ $('Set Client Data').item.json.contact_name }}\",\n    \"email\": \"{{ $('Set Client Data').item.json.email }}\",\n    \"plan_tier\": \"{{ $('Set Client Data').item.json.plan_tier }}\",\n    \"kickoff_date\": \"{{ $('Calculate Kickoff Date').item.json.newDate }}\"\n  }\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Notify Admin - Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3200, 300],
+      "parameters": {
+        "url": "http://hermes:8014/notify",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"telegram\",\n  \"message\": \"New Client Onboarded!\\n\\nCompany: {{ $('Set Client Data').item.json.company_name }}\\nContact: {{ $('Set Client Data').item.json.contact_name }}\\nEmail: {{ $('Set Client Data').item.json.email }}\\nPlan: {{ $('Set Client Data').item.json.plan_tier }}\\nClient ID: {{ $('Set Client Data').item.json.client_id }}\\n\\nKickoff call scheduled for {{ $('Calculate Kickoff Date').item.json.newDate }}\",\n  \"priority\": \"high\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Notify Admin - Email",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [3200, 500],
+      "parameters": {
+        "url": "http://hermes:8014/send-email",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"to\": \"admin@leveredgeai.com\",\n  \"subject\": \"New Client Onboarded: {{ $('Set Client Data').item.json.company_name }}\",\n  \"body\": \"<h2>New Client Successfully Onboarded</h2><p><strong>Company:</strong> {{ $('Set Client Data').item.json.company_name }}<br><strong>Contact:</strong> {{ $('Set Client Data').item.json.contact_name }}<br><strong>Email:</strong> {{ $('Set Client Data').item.json.email }}<br><strong>Plan:</strong> {{ $('Set Client Data').item.json.plan_tier }}<br><strong>Client ID:</strong> {{ $('Set Client Data').item.json.client_id }}</p><p>Kickoff call scheduled for {{ $('Calculate Kickoff Date').item.json.newDate }}</p>\",\n  \"priority\": \"normal\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Error Handler",
+      "type": "n8n-nodes-base.errorTrigger",
+      "position": [200, 700],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "name": "Notify Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [400, 700],
+      "parameters": {
+        "url": "http://hermes:8014/notify",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"telegram\",\n  \"message\": \"CLIENT ONBOARDING ERROR\\n\\nWorkflow: Client Onboarding\\nNode: {{ $json.execution.lastNodeExecuted }}\\nError: {{ $json.execution.error.message }}\\n\\nExecution ID: {{ $json.execution.id }}\",\n  \"priority\": \"critical\"\n}",
+        "options": {}
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "name": "Create Onboarding Checklist",
+      "type": "n8n-nodes-base.supabase",
+      "position": [3000, 200],
+      "parameters": {
+        "operation": "create",
+        "tableId": "client_onboarding_tasks",
+        "fieldsToSend": {
+          "fieldValues": [
+            {
+              "fieldName": "client_id",
+              "fieldValue": "={{ $('Set Client Data').item.json.client_id }}"
+            },
+            {
+              "fieldName": "tasks",
+              "fieldValue": "=[{\"task\": \"Welcome email sent\", \"completed\": true}, {\"task\": \"API credentials generated\", \"completed\": true}, {\"task\": \"Project folders created\", \"completed\": true}, {\"task\": \"Kickoff call scheduled\", \"completed\": true}, {\"task\": \"Service agreement signed\", \"completed\": false}, {\"task\": \"Technical requirements gathered\", \"completed\": false}, {\"task\": \"Integration configured\", \"completed\": false}, {\"task\": \"Training completed\", \"completed\": false}]"
+            },
+            {
+              "fieldName": "created_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "typeVersion": 1,
+      "credentials": {
+        "supabaseApi": {
+          "id": "REPLACE_WITH_SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase Production"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "New Client Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Set Client Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Client Data": {
+      "main": [
+        [
+          {
+            "node": "Create Client Record",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Client Record": {
+      "main": [
+        [
+          {
+            "node": "Generate API Credentials",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate API Credentials": {
+      "main": [
+        [
+          {
+            "node": "Create Project Folder",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Folder List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Project Folder": {
+      "main": [
+        [
+          {
+            "node": "Merge Client Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Folder List": {
+      "main": [
+        [
+          {
+            "node": "Create Subfolders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Subfolders": {
+      "main": [
+        [
+          {
+            "node": "Create Subfolder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge Client Data",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Create Subfolder": {
+      "main": [
+        [
+          {
+            "node": "Create Subfolders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Client Data": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send Welcome Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Welcome Email": {
+      "main": [
+        [
+          {
+            "node": "Calculate Kickoff Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Kickoff Date": {
+      "main": [
+        [
+          {
+            "node": "Schedule Kickoff Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Kickoff Call": {
+      "main": [
+        [
+          {
+            "node": "Update Client Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Client Status": {
+      "main": [
+        [
+          {
+            "node": "Create Onboarding Checklist",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Onboarding Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Onboarding Event": {
+      "main": [
+        [
+          {
+            "node": "Notify Admin - Telegram",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Admin - Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Notify Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": true,
+    "errorWorkflow": "Error Handler"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "client-management"
+    },
+    {
+      "name": "onboarding"
+    },
+    {
+      "name": "automation"
+    }
+  ],
+  "triggerCount": 1,
+  "meta": {
+    "templateId": "client-onboarding-v1",
+    "instanceId": "leveredge-prod"
+  }
+}

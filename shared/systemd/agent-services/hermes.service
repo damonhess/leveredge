@@ -1,0 +1,25 @@
+[Unit]
+Description=HERMES - Notification & Approval Agent
+Documentation=https://github.com/leveredge/hermes
+After=network.target event-bus.service
+Wants=event-bus.service
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/hermes
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+Environment="HERMES_DB_PATH=/opt/leveredge/control-plane/agents/hermes/data/hermes.db"
+ExecStart=/home/damon/.local/bin/uvicorn hermes:app --host 0.0.0.0 --port 8014
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hermes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,108 @@
+/* LeverEdge Documentation Custom Styles */
+
+:root {
+  --md-primary-fg-color: #1B2951;
+  --md-primary-fg-color--light: #36454F;
+  --md-primary-fg-color--dark: #0D1526;
+  --md-accent-fg-color: #B8860B;
+}
+
+/* Code block styling */
+.md-typeset code {
+  background-color: rgba(27, 41, 81, 0.1);
+}
+
+/* Table styling */
+.md-typeset table:not([class]) {
+  font-size: 0.9rem;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-primary-fg-color);
+  color: white;
+}
+
+/* Agent status badges */
+.status-active {
+  background-color: #28a745;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.status-pending {
+  background-color: #ffc107;
+  color: black;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.status-error {
+  background-color: #dc3545;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* Port badge */
+.port-badge {
+  background-color: #6c757d;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+
+/* Fleet cards */
+.fleet-card {
+  border-left: 4px solid var(--md-accent-fg-color);
+  padding-left: 1rem;
+  margin: 1rem 0;
+}
+
+/* API endpoint styling */
+.endpoint {
+  font-family: monospace;
+  background-color: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+}
+
+.endpoint .method {
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+.endpoint .method-get {
+  color: #28a745;
+}
+
+.endpoint .method-post {
+  color: #007bff;
+}
+
+.endpoint .method-put {
+  color: #ffc107;
+}
+
+.endpoint .method-delete {
+  color: #dc3545;
+}
+
+/* Architecture diagrams */
+.architecture-diagram {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.architecture-diagram pre {
+  margin: 0;
+  font-size: 0.85rem;
+}

@@ -1,0 +1,30 @@
+[Unit]
+Description=LeverEdge Event Bus - Central Message Router
+Documentation=https://github.com/leveredge/event-bus
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/event-bus
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+ExecStart=/home/damon/.local/bin/uvicorn event_bus:app --host 0.0.0.0 --port 8099
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=event-bus
+
+# Security
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/leveredge /var/log/leveredge
+
+[Install]
+WantedBy=multi-user.target

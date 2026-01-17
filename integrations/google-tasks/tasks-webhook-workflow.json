@@ -1,0 +1,583 @@
+{
+  "name": "Google Tasks Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "google-tasks-webhook",
+        "options": {}
+      },
+      "id": "webhook-receiver",
+      "name": "Webhook Receiver",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "webhookId": "google-tasks-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-sync",
+              "leftValue": "={{ $json.headers['x-goog-resource-state'] }}",
+              "rightValue": "sync",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "is-sync-message",
+      "name": "Is Sync Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'sync acknowledged' }) }}",
+        "options": {}
+      },
+      "id": "ack-sync",
+      "name": "Acknowledge Sync",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [600, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse webhook headers and body\nconst headers = $input.first().json.headers || {};\nconst body = $input.first().json.body || {};\n\n// Extract Google webhook metadata\nconst resourceState = headers['x-goog-resource-state'];\nconst channelId = headers['x-goog-channel-id'];\nconst resourceId = headers['x-goog-resource-id'];\nconst messageNumber = headers['x-goog-message-number'];\n\n// Determine change type from resource state\nlet changeType = 'update'; // default\nif (resourceState === 'not_exists') {\n  changeType = 'delete';\n} else if (body.change_type) {\n  changeType = body.change_type;\n}\n\n// Extract task info from body or use placeholders\nconst taskId = body.task_id || body.id || resourceId;\nconst tasklistId = body.tasklist_id || body.taskListId || '@default';\n\nreturn {\n  change_type: changeType,\n  task_id: taskId,\n  tasklist_id: tasklistId,\n  resource_state: resourceState,\n  channel_id: channelId,\n  resource_id: resourceId,\n  message_number: messageNumber,\n  task_data: body.task_data || null,\n  raw_body: body,\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "parse-webhook",
+      "name": "Parse Webhook Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [600, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-task-id",
+              "leftValue": "={{ $json.task_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "has-task-id",
+      "name": "Has Task ID?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [800, 400]
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_tasks_sync"
+        },
+        "returnAll": false,
+        "limit": 1,
+        "where": {
+          "values": [
+            {
+              "column": "google_task_id",
+              "value": "={{ $json.task_id }}"
+            },
+            {
+              "column": "google_tasklist_id",
+              "value": "={{ $json.tasklist_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "lookup-sync-record",
+      "name": "Lookup Sync Record",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1000, 400],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-dev",
+          "name": "Supabase Dev"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "is-delete",
+              "leftValue": "={{ $('Parse Webhook Data').item.json.change_type }}",
+              "rightValue": "delete",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-change-type",
+      "name": "Is Delete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1200, 400]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_tasks"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "deleted": true,
+            "deleted_at": "={{ $now.toISO() }}"
+          }
+        },
+        "where": {
+          "values": [
+            {
+              "column": "id",
+              "value": "={{ $('Lookup Sync Record').item.json.local_task_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "soft-delete-task",
+      "name": "Soft Delete Task",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1400, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-dev",
+          "name": "Supabase Dev"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8069/webhook/n8n",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"change_type\": \"{{ $('Parse Webhook Data').item.json.change_type }}\",\n  \"task_id\": \"{{ $('Parse Webhook Data').item.json.task_id }}\",\n  \"tasklist_id\": \"{{ $('Parse Webhook Data').item.json.tasklist_id }}\",\n  \"task_data\": {{ $('Parse Webhook Data').item.json.task_data ? JSON.stringify($('Parse Webhook Data').item.json.task_data) : 'null' }}\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "forward-to-sync-api",
+      "name": "Forward to Sync API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [1400, 500]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_tasks_sync_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "google_task_id": "={{ $('Parse Webhook Data').item.json.task_id }}",
+            "google_tasklist_id": "={{ $('Parse Webhook Data').item.json.tasklist_id }}",
+            "operation": "={{ $('Parse Webhook Data').item.json.change_type === 'delete' ? 'delete_local' : 'update_local' }}",
+            "triggered_by": "webhook",
+            "success": true,
+            "after_data": "={{ JSON.stringify({ change_type: $('Parse Webhook Data').item.json.change_type, resource_state: $('Parse Webhook Data').item.json.resource_state }) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-sync-operation",
+      "name": "Log Sync Operation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [1600, 400],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-dev",
+          "name": "Supabase Dev"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, operation: $('Parse Webhook Data').item.json.change_type, task_id: $('Parse Webhook Data').item.json.task_id }) }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1800, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'No task ID provided' }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "respond-no-task-id",
+      "name": "Respond No Task ID",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1000, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle conflict resolution based on configuration\n// This node implements configurable conflict resolution\n\nconst webhookData = $('Parse Webhook Data').item.json;\nconst syncRecord = $('Lookup Sync Record').item.json;\n\n// Get configured resolution strategy (default: newest_wins)\nconst conflictStrategy = $env.GOOGLE_TASKS_CONFLICT_RESOLUTION || 'newest_wins';\n\n// Check if we have a potential conflict\nconst localUpdated = syncRecord?.last_local_update ? new Date(syncRecord.last_local_update) : null;\nconst lastSynced = syncRecord?.last_synced_at ? new Date(syncRecord.last_synced_at) : null;\nconst googleUpdated = webhookData.timestamp ? new Date(webhookData.timestamp) : new Date();\n\nlet hasConflict = false;\nlet resolution = null;\n\nif (localUpdated && lastSynced && localUpdated > lastSynced) {\n  // Local was modified since last sync - potential conflict\n  hasConflict = true;\n  \n  switch (conflictStrategy) {\n    case 'google_wins':\n      resolution = 'google_wins';\n      break;\n    case 'local_wins':\n      resolution = 'local_wins';\n      break;\n    case 'newest_wins':\n    default:\n      resolution = googleUpdated > localUpdated ? 'google_wins' : 'local_wins';\n      break;\n  }\n}\n\nreturn {\n  ...webhookData,\n  sync_record: syncRecord,\n  has_conflict: hasConflict,\n  conflict_resolution: resolution,\n  strategy_used: conflictStrategy,\n  should_apply_google: !hasConflict || resolution === 'google_wins'\n};"
+      },
+      "id": "check-conflict",
+      "name": "Check Conflict",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 600],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 700]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8069/sync/full",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"conflict_resolution\": \"newest_wins\"\n}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "trigger-full-sync",
+      "name": "Trigger Full Sync",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "sync-success",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "sync-success-check",
+      "name": "Sync Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 700]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_tasks_sync_log"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "operation": "={{ $json.success ? 'update_local' : 'error' }}",
+            "triggered_by": "poll",
+            "success": "={{ $json.success }}",
+            "error_message": "={{ $json.success ? null : 'Full sync failed' }}",
+            "after_data": "={{ JSON.stringify($json.results || {}) }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-scheduled-sync",
+      "name": "Log Scheduled Sync",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [800, 700],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-dev",
+          "name": "Supabase Dev"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook Receiver": {
+      "main": [
+        [
+          {
+            "node": "Is Sync Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Sync Message?": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Sync",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Webhook Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook Data": {
+      "main": [
+        [
+          {
+            "node": "Has Task ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Task ID?": {
+      "main": [
+        [
+          {
+            "node": "Lookup Sync Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond No Task ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Sync Record": {
+      "main": [
+        [
+          {
+            "node": "Is Delete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Delete?": {
+      "main": [
+        [
+          {
+            "node": "Soft Delete Task",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Forward to Sync API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Soft Delete Task": {
+      "main": [
+        [
+          {
+            "node": "Log Sync Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to Sync API": {
+      "main": [
+        [
+          {
+            "node": "Log Sync Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Sync Operation": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Trigger Full Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trigger Full Sync": {
+      "main": [
+        [
+          {
+            "node": "Sync Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Success?": {
+      "main": [
+        [
+          {
+            "node": "Log Scheduled Sync",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Scheduled Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "google-tasks",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "sync",
+      "createdAt": "2024-01-01T00:00:00.000Z",
+      "updatedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "triggerCount": 2,
+  "pinData": {},
+  "versionId": "1"
+}

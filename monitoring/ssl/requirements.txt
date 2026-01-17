@@ -1,0 +1,15 @@
+# SSL Certificate Monitor - Requirements
+# Port: 8064
+
+# Web framework
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+
+# HTTP client for HERMES/CERBERUS integration
+httpx>=0.24.0
+
+# Scheduler for daily checks
+apscheduler>=3.10.0
+
+# Data validation (included with FastAPI but explicit)
+pydantic>=2.0.0

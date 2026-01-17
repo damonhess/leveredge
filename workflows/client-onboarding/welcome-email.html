@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to LeverEdge AI</title>
+  <style>
+    /* Reset and base styles */
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+    /* Client-specific styles */
+    .ExternalClass { width: 100%; }
+    .ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100%; }
+
+    /* Design tokens */
+    :root {
+      --primary: #1B2951;
+      --secondary: #B8860B;
+      --accent: #36454F;
+      --background: #F5F5F5;
+      --white: #FFFFFF;
+      --text: #1A1A1A;
+      --text-muted: #666666;
+    }
+  </style>
+</head>
+<body style="background-color: #F5F5F5; margin: 0; padding: 0;">
+
+  <!-- Preheader text (hidden) -->
+  <div style="display: none; font-size: 1px; color: #F5F5F5; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
+    Welcome to LeverEdge AI! Your account is ready. Here's everything you need to get started.
+  </div>
+
+  <!-- Main container -->
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #F5F5F5;">
+    <tr>
+      <td align="center" style="padding: 40px 10px;">
+
+        <!-- Email wrapper -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #FFFFFF; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #1B2951 0%, #36454F 100%); padding: 40px 40px 30px 40px; text-align: center;">
+              <!-- Logo placeholder -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <h1 style="margin: 0; color: #FFFFFF; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">
+                      LeverEdge<span style="color: #B8860B;">AI</span>
+                    </h1>
+                    <p style="margin: 10px 0 0 0; color: rgba(255, 255, 255, 0.8); font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+                      AI-Powered Automation Platform
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Welcome message -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px;">
+              <h2 style="margin: 0 0 20px 0; color: #1B2951; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 24px; font-weight: 600;">
+                Welcome aboard, {{contact_name}}!
+              </h2>
+              <p style="margin: 0 0 20px 0; color: #1A1A1A; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; line-height: 1.6;">
+                We're thrilled to have <strong>{{company_name}}</strong> join the LeverEdge AI family. Your account has been successfully created and you're ready to start automating.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Account details box -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #F8F9FA; border-radius: 8px; border-left: 4px solid #B8860B;">
+                <tr>
+                  <td style="padding: 25px;">
+                    <h3 style="margin: 0 0 15px 0; color: #1B2951; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 600;">
+                      Your Account Details
+                    </h3>
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                      <tr>
+                        <td style="padding: 8px 0; color: #666666; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; width: 120px;">
+                          Client ID:
+                        </td>
+                        <td style="padding: 8px 0; color: #1A1A1A; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 14px; font-weight: 500;">
+                          {{client_id}}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #666666; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+                          Plan:
+                        </td>
+                        <td style="padding: 8px 0; color: #1A1A1A; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 500; text-transform: capitalize;">
+                          {{plan_tier}}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #666666; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px;">
+                          API Key:
+                        </td>
+                        <td style="padding: 8px 0; color: #1A1A1A; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; font-weight: 500; background-color: #FFFFFF; padding: 8px 12px; border-radius: 4px; border: 1px solid #E0E0E0;">
+                          {{api_key}}
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 15px 0 0 0; color: #B8860B; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; font-weight: 500;">
+                      Keep your API key secure. Do not share it publicly.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Quick start section -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              <h3 style="margin: 0 0 20px 0; color: #1B2951; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 18px; font-weight: 600;">
+                Get Started in 3 Steps
+              </h3>
+
+              <!-- Step 1 -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 15px;">
+                <tr>
+                  <td width="40" valign="top">
+                    <div style="width: 32px; height: 32px; background-color: #1B2951; border-radius: 50%; text-align: center; line-height: 32px; color: #FFFFFF; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;">1</div>
+                  </td>
+                  <td style="padding-left: 15px;">
+                    <h4 style="margin: 0 0 5px 0; color: #1A1A1A; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;">Access Your Portal</h4>
+                    <p style="margin: 0; color: #666666; font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5;">
+                      Log in to your client portal to manage workflows, view analytics, and configure integrations.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Step 2 -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-bottom: 15px;">
+                <tr>
+                  <td width="40" valign="top">
+                    <div style="width: 32px; height: 32px; background-color: #1B2951; border-radius: 50%; text-align: center; line-height: 32px; color: #FFFFFF; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;">2</div>
+                  </td>
+                  <td style="padding-left: 15px;">
+                    <h4 style="margin: 0 0 5px 0; color: #1A1A1A; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;">Review Documentation</h4>
+                    <p style="margin: 0; color: #666666; font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5;">
+                      Explore our comprehensive docs to understand API endpoints, webhooks, and automation patterns.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Step 3 -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td width="40" valign="top">
+                    <div style="width: 32px; height: 32px; background-color: #1B2951; border-radius: 50%; text-align: center; line-height: 32px; color: #FFFFFF; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;">3</div>
+                  </td>
+                  <td style="padding-left: 15px;">
+                    <h4 style="margin: 0 0 5px 0; color: #1A1A1A; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;">Join Your Kickoff Call</h4>
+                    <p style="margin: 0; color: #666666; font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5;">
+                      A calendar invite has been sent. We'll walk you through setup and answer all your questions.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA buttons -->
+          <tr>
+            <td style="padding: 0 40px 40px 40px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td align="center" style="padding-right: 10px;" width="50%">
+                    <a href="{{portal_url}}" style="display: inline-block; background-color: #1B2951; color: #FFFFFF; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 6px; text-align: center; width: 100%; box-sizing: border-box;">
+                      Access Portal
+                    </a>
+                  </td>
+                  <td align="center" style="padding-left: 10px;" width="50%">
+                    <a href="{{docs_url}}" style="display: inline-block; background-color: #FFFFFF; color: #1B2951; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; text-decoration: none; padding: 14px 28px; border-radius: 6px; text-align: center; width: 100%; box-sizing: border-box; border: 2px solid #1B2951;">
+                      View Docs
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr>
+            <td style="padding: 0 40px;">
+              <hr style="border: none; border-top: 1px solid #E0E0E0; margin: 0;">
+            </td>
+          </tr>
+
+          <!-- Support section -->
+          <tr>
+            <td style="padding: 30px 40px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                <tr>
+                  <td style="text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: #1B2951; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600;">
+                      Need Help?
+                    </h4>
+                    <p style="margin: 0; color: #666666; font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1.5;">
+                      Our team is here to help you succeed. Reach out anytime.
+                    </p>
+                    <p style="margin: 15px 0 0 0;">
+                      <a href="mailto:support@leveredgeai.com" style="color: #B8860B; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; text-decoration: none;">
+                        support@leveredgeai.com
+                      </a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #1B2951; padding: 30px 40px; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: rgba(255, 255, 255, 0.9); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;">
+                LeverEdge AI
+              </p>
+              <p style="margin: 0 0 15px 0; color: rgba(255, 255, 255, 0.6); font-family: 'Inter', sans-serif; font-size: 12px;">
+                Intelligent Automation for Modern Business
+              </p>
+              <p style="margin: 0; color: rgba(255, 255, 255, 0.4); font-family: 'Inter', sans-serif; font-size: 11px;">
+                &copy; 2026 LeverEdge AI. All rights reserved.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- End email wrapper -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- End main container -->
+
+</body>
+</html>

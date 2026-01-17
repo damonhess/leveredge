@@ -1,0 +1,641 @@
+{
+  "name": "Google Calendar Webhook Handler",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "google-calendar-webhook",
+        "options": {
+          "responseMode": "onReceived",
+          "responseCode": 200
+        }
+      },
+      "id": "webhook-trigger",
+      "name": "Calendar Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 300],
+      "webhookId": "google-calendar-changes"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-sync",
+              "leftValue": "={{ $json.headers['x-goog-resource-state'] }}",
+              "rightValue": "sync",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-if-sync",
+      "name": "Is Sync Notification?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'acknowledged', type: 'sync' }) }}",
+        "options": {}
+      },
+      "id": "respond-sync",
+      "name": "Acknowledge Sync",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [640, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract change information from headers\nconst headers = $input.first().json.headers;\n\nconst changeData = {\n  channelId: headers['x-goog-channel-id'],\n  resourceId: headers['x-goog-resource-id'],\n  resourceState: headers['x-goog-resource-state'],\n  messageNumber: headers['x-goog-message-number'],\n  resourceUri: headers['x-goog-resource-uri'],\n  channelExpiration: headers['x-goog-channel-expiration'],\n  channelToken: headers['x-goog-channel-token'],\n  timestamp: new Date().toISOString()\n};\n\n// Determine change type\nlet changeType = 'unknown';\nif (changeData.resourceState === 'exists') {\n  changeType = 'modified'; // Could be create or update\n} else if (changeData.resourceState === 'not_exists') {\n  changeType = 'deleted';\n}\n\nreturn {\n  ...changeData,\n  changeType\n};"
+      },
+      "id": "parse-change",
+      "name": "Parse Change Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 440]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8068/webhook",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-Goog-Channel-ID",
+              "value": "={{ $json.channelId }}"
+            },
+            {
+              "name": "X-Goog-Resource-ID",
+              "value": "={{ $json.resourceId }}"
+            },
+            {
+              "name": "X-Goog-Resource-State",
+              "value": "={{ $json.resourceState }}"
+            },
+            {
+              "name": "X-Goog-Message-Number",
+              "value": "={{ $json.messageNumber }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "changeData",
+              "value": "={{ JSON.stringify($json) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "forward-to-sync-api",
+      "name": "Forward to Calendar Sync API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [860, 440]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-success",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "processed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-sync-result",
+      "name": "Sync Successful?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1080, 440]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO aria_calendar_sync_history \n(google_event_id, sync_direction, sync_action, sync_status, changes_applied, synced_at)\nSELECT \n  '{{ $json.resourceId }}',\n  'to_aria',\n  CASE \n    WHEN '{{ $('Parse Change Data').item.json.changeType }}' = 'deleted' THEN 'delete'\n    ELSE 'update'\n  END,\n  'success',\n  '{{ JSON.stringify($json.changes) }}'::jsonb,\n  NOW()\nRETURNING id;",
+        "options": {}
+      },
+      "id": "log-success",
+      "name": "Log Sync Success",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1300, 320],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-leveredge",
+          "name": "Leveredge PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO aria_calendar_sync_history \n(google_event_id, sync_direction, sync_action, sync_status, error_message, synced_at)\nVALUES (\n  '{{ $('Parse Change Data').item.json.resourceId }}',\n  'to_aria',\n  'update',\n  'failed',\n  '{{ $json.message || \"Unknown error\" }}',\n  NOW()\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "log-failure",
+      "name": "Log Sync Failure",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1300, 560],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-leveredge",
+          "name": "Leveredge PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "aria-calendar-notify",
+        "options": {}
+      },
+      "id": "aria-notify-trigger",
+      "name": "ARIA Calendar Notification",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [200, 700],
+      "webhookId": "aria-calendar-notify"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process ARIA notification about calendar changes\nconst input = $input.first().json;\n\n// Validate required fields\nif (!input.body || !input.body.event) {\n  throw new Error('Missing event data in request body');\n}\n\nconst event = input.body.event;\nconst action = input.body.action || 'update'; // create, update, delete\n\n// Build event object for Google Calendar API\nconst googleEvent = {\n  summary: event.title,\n  description: event.description || '',\n  location: event.location || '',\n  start: {},\n  end: {},\n  attendees: (event.attendees || []).map(email => ({ email })),\n  reminders: {\n    useDefault: true\n  }\n};\n\n// Handle all-day vs timed events\nif (event.all_day) {\n  googleEvent.start.date = event.start_time.split('T')[0];\n  googleEvent.end.date = event.end_time.split('T')[0];\n} else {\n  googleEvent.start.dateTime = event.start_time;\n  googleEvent.start.timeZone = event.timezone || 'UTC';\n  googleEvent.end.dateTime = event.end_time;\n  googleEvent.end.timeZone = event.timezone || 'UTC';\n}\n\nreturn {\n  action,\n  localEventId: event.id,\n  googleEventId: event.google_event_id,\n  googleEvent,\n  originalEvent: event\n};"
+      },
+      "id": "process-aria-event",
+      "name": "Process ARIA Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 700]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "action-create",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-by-action",
+      "name": "Route by Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [640, 700],
+      "options": {
+        "fallbackOutput": "extra"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8068/events/create",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  title: $json.googleEvent.summary,\n  description: $json.googleEvent.description,\n  start_time: $json.originalEvent.start_time,\n  end_time: $json.originalEvent.end_time,\n  all_day: $json.originalEvent.all_day || false,\n  location: $json.googleEvent.location,\n  attendees: $json.originalEvent.attendees || [],\n  local_event_id: $json.localEventId\n}) }}",
+        "options": {}
+      },
+      "id": "create-google-event",
+      "name": "Create in Google Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [920, 540]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8068/events/update",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  google_event_id: $json.googleEventId,\n  title: $json.googleEvent.summary,\n  description: $json.googleEvent.description,\n  start_time: $json.originalEvent.start_time,\n  end_time: $json.originalEvent.end_time,\n  all_day: $json.originalEvent.all_day || false,\n  location: $json.googleEvent.location,\n  attendees: $json.originalEvent.attendees || []\n}) }}",
+        "options": {}
+      },
+      "id": "update-google-event",
+      "name": "Update in Google Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [920, 700]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "=http://localhost:8068/events/{{ $json.googleEventId }}",
+        "options": {}
+      },
+      "id": "delete-google-event",
+      "name": "Delete from Google Calendar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [920, 860]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE aria_calendar_events \nSET google_event_id = '{{ $json.google_event_id }}',\n    sync_status = 'synced',\n    updated_at = NOW()\nWHERE id = {{ $('Process ARIA Event').item.json.localEventId }}\nRETURNING id, google_event_id;",
+        "options": {}
+      },
+      "id": "update-local-with-google-id",
+      "name": "Update Local with Google ID",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1180, 540],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-leveredge",
+          "name": "Leveredge PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE aria_calendar_events \nSET sync_status = 'synced',\n    updated_at = NOW()\nWHERE id = {{ $('Process ARIA Event').item.json.localEventId }}\nRETURNING id;",
+        "options": {}
+      },
+      "id": "mark-synced",
+      "name": "Mark as Synced",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.3,
+      "position": [1180, 780],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-leveredge",
+          "name": "Leveredge PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({\n  success: true,\n  action: $('Process ARIA Event').item.json.action,\n  google_event_id: $json.google_event_id || $('Process ARIA Event').item.json.googleEventId,\n  local_event_id: $('Process ARIA Event').item.json.localEventId\n}) }}",
+        "options": {}
+      },
+      "id": "respond-success",
+      "name": "Respond Success",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1440, 700]
+    },
+    {
+      "parameters": {
+        "errorMessage": "={{ $json.message || 'Calendar sync failed' }}"
+      },
+      "id": "handle-error",
+      "name": "Handle Error",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1440, 920]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "action-update",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "update",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "route-update-delete",
+      "name": "Update or Delete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [780, 780]
+    },
+    {
+      "parameters": {},
+      "id": "noop-success",
+      "name": "No-Op Success",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1520, 320]
+    },
+    {
+      "parameters": {},
+      "id": "noop-failure",
+      "name": "No-Op Failure",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1520, 560]
+    }
+  ],
+  "connections": {
+    "Calendar Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Sync Notification?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Sync Notification?": {
+      "main": [
+        [
+          {
+            "node": "Acknowledge Sync",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Change Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Change Data": {
+      "main": [
+        [
+          {
+            "node": "Forward to Calendar Sync API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to Calendar Sync API": {
+      "main": [
+        [
+          {
+            "node": "Sync Successful?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sync Successful?": {
+      "main": [
+        [
+          {
+            "node": "Log Sync Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Sync Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Sync Success": {
+      "main": [
+        [
+          {
+            "node": "No-Op Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Sync Failure": {
+      "main": [
+        [
+          {
+            "node": "No-Op Failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ARIA Calendar Notification": {
+      "main": [
+        [
+          {
+            "node": "Process ARIA Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process ARIA Event": {
+      "main": [
+        [
+          {
+            "node": "Route by Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Action": {
+      "main": [
+        [
+          {
+            "node": "Create in Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update or Delete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update or Delete?": {
+      "main": [
+        [
+          {
+            "node": "Update in Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Delete from Google Calendar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create in Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Update Local with Google ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update in Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Mark as Synced",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete from Google Calendar": {
+      "main": [
+        [
+          {
+            "node": "Mark as Synced",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Local with Google ID": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Synced": {
+      "main": [
+        [
+          {
+            "node": "Respond Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "calendar",
+      "id": "calendar-tag"
+    },
+    {
+      "name": "google",
+      "id": "google-tag"
+    },
+    {
+      "name": "webhook",
+      "id": "webhook-tag"
+    },
+    {
+      "name": "aria",
+      "id": "aria-tag"
+    }
+  ],
+  "triggerCount": 2,
+  "versionId": "1.0.0",
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "leveredge-production"
+  }
+}

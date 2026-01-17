@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Aggregator - LeverEdge</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3fb950;
+        }
+
+        .status-dot.error {
+            background: #f85149;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            padding: 16px;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 24px;
+        }
+
+        .sidebar-title {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #8b949e;
+            margin-bottom: 12px;
+        }
+
+        .filter-group {
+            margin-bottom: 16px;
+        }
+
+        .filter-label {
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 6px;
+            display: block;
+        }
+
+        select, input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 14px;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        .agent-list {
+            list-style: none;
+        }
+
+        .agent-item {
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .agent-item:hover {
+            background: #21262d;
+        }
+
+        .agent-item.active {
+            background: #388bfd26;
+            color: #58a6ff;
+        }
+
+        .agent-count {
+            background: #30363d;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .search-bar {
+            padding: 16px 24px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            gap: 12px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 10px 16px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 14px;
+        }
+
+        .search-btn {
+            padding: 10px 20px;
+            background: #238636;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .search-btn:hover {
+            background: #2ea043;
+        }
+
+        .refresh-btn {
+            padding: 10px 16px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+        }
+
+        .refresh-btn:hover {
+            background: #30363d;
+        }
+
+        .log-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+        }
+
+        .log-entry {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .log-entry:hover {
+            border-color: #484f58;
+        }
+
+        .log-header {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .log-level {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .log-level.DEBUG { background: #388bfd26; color: #58a6ff; }
+        .log-level.INFO { background: #3fb95026; color: #3fb950; }
+        .log-level.WARNING { background: #d29922; color: #0d1117; }
+        .log-level.WARN { background: #d29922; color: #0d1117; }
+        .log-level.ERROR { background: #f8514926; color: #f85149; }
+        .log-level.CRITICAL { background: #f85149; color: #fff; }
+        .log-level.FATAL { background: #f85149; color: #fff; }
+
+        .log-agent {
+            color: #58a6ff;
+            font-weight: 500;
+        }
+
+        .log-timestamp {
+            color: #8b949e;
+            font-size: 12px;
+        }
+
+        .log-message {
+            color: #c9d1d9;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .log-source {
+            color: #8b949e;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 24px;
+            padding: 12px 24px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .stat-item.errors .stat-value {
+            color: #f85149;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 24px;
+            color: #8b949e;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: #c9d1d9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            padding: 16px;
+        }
+
+        .pagination button {
+            padding: 8px 16px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+        }
+
+        .pagination button:hover {
+            background: #30363d;
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid #30363d;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Log Aggregator</h1>
+        <div class="header-actions">
+            <div class="status-indicator">
+                <span class="status-dot" id="healthDot"></span>
+                <span id="healthStatus">Checking...</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Filters</h3>
+                <div class="filter-group">
+                    <label class="filter-label">Log Level</label>
+                    <select id="levelFilter">
+                        <option value="">All Levels</option>
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Time Range</label>
+                    <select id="timeFilter">
+                        <option value="1">Last 1 hour</option>
+                        <option value="6">Last 6 hours</option>
+                        <option value="24" selected>Last 24 hours</option>
+                        <option value="168">Last 7 days</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">Agents</h3>
+                <ul class="agent-list" id="agentList">
+                    <li class="agent-item active" data-agent="">
+                        <span>All Agents</span>
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <span class="stat-value" id="totalLogs">-</span>
+                    <span class="stat-label">Total Logs</span>
+                </div>
+                <div class="stat-item errors">
+                    <span class="stat-value" id="errorCount">-</span>
+                    <span class="stat-label">Errors</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="agentCount">-</span>
+                    <span class="stat-label">Active Agents</span>
+                </div>
+            </div>
+
+            <div class="search-bar">
+                <input type="text" class="search-input" id="searchInput" placeholder="Search logs... (supports regex)">
+                <button class="search-btn" id="searchBtn">Search</button>
+                <button class="refresh-btn" id="refreshBtn">Refresh</button>
+            </div>
+
+            <div class="log-container" id="logContainer">
+                <div class="loading">Loading logs...</div>
+            </div>
+
+            <div class="pagination">
+                <button id="prevBtn" disabled>Previous</button>
+                <span id="pageInfo">Page 1</span>
+                <button id="nextBtn">Next</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let currentAgent = '';
+        let currentLevel = '';
+        let currentSearch = '';
+        let currentOffset = 0;
+        const LIMIT = 50;
+
+        // DOM Elements
+        const logContainer = document.getElementById('logContainer');
+        const searchInput = document.getElementById('searchInput');
+        const levelFilter = document.getElementById('levelFilter');
+        const timeFilter = document.getElementById('timeFilter');
+        const agentList = document.getElementById('agentList');
+        const healthDot = document.getElementById('healthDot');
+        const healthStatus = document.getElementById('healthStatus');
+
+        // Stats elements
+        const totalLogsEl = document.getElementById('totalLogs');
+        const errorCountEl = document.getElementById('errorCount');
+        const agentCountEl = document.getElementById('agentCount');
+
+        // Pagination
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const pageInfo = document.getElementById('pageInfo');
+
+        // Check health
+        async function checkHealth() {
+            try {
+                const res = await fetch('/health');
+                const data = await res.json();
+                healthDot.classList.remove('error');
+                healthStatus.textContent = 'Connected';
+            } catch (e) {
+                healthDot.classList.add('error');
+                healthStatus.textContent = 'Disconnected';
+            }
+        }
+
+        // Load agents
+        async function loadAgents() {
+            try {
+                const res = await fetch(`${API_BASE}/agents`);
+                const data = await res.json();
+
+                agentList.innerHTML = `
+                    <li class="agent-item ${!currentAgent ? 'active' : ''}" data-agent="">
+                        <span>All Agents</span>
+                    </li>
+                `;
+
+                data.agents.forEach(agent => {
+                    const li = document.createElement('li');
+                    li.className = `agent-item ${currentAgent === agent ? 'active' : ''}`;
+                    li.dataset.agent = agent;
+                    li.innerHTML = `<span>${agent}</span>`;
+                    agentList.appendChild(li);
+                });
+
+                agentCountEl.textContent = data.agents.length;
+            } catch (e) {
+                console.error('Failed to load agents:', e);
+            }
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const res = await fetch(`${API_BASE}/stats`);
+                const data = await res.json();
+
+                totalLogsEl.textContent = data.total_logs.toLocaleString();
+                errorCountEl.textContent = (
+                    (data.by_level.ERROR || 0) +
+                    (data.by_level.CRITICAL || 0) +
+                    (data.by_level.FATAL || 0)
+                ).toLocaleString();
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        // Load logs
+        async function loadLogs() {
+            logContainer.innerHTML = '<div class="loading">Loading logs...</div>';
+
+            try {
+                let url;
+                const params = new URLSearchParams();
+                params.set('limit', LIMIT);
+                params.set('offset', currentOffset);
+
+                if (currentSearch) {
+                    url = `${API_BASE}/logs/search?q=${encodeURIComponent(currentSearch)}`;
+                    if (currentAgent) params.set('agent', currentAgent);
+                    if (currentLevel) params.set('level', currentLevel);
+                    url += '&' + params.toString();
+                } else if (currentAgent) {
+                    url = `${API_BASE}/logs/agent/${encodeURIComponent(currentAgent)}?${params.toString()}`;
+                    if (currentLevel) url += `&level=${currentLevel}`;
+                } else {
+                    url = `${API_BASE}/logs?${params.toString()}`;
+                    if (currentLevel) url += `&level=${currentLevel}`;
+                }
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                const logs = data.logs || data.results || [];
+
+                if (logs.length === 0) {
+                    logContainer.innerHTML = `
+                        <div class="empty-state">
+                            <h3>No logs found</h3>
+                            <p>Try adjusting your filters or search query</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                logContainer.innerHTML = logs.map(log => `
+                    <div class="log-entry">
+                        <div class="log-header">
+                            <span class="log-level ${log.level}">${log.level}</span>
+                            <span class="log-agent">${log.agent}</span>
+                            <span class="log-timestamp">${formatTimestamp(log.timestamp)}</span>
+                        </div>
+                        <div class="log-message">${escapeHtml(log.message)}</div>
+                        ${log.source ? `<div class="log-source">Source: ${log.source}</div>` : ''}
+                    </div>
+                `).join('');
+
+                // Update pagination
+                const page = Math.floor(currentOffset / LIMIT) + 1;
+                pageInfo.textContent = `Page ${page}`;
+                prevBtn.disabled = currentOffset === 0;
+                nextBtn.disabled = logs.length < LIMIT;
+
+            } catch (e) {
+                console.error('Failed to load logs:', e);
+                logContainer.innerHTML = `
+                    <div class="empty-state">
+                        <h3>Error loading logs</h3>
+                        <p>${e.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Format timestamp
+        function formatTimestamp(ts) {
+            try {
+                const date = new Date(ts);
+                return date.toLocaleString();
+            } catch {
+                return ts;
+            }
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            currentSearch = searchInput.value;
+            currentOffset = 0;
+            loadLogs();
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                currentSearch = searchInput.value;
+                currentOffset = 0;
+                loadLogs();
+            }
+        });
+
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadLogs();
+            loadStats();
+        });
+
+        levelFilter.addEventListener('change', () => {
+            currentLevel = levelFilter.value;
+            currentOffset = 0;
+            loadLogs();
+        });
+
+        agentList.addEventListener('click', (e) => {
+            const item = e.target.closest('.agent-item');
+            if (item) {
+                document.querySelectorAll('.agent-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                currentAgent = item.dataset.agent;
+                currentOffset = 0;
+                loadLogs();
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentOffset >= LIMIT) {
+                currentOffset -= LIMIT;
+                loadLogs();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            currentOffset += LIMIT;
+            loadLogs();
+        });
+
+        // Initial load
+        checkHealth();
+        loadAgents();
+        loadStats();
+        loadLogs();
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            checkHealth();
+            if (currentOffset === 0) {
+                loadLogs();
+                loadStats();
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+{
+  "name": "SHIELD-SWORD Integration Guide",
+  "description": "How to integrate Shield/Sword with ARIA workflows in n8n",
+  "version": "1.0.0",
+
+  "overview": {
+    "purpose": "Shield-Sword acts as a wrapper around ARIA conversations",
+    "shield": "Pre-processes user input to detect manipulation before ARIA sees it",
+    "sword": "Post-processes ARIA responses to enhance impact before user sees them",
+    "flow": "User Input -> SHIELD -> ARIA -> SWORD -> User Response"
+  },
+
+  "endpoints": {
+    "base_url": "http://shield-sword:8067",
+    "health": "GET /health",
+    "config_get": "GET /config",
+    "config_update": "PUT /config",
+    "shield_analyze": "POST /shield/analyze",
+    "sword_enhance": "POST /sword/enhance",
+    "full_process": "POST /process"
+  },
+
+  "integration_patterns": {
+    "pattern_1_full_wrapper": {
+      "name": "Full Shield+Sword Wrapper",
+      "description": "Use /process endpoint for complete pipeline",
+      "workflow": [
+        {
+          "step": 1,
+          "node": "Webhook - Receive User Message",
+          "output": "{{ $json.user_input }}"
+        },
+        {
+          "step": 2,
+          "node": "HTTP Request - Call ARIA",
+          "url": "http://aria:PORT/chat",
+          "body": {
+            "message": "{{ $json.user_input }}",
+            "context": "{{ $json.context }}"
+          },
+          "output": "{{ $json.response }}"
+        },
+        {
+          "step": 3,
+          "node": "HTTP Request - Shield+Sword Process",
+          "url": "http://shield-sword:8067/process",
+          "method": "POST",
+          "body": {
+            "user_input": "{{ $('Webhook').item.json.user_input }}",
+            "aria_response": "{{ $json.response }}",
+            "context": "{{ $json.context }}",
+            "tone_preference": "balanced"
+          }
+        },
+        {
+          "step": 4,
+          "node": "IF - Check Shield Warnings",
+          "condition": "{{ $json.shield.risk_score >= 0.7 }}"
+        },
+        {
+          "step": "4a",
+          "node": "If High Risk - Send Warning to HERMES",
+          "description": "Notify admin of manipulation attempt"
+        },
+        {
+          "step": 5,
+          "node": "Respond with Enhanced Response",
+          "output": "{{ $json.final_response }}"
+        }
+      ]
+    },
+
+    "pattern_2_shield_only": {
+      "name": "Shield Only (Pre-flight Check)",
+      "description": "Use Shield to screen input before ARIA processes",
+      "workflow": [
+        {
+          "step": 1,
+          "node": "Webhook - Receive User Message"
+        },
+        {
+          "step": 2,
+          "node": "HTTP Request - Shield Analyze",
+          "url": "http://shield-sword:8067/shield/analyze",
+          "method": "POST",
+          "body": {
+            "user_input": "{{ $json.user_input }}",
+            "context": {},
+            "conversation_history": []
+          }
+        },
+        {
+          "step": 3,
+          "node": "IF - Risk Score Check",
+          "condition": "{{ $json.risk_score >= 0.7 }}"
+        },
+        {
+          "step": "3a_high_risk",
+          "node": "Return Warning Response",
+          "description": "Don't send to ARIA, return appropriate message"
+        },
+        {
+          "step": "3b_low_risk",
+          "node": "Continue to ARIA",
+          "description": "Send sanitized_input or original to ARIA"
+        }
+      ]
+    },
+
+    "pattern_3_sword_only": {
+      "name": "Sword Only (Response Enhancement)",
+      "description": "Use Sword to enhance ARIA responses post-processing",
+      "workflow": [
+        {
+          "step": 1,
+          "node": "Get ARIA Response",
+          "description": "After ARIA has generated response"
+        },
+        {
+          "step": 2,
+          "node": "HTTP Request - Sword Enhance",
+          "url": "http://shield-sword:8067/sword/enhance",
+          "method": "POST",
+          "body": {
+            "aria_response": "{{ $json.aria_response }}",
+            "user_input": "{{ $json.original_user_input }}",
+            "context": {},
+            "tone_preference": "direct"
+          }
+        },
+        {
+          "step": 3,
+          "node": "Return Enhanced Response",
+          "output": "{{ $json.enhanced_response }}"
+        }
+      ]
+    },
+
+    "pattern_4_adaptive_intensity": {
+      "name": "Adaptive Intensity Based on Context",
+      "description": "Adjust Shield/Sword intensity based on user or context",
+      "workflow": [
+        {
+          "step": 1,
+          "node": "Determine Context",
+          "examples": {
+            "high_value_client": "shield: low, sword: high",
+            "new_user": "shield: high, sword: medium",
+            "internal_team": "shield: off, sword: low",
+            "sales_context": "shield: medium, sword: high"
+          }
+        },
+        {
+          "step": 2,
+          "node": "HTTP Request - Update Config",
+          "url": "http://shield-sword:8067/config",
+          "method": "PUT",
+          "body": {
+            "shield_intensity": "{{ $json.context_shield_level }}",
+            "sword_intensity": "{{ $json.context_sword_level }}"
+          }
+        },
+        {
+          "step": 3,
+          "node": "Process with adjusted settings"
+        }
+      ]
+    }
+  },
+
+  "n8n_node_examples": {
+    "shield_analyze_node": {
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "http://shield-sword:8067/shield/analyze",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": {
+          "user_input": "={{ $json.message }}",
+          "context": "={{ $json.context || {} }}",
+          "conversation_history": "={{ $json.history || [] }}"
+        },
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+
+    "sword_enhance_node": {
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "http://shield-sword:8067/sword/enhance",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": {
+          "aria_response": "={{ $json.response }}",
+          "user_input": "={{ $('Input').item.json.message }}",
+          "context": "={{ $json.context || {} }}",
+          "tone_preference": "balanced"
+        },
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+
+    "full_process_node": {
+      "type": "n8n-nodes-base.httpRequest",
+      "parameters": {
+        "method": "POST",
+        "url": "http://shield-sword:8067/process",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "body": {
+          "user_input": "={{ $json.user_input }}",
+          "aria_response": "={{ $json.aria_response }}",
+          "context": "={{ $json.context || {} }}",
+          "conversation_history": "={{ $json.history || [] }}",
+          "tone_preference": "={{ $json.tone || 'balanced' }}"
+        },
+        "options": {
+          "timeout": 15000
+        }
+      }
+    }
+  },
+
+  "response_handling": {
+    "shield_response": {
+      "fields": {
+        "risk_score": "0.0-1.0 - Use for routing decisions",
+        "flags": "Array of detected issues",
+        "recommendations": "How ARIA should handle",
+        "sanitized_input": "Cleaned input if needed"
+      },
+      "routing_logic": {
+        "risk_under_0.3": "Normal processing",
+        "risk_0.3_to_0.7": "Proceed but log warning",
+        "risk_over_0.7": "Block or redirect, notify admin"
+      }
+    },
+
+    "sword_response": {
+      "fields": {
+        "enhanced_response": "Use this as final response",
+        "changes_made": "Log for audit trail",
+        "impact_score": "Track enhancement effectiveness"
+      }
+    }
+  },
+
+  "best_practices": [
+    "Always use Shield BEFORE sending to ARIA",
+    "Always use Sword AFTER ARIA responds",
+    "Log all Shield alerts for security review",
+    "Track Sword impact_scores to tune intensity",
+    "Use adaptive intensity for different contexts",
+    "Monitor costs - each call uses Claude Haiku",
+    "Test with shield_intensity: high initially, then tune down"
+  ],
+
+  "troubleshooting": {
+    "shield_too_sensitive": "Lower shield_intensity to 'low' or 'medium'",
+    "sword_changing_meaning": "Lower sword_intensity or review prompts",
+    "high_latency": "Shield+Sword adds ~500-1500ms per request",
+    "cost_concerns": "Disable for low-risk, internal conversations"
+  }
+}

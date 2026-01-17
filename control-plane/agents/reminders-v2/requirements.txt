@@ -1,0 +1,29 @@
+# REMINDERS-V2 Dependencies
+# Proactive Reminders Agent
+
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# HTTP client
+httpx>=0.26.0
+
+# Scheduling
+apscheduler>=3.10.4
+
+# Data validation
+pydantic>=2.5.0
+
+# Database (SQLite is built-in, but we need typing)
+# sqlite3 is included in Python standard library
+
+# Optional: Google Calendar integration
+google-api-python-client>=2.111.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+
+# Optional: Supabase client
+supabase>=2.3.0
+
+# Utilities
+python-dateutil>=2.8.2

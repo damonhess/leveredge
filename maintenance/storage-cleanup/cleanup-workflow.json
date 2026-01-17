@@ -1,0 +1,400 @@
+{
+  "name": "Storage Cleanup Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 3,
+              "triggerAtMinute": 0
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Weekly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        250,
+        300
+      ],
+      "notes": "Runs every Sunday at 3:00 AM"
+    },
+    {
+      "parameters": {
+        "command": "cd /opt/leveredge/maintenance/storage-cleanup && python3 reporter.py --format json --stdout"
+      },
+      "id": "generate-report",
+      "name": "Generate Storage Report",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        470,
+        300
+      ],
+      "notes": "Generate storage usage report before cleanup"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse the storage report\nconst reportOutput = $input.first().json.stdout;\nlet report;\n\ntry {\n  report = JSON.parse(reportOutput);\n} catch (e) {\n  throw new Error('Failed to parse storage report: ' + e.message);\n}\n\n// Calculate summary metrics\nconst totalSizeGB = report.total_size / (1024 * 1024 * 1024);\nconst hasAlerts = report.alerts && report.alerts.length > 0;\nconst criticalAlerts = report.alerts ? report.alerts.filter(a => a.level === 'critical') : [];\nconst warningAlerts = report.alerts ? report.alerts.filter(a => a.level === 'warning') : [];\n\n// Determine if cleanup should proceed\nconst shouldCleanup = true; // Always run cleanup as scheduled\n\n// Build bucket summary\nconst bucketSummary = report.buckets.map(b => ({\n  name: b.name,\n  files: b.file_count,\n  size: b.total_size_formatted\n}));\n\n// Get top 5 largest files\nconst topFiles = report.largest_files.slice(0, 5).map(f => ({\n  path: `${f.bucket}/${f.path}`,\n  size: f.size\n}));\n\nreturn {\n  json: {\n    report: report,\n    summary: {\n      totalBuckets: report.total_buckets,\n      totalFiles: report.total_files,\n      totalSize: report.total_size,\n      totalSizeGB: totalSizeGB.toFixed(2),\n      totalSizeFormatted: report.total_size_formatted\n    },\n    alerts: {\n      hasAlerts: hasAlerts,\n      critical: criticalAlerts,\n      warnings: warningAlerts\n    },\n    buckets: bucketSummary,\n    topFiles: topFiles,\n    shouldCleanup: shouldCleanup,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "parse-report",
+      "name": "Parse Storage Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        690,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "cd /opt/leveredge/maintenance/storage-cleanup && python3 cleanup.py --dry-run --json"
+      },
+      "id": "run-cleanup-dry",
+      "name": "Run Cleanup (Dry Run)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        910,
+        300
+      ],
+      "notes": "First pass - dry run to identify files"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse cleanup dry run results\nconst cleanupOutput = $input.first().json.stdout;\nconst storageData = $('Parse Storage Report').first().json;\n\nlet cleanupStats;\ntry {\n  cleanupStats = JSON.parse(cleanupOutput);\n} catch (e) {\n  cleanupStats = {\n    total_files_scanned: 0,\n    orphaned_files_found: 0,\n    old_files_found: 0,\n    files_deleted: 0,\n    bytes_freed: 0,\n    errors: [e.message]\n  };\n}\n\n// Format bytes\nfunction formatBytes(bytes) {\n  const units = ['B', 'KB', 'MB', 'GB', 'TB'];\n  let unitIndex = 0;\n  let size = bytes;\n  while (size >= 1024 && unitIndex < units.length - 1) {\n    size /= 1024;\n    unitIndex++;\n  }\n  return `${size.toFixed(2)} ${units[unitIndex]}`;\n}\n\n// Determine if we should proceed with actual cleanup\n// Only proceed if there are files to clean and no critical errors\nconst shouldProceed = cleanupStats.files_deleted > 0 && \n                      (!cleanupStats.errors || cleanupStats.errors.length === 0);\n\n// Build combined report\nconst combinedReport = {\n  timestamp: new Date().toISOString(),\n  storage: storageData.summary,\n  alerts: storageData.alerts,\n  cleanup: {\n    dryRun: true,\n    filesScanned: cleanupStats.total_files_scanned,\n    orphanedFiles: cleanupStats.orphaned_files_found,\n    oldFiles: cleanupStats.old_files_found,\n    filesToDelete: cleanupStats.files_deleted,\n    spaceToFree: formatBytes(cleanupStats.bytes_freed),\n    errors: cleanupStats.errors || []\n  },\n  shouldProceed: shouldProceed\n};\n\nreturn { json: combinedReport };"
+      },
+      "id": "analyze-cleanup",
+      "name": "Analyze Cleanup Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1130,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-proceed",
+              "leftValue": "={{ $json.shouldProceed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-should-cleanup",
+      "name": "Should Proceed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1350,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "command": "cd /opt/leveredge/maintenance/storage-cleanup && python3 cleanup.py --no-dry-run --json"
+      },
+      "id": "run-cleanup-live",
+      "name": "Run Cleanup (Live)",
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1570,
+        200
+      ],
+      "notes": "Actually delete the files"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse live cleanup results\nconst cleanupOutput = $input.first().json.stdout;\nconst preCleanupData = $('Analyze Cleanup Results').first().json;\n\nlet cleanupStats;\ntry {\n  cleanupStats = JSON.parse(cleanupOutput);\n} catch (e) {\n  cleanupStats = {\n    files_deleted: 0,\n    bytes_freed: 0,\n    errors: [e.message]\n  };\n}\n\n// Format bytes\nfunction formatBytes(bytes) {\n  const units = ['B', 'KB', 'MB', 'GB', 'TB'];\n  let unitIndex = 0;\n  let size = bytes;\n  while (size >= 1024 && unitIndex < units.length - 1) {\n    size /= 1024;\n    unitIndex++;\n  }\n  return `${size.toFixed(2)} ${units[unitIndex]}`;\n}\n\nconst hasErrors = cleanupStats.errors && cleanupStats.errors.length > 0;\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    status: hasErrors ? 'completed_with_errors' : 'success',\n    storage: preCleanupData.storage,\n    alerts: preCleanupData.alerts,\n    cleanup: {\n      dryRun: false,\n      filesDeleted: cleanupStats.files_deleted,\n      spaceFreed: formatBytes(cleanupStats.bytes_freed),\n      spaceFreedBytes: cleanupStats.bytes_freed,\n      duration: cleanupStats.duration_seconds,\n      errors: cleanupStats.errors || []\n    }\n  }\n};"
+      },
+      "id": "format-live-results",
+      "name": "Format Live Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1790,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// No cleanup needed - format skip report\nconst preCleanupData = $('Analyze Cleanup Results').first().json;\n\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    status: 'skipped',\n    reason: 'No files to clean or errors in dry run',\n    storage: preCleanupData.storage,\n    alerts: preCleanupData.alerts,\n    cleanup: preCleanupData.cleanup\n  }\n};"
+      },
+      "id": "format-skip-report",
+      "name": "Format Skip Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1570,
+        400
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "merge-results",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        2010,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the final notification message for HERMES\nconst data = $input.first().json;\n\n// Determine notification priority based on status and alerts\nlet priority = 'low';\nlet channel = 'system-alerts';\n\nif (data.alerts?.hasAlerts) {\n  if (data.alerts.critical?.length > 0) {\n    priority = 'high';\n  } else {\n    priority = 'medium';\n  }\n}\n\nif (data.status === 'completed_with_errors') {\n  priority = 'high';\n}\n\n// Build message body\nlet messageLines = [\n  `# Storage Cleanup Report`,\n  ``,\n  `**Status:** ${data.status.toUpperCase()}`,\n  `**Time:** ${data.timestamp}`,\n  ``,\n  `## Storage Summary`,\n  `- Total Buckets: ${data.storage.totalBuckets}`,\n  `- Total Files: ${data.storage.totalFiles.toLocaleString()}`,\n  `- Total Size: ${data.storage.totalSizeFormatted}`,\n  ``\n];\n\n// Add alerts if any\nif (data.alerts?.hasAlerts) {\n  messageLines.push(`## Alerts`);\n  \n  if (data.alerts.critical?.length > 0) {\n    messageLines.push(`### Critical`);\n    data.alerts.critical.forEach(a => {\n      messageLines.push(`- ${a.message}`);\n    });\n  }\n  \n  if (data.alerts.warnings?.length > 0) {\n    messageLines.push(`### Warnings`);\n    data.alerts.warnings.forEach(a => {\n      messageLines.push(`- ${a.message}`);\n    });\n  }\n  \n  messageLines.push(``);\n}\n\n// Add cleanup results\nmessageLines.push(`## Cleanup Results`);\n\nif (data.status === 'skipped') {\n  messageLines.push(`- Cleanup was skipped: ${data.reason}`);\n} else {\n  messageLines.push(`- Files Deleted: ${data.cleanup.filesDeleted || 0}`);\n  messageLines.push(`- Space Freed: ${data.cleanup.spaceFreed || '0 B'}`);\n  \n  if (data.cleanup.duration) {\n    messageLines.push(`- Duration: ${data.cleanup.duration.toFixed(2)} seconds`);\n  }\n  \n  if (data.cleanup.errors?.length > 0) {\n    messageLines.push(``);\n    messageLines.push(`### Errors`);\n    data.cleanup.errors.forEach(e => {\n      messageLines.push(`- ${e}`);\n    });\n  }\n}\n\nconst message = messageLines.join('\\n');\n\nreturn {\n  json: {\n    channel: channel,\n    priority: priority,\n    title: `Storage Cleanup: ${data.status.toUpperCase()}`,\n    message: message,\n    metadata: {\n      source: 'storage-cleanup-automation',\n      status: data.status,\n      filesDeleted: data.cleanup?.filesDeleted || 0,\n      spaceFreed: data.cleanup?.spaceFreedBytes || 0,\n      hasAlerts: data.alerts?.hasAlerts || false,\n      timestamp: data.timestamp\n    }\n  }\n};"
+      },
+      "id": "build-notification",
+      "name": "Build HERMES Notification",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2230,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/hermes/notify",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}"
+      },
+      "id": "send-hermes",
+      "name": "Send via HERMES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2450,
+        300
+      ],
+      "notes": "Send notification through HERMES messaging system"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final cleanup and logging\nconst notificationData = $('Build HERMES Notification').first().json;\nconst hermesResponse = $input.first().json;\n\nreturn {\n  json: {\n    completed: true,\n    timestamp: new Date().toISOString(),\n    notification: {\n      sent: true,\n      channel: notificationData.channel,\n      priority: notificationData.priority,\n      hermesResponse: hermesResponse\n    },\n    summary: {\n      status: notificationData.metadata.status,\n      filesDeleted: notificationData.metadata.filesDeleted,\n      spaceFreed: notificationData.metadata.spaceFreed,\n      hasAlerts: notificationData.metadata.hasAlerts\n    }\n  }\n};"
+      },
+      "id": "finalize",
+      "name": "Finalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2670,
+        300
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        500
+      ],
+      "notes": "For manual testing"
+    }
+  ],
+  "connections": {
+    "Weekly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Generate Storage Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Generate Storage Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Storage Report": {
+      "main": [
+        [
+          {
+            "node": "Parse Storage Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Storage Report": {
+      "main": [
+        [
+          {
+            "node": "Run Cleanup (Dry Run)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Cleanup (Dry Run)": {
+      "main": [
+        [
+          {
+            "node": "Analyze Cleanup Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Cleanup Results": {
+      "main": [
+        [
+          {
+            "node": "Should Proceed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Proceed?": {
+      "main": [
+        [
+          {
+            "node": "Run Cleanup (Live)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Skip Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run Cleanup (Live)": {
+      "main": [
+        [
+          {
+            "node": "Format Live Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Live Results": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Skip Report": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Build HERMES Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build HERMES Notification": {
+      "main": [
+        [
+          {
+            "node": "Send via HERMES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via HERMES": {
+      "main": [
+        [
+          {
+            "node": "Finalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "maintenance"
+    },
+    {
+      "name": "storage"
+    },
+    {
+      "name": "automation"
+    }
+  ],
+  "triggerCount": 2,
+  "updatedAt": "2026-01-17T00:00:00.000Z",
+  "versionId": "1"
+}

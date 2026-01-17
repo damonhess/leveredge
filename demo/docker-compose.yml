@@ -1,0 +1,109 @@
+# ARIA Demo Environment - Docker Compose
+# Standalone sandboxed demo instance
+
+version: '3.8'
+
+services:
+  demo-n8n:
+    image: n8nio/n8n:latest
+    container_name: demo-n8n
+    restart: unless-stopped
+    ports:
+      - "5681:5678"
+    environment:
+      # Basic n8n config
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_EDITOR_BASE_URL=https://demo.n8n.leveredgeai.com
+      - WEBHOOK_URL=https://demo.leveredgeai.com
+
+      # Security - disable features not needed for demo
+      - N8N_USER_MANAGEMENT_DISABLED=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+
+      # Encryption (change in production!)
+      - N8N_ENCRYPTION_KEY=${N8N_DEMO_ENCRYPTION_KEY:-demo-key-change-in-production}
+
+      # Timezone
+      - GENERIC_TIMEZONE=America/Los_Angeles
+      - TZ=America/Los_Angeles
+
+      # Execution settings
+      - EXECUTIONS_DATA_SAVE_ON_ERROR=none
+      - EXECUTIONS_DATA_SAVE_ON_SUCCESS=none
+      - EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS=false
+
+      # Demo mode flag (available to workflows)
+      - DEMO_MODE=true
+      - DEMO_SESSION_LIMIT_MINUTES=15
+      - DEMO_MESSAGE_LIMIT=10
+
+      # OpenAI for AI Agent (use demo/limited key)
+      - OPENAI_API_KEY=${OPENAI_DEMO_API_KEY}
+
+    volumes:
+      # n8n data (ephemeral for demo)
+      - demo-n8n-data:/home/node/.n8n
+
+      # Demo database
+      - /tmp/demo-aria.db:/tmp/demo-aria.db
+
+      # Pre-load demo workflow (read-only)
+      - ./n8n-demo-workflow.json:/home/node/.n8n/workflows/demo.json:ro
+
+    networks:
+      - demo-net
+
+    # Resource limits for demo
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  demo-net:
+    name: demo-net
+    driver: bridge
+
+volumes:
+  demo-n8n-data:
+    name: demo-n8n-data
+
+# Usage:
+# 1. Set environment variables in .env file:
+#    N8N_DEMO_ENCRYPTION_KEY=your-secure-key
+#    OPENAI_DEMO_API_KEY=sk-your-limited-demo-key
+#
+# 2. Initialize demo database:
+#    sqlite3 /tmp/demo-aria.db < demo-data.sql
+#
+# 3. Start the demo:
+#    docker-compose up -d
+#
+# 4. Import workflow (first time):
+#    curl -X POST http://localhost:5681/api/v1/workflows \
+#      -H "Content-Type: application/json" \
+#      -d @n8n-demo-workflow.json
+#
+# 5. Reset between demos:
+#    ./reset-demo.sh

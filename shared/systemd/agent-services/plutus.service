@@ -1,0 +1,24 @@
+[Unit]
+Description=PLUTUS - Finance & Budgeting Agent
+Documentation=https://github.com/leveredge/plutus
+After=network.target event-bus.service
+Wants=event-bus.service
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/plutus
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+ExecStart=/home/damon/.local/bin/uvicorn plutus:app --host 0.0.0.0 --port 8036
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=plutus
+
+[Install]
+WantedBy=multi-user.target

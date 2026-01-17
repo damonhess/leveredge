@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cost Tracking Dashboard - LeverEdge</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>Cost Tracking Dashboard</h1>
+                <span class="subtitle">API Costs for All Agents</span>
+            </div>
+            <div class="header-right">
+                <span id="last-updated">Last updated: --</span>
+                <button id="refresh-btn" class="btn btn-primary">Refresh</button>
+            </div>
+        </header>
+
+        <!-- Alerts Section -->
+        <section id="alerts-section" class="alerts-section hidden">
+            <div id="alerts-container"></div>
+        </section>
+
+        <!-- Summary Cards -->
+        <section class="summary-cards">
+            <div class="card summary-card" id="today-card">
+                <div class="card-header">
+                    <span class="card-title">Today</span>
+                    <span class="card-icon">24h</span>
+                </div>
+                <div class="card-value" id="today-cost">$0.00</div>
+                <div class="card-meta">
+                    <span id="today-requests">0 requests</span>
+                    <span id="today-budget" class="budget-indicator"></span>
+                </div>
+            </div>
+
+            <div class="card summary-card" id="week-card">
+                <div class="card-header">
+                    <span class="card-title">This Week</span>
+                    <span class="card-icon">7d</span>
+                </div>
+                <div class="card-value" id="week-cost">$0.00</div>
+                <div class="card-meta">
+                    <span id="week-requests">0 requests</span>
+                    <span id="week-budget" class="budget-indicator"></span>
+                </div>
+            </div>
+
+            <div class="card summary-card" id="month-card">
+                <div class="card-header">
+                    <span class="card-title">This Month</span>
+                    <span class="card-icon">30d</span>
+                </div>
+                <div class="card-value" id="month-cost">$0.00</div>
+                <div class="card-meta">
+                    <span id="month-requests">0 requests</span>
+                    <span id="month-budget" class="budget-indicator"></span>
+                </div>
+            </div>
+
+            <div class="card summary-card projection-card" id="projection-card">
+                <div class="card-header">
+                    <span class="card-title">Projected Monthly</span>
+                    <span class="card-icon">Est.</span>
+                </div>
+                <div class="card-value" id="projected-cost">$0.00</div>
+                <div class="card-meta">
+                    <span id="projection-confidence">-- confidence</span>
+                    <span id="projection-status" class="budget-indicator"></span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Row -->
+        <section class="charts-row">
+            <div class="card chart-card">
+                <div class="card-header">
+                    <span class="card-title">Daily Costs (Last 30 Days)</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="daily-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="card chart-card">
+                <div class="card-header">
+                    <span class="card-title">Costs by Agent</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="agent-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Agent Breakdown Table -->
+        <section class="card table-section">
+            <div class="card-header">
+                <span class="card-title">Agent Breakdown (Last 30 Days)</span>
+                <div class="table-controls">
+                    <select id="sort-select">
+                        <option value="cost">Sort by Cost</option>
+                        <option value="requests">Sort by Requests</option>
+                        <option value="name">Sort by Name</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-container">
+                <table id="agent-table">
+                    <thead>
+                        <tr>
+                            <th>Agent</th>
+                            <th>Total Cost</th>
+                            <th>Requests</th>
+                            <th>Input Tokens</th>
+                            <th>Output Tokens</th>
+                            <th>Avg Cost/Request</th>
+                            <th>Cost Bar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="agent-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Budget Settings -->
+        <section class="card budget-section">
+            <div class="card-header">
+                <span class="card-title">Budget Thresholds</span>
+            </div>
+            <div class="budget-grid">
+                <div class="budget-item">
+                    <label>Daily Budget</label>
+                    <div class="budget-value" id="daily-budget-value">$50.00</div>
+                    <div class="budget-progress">
+                        <div class="progress-bar" id="daily-progress"></div>
+                    </div>
+                </div>
+                <div class="budget-item">
+                    <label>Weekly Budget</label>
+                    <div class="budget-value" id="weekly-budget-value">$300.00</div>
+                    <div class="budget-progress">
+                        <div class="progress-bar" id="weekly-progress"></div>
+                    </div>
+                </div>
+                <div class="budget-item">
+                    <label>Monthly Budget</label>
+                    <div class="budget-value" id="monthly-budget-value">$1000.00</div>
+                    <div class="budget-progress">
+                        <div class="progress-bar" id="monthly-progress"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span>LeverEdge Cost Tracking Dashboard</span>
+            <span id="health-status">Checking connection...</span>
+        </footer>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = '';
+        let dailyChart = null;
+        let agentChart = null;
+        let budgetThresholds = { daily: 50, weekly: 300, monthly: 1000 };
+
+        // Format currency
+        function formatCurrency(amount) {
+            return '$' + amount.toFixed(2);
+        }
+
+        // Format number with commas
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        // Update budget progress bar
+        function updateProgressBar(elementId, current, threshold) {
+            const bar = document.getElementById(elementId);
+            const percentage = Math.min((current / threshold) * 100, 100);
+            bar.style.width = percentage + '%';
+
+            if (percentage >= 100) {
+                bar.classList.add('over');
+                bar.classList.remove('warning');
+            } else if (percentage >= 80) {
+                bar.classList.add('warning');
+                bar.classList.remove('over');
+            } else {
+                bar.classList.remove('warning', 'over');
+            }
+        }
+
+        // Show alerts
+        function showAlerts(alerts) {
+            const section = document.getElementById('alerts-section');
+            const container = document.getElementById('alerts-container');
+
+            if (!alerts || alerts.length === 0) {
+                section.classList.add('hidden');
+                return;
+            }
+
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert alert-${alert.level}">
+                    <span class="alert-icon">${alert.level === 'critical' ? '!' : '!'}</span>
+                    <span class="alert-message">${alert.message}</span>
+                </div>
+            `).join('');
+
+            section.classList.remove('hidden');
+        }
+
+        // Fetch and display today's costs
+        async function fetchToday() {
+            try {
+                const response = await fetch(`${API_BASE}/api/costs/today`);
+                const data = await response.json();
+
+                document.getElementById('today-cost').textContent = formatCurrency(data.total_cost);
+                document.getElementById('today-requests').textContent = `${formatNumber(data.request_count)} requests`;
+
+                const budgetEl = document.getElementById('today-budget');
+                budgetEl.textContent = `${data.budget.percentage}% of budget`;
+                budgetEl.className = 'budget-indicator ' + (data.budget.percentage >= 100 ? 'over' : data.budget.percentage >= 80 ? 'warning' : 'ok');
+
+                updateProgressBar('daily-progress', data.total_cost, data.budget.threshold);
+                document.getElementById('daily-budget-value').textContent = formatCurrency(data.budget.threshold);
+
+                return data.budget.alerts || [];
+            } catch (e) {
+                console.error('Error fetching today:', e);
+                return [];
+            }
+        }
+
+        // Fetch and display week costs
+        async function fetchWeek() {
+            try {
+                const response = await fetch(`${API_BASE}/api/costs/week`);
+                const data = await response.json();
+
+                document.getElementById('week-cost').textContent = formatCurrency(data.total_cost);
+                document.getElementById('week-requests').textContent = `${formatNumber(data.request_count)} requests`;
+
+                const budgetEl = document.getElementById('week-budget');
+                budgetEl.textContent = `${data.budget.percentage}% of budget`;
+                budgetEl.className = 'budget-indicator ' + (data.budget.percentage >= 100 ? 'over' : data.budget.percentage >= 80 ? 'warning' : 'ok');
+
+                updateProgressBar('weekly-progress', data.total_cost, data.budget.threshold);
+                document.getElementById('weekly-budget-value').textContent = formatCurrency(data.budget.threshold);
+
+                return data.budget.alerts || [];
+            } catch (e) {
+                console.error('Error fetching week:', e);
+                return [];
+            }
+        }
+
+        // Fetch and display month costs with chart
+        async function fetchMonth() {
+            try {
+                const response = await fetch(`${API_BASE}/api/costs/month`);
+                const data = await response.json();
+
+                document.getElementById('month-cost').textContent = formatCurrency(data.total_cost);
+                document.getElementById('month-requests').textContent = `${formatNumber(data.request_count)} requests`;
+
+                const budgetEl = document.getElementById('month-budget');
+                budgetEl.textContent = `${data.budget.percentage}% of budget`;
+                budgetEl.className = 'budget-indicator ' + (data.budget.percentage >= 100 ? 'over' : data.budget.percentage >= 80 ? 'warning' : 'ok');
+
+                updateProgressBar('monthly-progress', data.total_cost, data.budget.threshold);
+                document.getElementById('monthly-budget-value').textContent = formatCurrency(data.budget.threshold);
+
+                // Update daily chart
+                updateDailyChart(data.daily_breakdown || {});
+
+                return data.budget.alerts || [];
+            } catch (e) {
+                console.error('Error fetching month:', e);
+                return [];
+            }
+        }
+
+        // Fetch projection
+        async function fetchProjection() {
+            try {
+                const response = await fetch(`${API_BASE}/api/costs/projection`);
+                const data = await response.json();
+
+                document.getElementById('projected-cost').textContent = formatCurrency(data.projected_monthly_cost);
+                document.getElementById('projection-confidence').textContent = `${data.confidence} confidence`;
+
+                const statusEl = document.getElementById('projection-status');
+                if (data.budget_status === 'over_budget') {
+                    statusEl.textContent = `${data.budget_percentage}% of budget`;
+                    statusEl.className = 'budget-indicator over';
+                } else if (data.budget_status === 'warning') {
+                    statusEl.textContent = `${data.budget_percentage}% of budget`;
+                    statusEl.className = 'budget-indicator warning';
+                } else {
+                    statusEl.textContent = `${data.budget_percentage}% of budget`;
+                    statusEl.className = 'budget-indicator ok';
+                }
+
+            } catch (e) {
+                console.error('Error fetching projection:', e);
+            }
+        }
+
+        // Fetch agent breakdown
+        async function fetchAgentBreakdown() {
+            try {
+                const response = await fetch(`${API_BASE}/api/costs/by-agent?days=30`);
+                const data = await response.json();
+
+                updateAgentTable(data.agents || []);
+                updateAgentChart(data.agents || []);
+
+            } catch (e) {
+                console.error('Error fetching agents:', e);
+            }
+        }
+
+        // Update daily chart
+        function updateDailyChart(dailyData) {
+            const ctx = document.getElementById('daily-chart').getContext('2d');
+
+            const dates = Object.keys(dailyData).sort();
+            const costs = dates.map(d => dailyData[d]);
+
+            if (dailyChart) {
+                dailyChart.destroy();
+            }
+
+            dailyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates.map(d => d.slice(5)), // MM-DD format
+                    datasets: [{
+                        label: 'Daily Cost ($)',
+                        data: costs,
+                        backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                        borderColor: 'rgba(99, 102, 241, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update agent chart
+        function updateAgentChart(agents) {
+            const ctx = document.getElementById('agent-chart').getContext('2d');
+
+            const topAgents = agents.slice(0, 10);
+            const labels = topAgents.map(a => a.agent_name);
+            const costs = topAgents.map(a => a.total_cost);
+
+            // Generate colors
+            const colors = [
+                'rgba(99, 102, 241, 0.7)',
+                'rgba(236, 72, 153, 0.7)',
+                'rgba(34, 197, 94, 0.7)',
+                'rgba(251, 146, 60, 0.7)',
+                'rgba(14, 165, 233, 0.7)',
+                'rgba(168, 85, 247, 0.7)',
+                'rgba(249, 115, 22, 0.7)',
+                'rgba(20, 184, 166, 0.7)',
+                'rgba(239, 68, 68, 0.7)',
+                'rgba(132, 204, 22, 0.7)'
+            ];
+
+            if (agentChart) {
+                agentChart.destroy();
+            }
+
+            agentChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: costs,
+                        backgroundColor: colors.slice(0, topAgents.length),
+                        borderWidth: 2,
+                        borderColor: '#1e1e2e'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: {
+                                color: '#cdd6f4',
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update agent table
+        function updateAgentTable(agents) {
+            const tbody = document.getElementById('agent-table-body');
+            const maxCost = agents.length > 0 ? Math.max(...agents.map(a => a.total_cost)) : 1;
+
+            tbody.innerHTML = agents.map(agent => {
+                const barWidth = (agent.total_cost / maxCost) * 100;
+                return `
+                    <tr>
+                        <td class="agent-name">${agent.agent_name}</td>
+                        <td class="cost">${formatCurrency(agent.total_cost)}</td>
+                        <td>${formatNumber(agent.request_count)}</td>
+                        <td>${formatNumber(agent.input_tokens)}</td>
+                        <td>${formatNumber(agent.output_tokens)}</td>
+                        <td>${formatCurrency(agent.avg_cost_per_request)}</td>
+                        <td>
+                            <div class="cost-bar-container">
+                                <div class="cost-bar" style="width: ${barWidth}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Check health
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+
+                const statusEl = document.getElementById('health-status');
+                if (data.status === 'healthy') {
+                    statusEl.textContent = 'Connected to Supabase';
+                    statusEl.className = 'status-ok';
+                } else {
+                    statusEl.textContent = 'Connection issue';
+                    statusEl.className = 'status-error';
+                }
+            } catch (e) {
+                document.getElementById('health-status').textContent = 'API not reachable';
+                document.getElementById('health-status').className = 'status-error';
+            }
+        }
+
+        // Refresh all data
+        async function refreshAll() {
+            document.getElementById('refresh-btn').disabled = true;
+            document.getElementById('refresh-btn').textContent = 'Loading...';
+
+            try {
+                const [todayAlerts, weekAlerts, monthAlerts] = await Promise.all([
+                    fetchToday(),
+                    fetchWeek(),
+                    fetchMonth()
+                ]);
+
+                // Show all alerts
+                const allAlerts = [...todayAlerts, ...weekAlerts, ...monthAlerts];
+                showAlerts(allAlerts);
+
+                await fetchProjection();
+                await fetchAgentBreakdown();
+
+                document.getElementById('last-updated').textContent =
+                    'Last updated: ' + new Date().toLocaleTimeString();
+
+            } catch (e) {
+                console.error('Refresh error:', e);
+            } finally {
+                document.getElementById('refresh-btn').disabled = false;
+                document.getElementById('refresh-btn').textContent = 'Refresh';
+            }
+        }
+
+        // Sort handler
+        document.getElementById('sort-select').addEventListener('change', async (e) => {
+            const sortBy = e.target.value;
+            try {
+                const response = await fetch(`${API_BASE}/api/costs/by-agent?days=30`);
+                const data = await response.json();
+                let agents = data.agents || [];
+
+                if (sortBy === 'requests') {
+                    agents.sort((a, b) => b.request_count - a.request_count);
+                } else if (sortBy === 'name') {
+                    agents.sort((a, b) => a.agent_name.localeCompare(b.agent_name));
+                }
+                // Default is by cost, which is already sorted from API
+
+                updateAgentTable(agents);
+            } catch (e) {
+                console.error('Sort error:', e);
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            checkHealth();
+            refreshAll();
+
+            // Auto-refresh every 60 seconds
+            setInterval(refreshAll, 60000);
+
+            // Refresh button
+            document.getElementById('refresh-btn').addEventListener('click', refreshAll);
+        });
+    </script>
+</body>
+</html>

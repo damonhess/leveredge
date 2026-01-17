@@ -1,0 +1,28 @@
+[Unit]
+Description=AEGIS V2 - Enterprise Credential Management System
+Documentation=https://github.com/leveredge/aegis
+After=network.target event-bus.service
+Wants=event-bus.service
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/aegis
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+Environment="DATABASE_URL=postgresql://postgres:i%2BNKWrdGrBsHu2n%2FLGzNMY84Avry2RhNOY2QYksldLtX7GEuxdyASrpv3n0IRinS@127.0.0.1:54323/postgres"
+Environment="N8N_URL=https://control.n8n.leveredgeai.com"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+Environment="HERMES_URL=http://localhost:8014"
+Environment="AEGIS_MASTER_KEY=leveredge-aegis-v2-production-key"
+ExecStart=/home/damon/.local/bin/uvicorn aegis_v2:app --host 0.0.0.0 --port 8012
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aegis
+
+[Install]
+WantedBy=multi-user.target

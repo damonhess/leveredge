@@ -1,0 +1,26 @@
+# Google Calendar Sync Dependencies
+# Python 3.10+
+
+# Google APIs
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0
+google-auth-httplib2>=0.1.1
+
+# FastAPI and async
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+httpx>=0.25.0
+
+# Database
+asyncpg>=0.29.0
+sqlalchemy[asyncio]>=2.0.23
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Date/time handling
+python-dateutil>=2.8.2
+pytz>=2023.3

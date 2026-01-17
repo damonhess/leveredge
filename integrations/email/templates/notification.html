@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>{{ notification_title | default('Notification from LeverEdge') }}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+
+        @media screen and (max-width: 600px) {
+            .mobile-wrapper { width: 100% !important; max-width: 100% !important; }
+            .mobile-padding { padding-left: 20px !important; padding-right: 20px !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        {{ preview_text | default(notification_title) }}
+        &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" class="mobile-wrapper" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td align="center" style="padding: 35px 40px 25px 40px;">
+                            <img src="{{ logo_url | default('https://leveredge.io/logo.png') }}" alt="LeverEdge" width="150" style="display: block;">
+                        </td>
+                    </tr>
+
+                    <!-- Notification type indicator -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 0 40px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        {% if notification_type == 'success' %}
+                                        <div style="display: inline-block; padding: 8px 20px; background-color: #d4edda; border-radius: 20px;">
+                                            <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; color: #155724;">SUCCESS</span>
+                                        </div>
+                                        {% elif notification_type == 'warning' %}
+                                        <div style="display: inline-block; padding: 8px 20px; background-color: #fff3cd; border-radius: 20px;">
+                                            <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; color: #856404;">WARNING</span>
+                                        </div>
+                                        {% elif notification_type == 'error' %}
+                                        <div style="display: inline-block; padding: 8px 20px; background-color: #f8d7da; border-radius: 20px;">
+                                            <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; color: #721c24;">ALERT</span>
+                                        </div>
+                                        {% else %}
+                                        <div style="display: inline-block; padding: 8px 20px; background-color: #cce5ff; border-radius: 20px;">
+                                            <span style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; color: #004085;">NOTIFICATION</span>
+                                        </div>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Content -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 30px 40px 40px 40px;">
+                            <h1 style="margin: 0 0 20px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 22px; font-weight: 700; color: #333333; text-align: center;">
+                                {{ notification_title }}
+                            </h1>
+
+                            <p style="margin: 0 0 20px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 26px; color: #666666;">
+                                Hi {{ user_name | default('there') }},
+                            </p>
+
+                            <p style="margin: 0 0 25px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; line-height: 26px; color: #666666;">
+                                {{ notification_message }}
+                            </p>
+
+                            <!-- Details section -->
+                            {% if details %}
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8f9fa; border-radius: 8px; margin-bottom: 25px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <p style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; color: #333333; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Details
+                                        </p>
+                                        {% for key, value in details.items() %}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 8px;">
+                                            <tr>
+                                                <td width="40%" style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #999999;">
+                                                    {{ key }}:
+                                                </td>
+                                                <td style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333; font-weight: 500;">
+                                                    {{ value }}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+
+                            <!-- CTA Button -->
+                            {% if action_url %}
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ action_url }}" style="display: inline-block; padding: 14px 35px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 600; color: #ffffff; background-color: #667eea; text-decoration: none; border-radius: 6px;">
+                                            {{ action_text | default('View Details') }}
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Timestamp -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 20px 40px; background-color: #f8f9fa; border-top: 1px solid #eeeeee;">
+                            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center;">
+                                Sent on {{ timestamp | default('') }} | <a href="{{ settings_url | default('#') }}" style="color: #667eea; text-decoration: none;">Manage notification settings</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 25px 40px;">
+                            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center;">
+                                {{ company_name | default('LeverEdge') }} | {{ company_address | default('123 Business St, Suite 100, City, ST 12345') }}
+                            </p>
+                            <p style="margin: 10px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center;">
+                                <a href="{{ unsubscribe_url | default('#') }}" style="color: #999999; text-decoration: underline;">Unsubscribe</a>
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

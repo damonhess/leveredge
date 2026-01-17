@@ -1,0 +1,20 @@
+# ARIA Memory V2 - Requirements
+# Port: 8066
+
+# Core framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+
+# HTTP client for Supabase and inter-agent communication
+httpx>=0.26.0
+
+# Anthropic Claude API for fact extraction and recall
+anthropic>=0.43.0
+
+# Async support
+asyncio-throttle>=1.0.2
+
+# Development/Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0

@@ -1,0 +1,33 @@
+[Unit]
+Description=LeverEdge Fleet Manager
+Documentation=https://github.com/leveredge/fleet
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge
+
+# Environment
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+
+# Startup
+ExecStart=/opt/leveredge/shared/systemd/fleet-start.sh
+ExecStop=/opt/leveredge/shared/systemd/fleet-stop.sh
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=leveredge-fleet
+
+# Timeouts
+TimeoutStartSec=300
+TimeoutStopSec=180
+
+[Install]
+WantedBy=multi-user.target

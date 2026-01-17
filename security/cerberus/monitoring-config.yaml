@@ -1,0 +1,655 @@
+# CERBERUS Security Monitoring Configuration
+# /opt/leveredge/security/cerberus/monitoring-config.yaml
+#
+# This configuration defines what CERBERUS should monitor for security threats
+# across the LeverEdge platform.
+#
+# Version: 1.0.0
+
+# ============================================================================
+# GLOBAL SETTINGS
+# ============================================================================
+
+global:
+  # Enable/disable CERBERUS monitoring
+  enabled: true
+
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  log_level: INFO
+
+  # How often to run detection cycles (in seconds)
+  detection_interval: 10
+
+  # Alert cooldown to prevent notification spam (in seconds)
+  alert_cooldown: 300
+
+  # Maximum alerts per hour per category before aggregation
+  max_alerts_per_hour: 50
+
+  # Timezone for timestamps
+  timezone: UTC
+
+  # Data retention for security logs (in days)
+  log_retention_days: 90
+
+  # Enable threat intelligence integration
+  threat_intel_enabled: true
+
+  # HERMES integration for alerts
+  hermes:
+    enabled: true
+    endpoint: http://hermes:8100/api/v1/notify
+    api_key_env: HERMES_API_KEY
+    default_channels:
+      - slack
+      - email
+
+# ============================================================================
+# FAILED LOGIN ATTEMPTS
+# ============================================================================
+
+failed_login_detection:
+  enabled: true
+  description: "Detect brute force and credential stuffing attacks"
+
+  # Sources to monitor for failed logins
+  sources:
+    - name: n8n
+      log_paths:
+        - /opt/leveredge/data-plane/prod/n8n/logs/*.log
+        - /var/log/docker/n8n*.log
+      patterns:
+        - "authentication failed"
+        - "invalid credentials"
+        - "login failed"
+        - "unauthorized"
+
+    - name: supabase
+      log_paths:
+        - /opt/leveredge/supabase/logs/*.log
+        - /var/log/supabase/*.log
+      patterns:
+        - "auth error"
+        - "invalid_grant"
+        - "invalid password"
+        - "user not found"
+
+    - name: ssh
+      log_paths:
+        - /var/log/auth.log
+        - /var/log/secure
+      patterns:
+        - "Failed password"
+        - "Invalid user"
+        - "authentication failure"
+
+    - name: api_gateway
+      log_paths:
+        - /opt/leveredge/gateway/logs/*.log
+      patterns:
+        - "401"
+        - "403"
+        - "invalid token"
+        - "expired token"
+
+  # Thresholds for detection
+  thresholds:
+    # Single IP thresholds
+    single_ip:
+      attempts: 5
+      window_seconds: 300
+      action: warn
+
+    # Distributed attack thresholds (multiple IPs, same target)
+    distributed:
+      unique_ips: 10
+      attempts_per_ip: 3
+      window_seconds: 600
+      action: alert
+
+    # Credential stuffing (many accounts from single IP)
+    credential_stuffing:
+      unique_accounts: 5
+      window_seconds: 300
+      action: block
+
+  # Response actions
+  actions:
+    warn:
+      log: true
+      notify: false
+      block: false
+
+    alert:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+      block: false
+
+    block:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+        - email
+      block: true
+      block_duration_minutes: 60
+      add_to_fail2ban: true
+
+# ============================================================================
+# RATE LIMIT BREACHES
+# ============================================================================
+
+rate_limit_detection:
+  enabled: true
+  description: "Monitor for rate limit violations and API abuse"
+
+  # Services to monitor
+  services:
+    - name: nginx
+      metrics_endpoint: http://nginx:9113/metrics
+      log_paths:
+        - /var/log/nginx/error.log
+        - /var/log/nginx/access.log
+      rate_limit_patterns:
+        - "limiting requests"
+        - "429"
+        - "rate limit exceeded"
+
+    - name: n8n_api
+      metrics_endpoint: http://n8n:5678/metrics
+      rate_limits:
+        - endpoint: "/api/v1/*"
+          requests_per_minute: 100
+          burst: 20
+        - endpoint: "/webhook/*"
+          requests_per_minute: 300
+          burst: 50
+
+    - name: supabase_api
+      metrics_endpoint: http://supabase-api:8000/metrics
+      rate_limits:
+        - endpoint: "/rest/v1/*"
+          requests_per_minute: 1000
+          burst: 100
+        - endpoint: "/auth/v1/*"
+          requests_per_minute: 100
+          burst: 20
+
+  # Detection thresholds
+  thresholds:
+    # Percentage of requests hitting rate limits
+    rate_limit_percentage:
+      warning: 10
+      critical: 25
+
+    # Absolute number of 429 responses
+    absolute_429_count:
+      warning: 100
+      critical: 500
+      window_seconds: 300
+
+    # Burst detection (sudden spike)
+    burst_detection:
+      multiplier: 5  # 5x normal traffic
+      window_seconds: 60
+
+  # Response configuration
+  response:
+    on_warning:
+      log: true
+      notify: false
+
+    on_critical:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+      consider_blocking: true
+
+    on_burst:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+        - email
+      auto_scale: true  # Trigger auto-scaling if available
+
+# ============================================================================
+# UNUSUAL API PATTERNS
+# ============================================================================
+
+unusual_api_detection:
+  enabled: true
+  description: "Detect anomalous API usage patterns"
+
+  # Baseline learning period (in hours)
+  learning_period_hours: 168  # 1 week
+
+  # Pattern categories to monitor
+  patterns:
+    # Geographic anomalies
+    geo_anomaly:
+      enabled: true
+      description: "Requests from unusual geographic locations"
+      baseline_countries:
+        - US
+        - CA
+        - GB
+        - DE
+        - AU
+      alert_on_new_country: true
+      block_high_risk_countries: true
+      high_risk_countries:
+        - KP
+        - IR
+        - RU
+        - CN
+
+    # Time-based anomalies
+    time_anomaly:
+      enabled: true
+      description: "Unusual request timing patterns"
+      business_hours:
+        start: "06:00"
+        end: "22:00"
+        timezone: America/New_York
+      alert_off_hours_percentage: 30  # Alert if >30% requests outside hours
+
+    # Volume anomalies
+    volume_anomaly:
+      enabled: true
+      description: "Unusual request volume patterns"
+      deviation_threshold: 3  # Standard deviations from mean
+      minimum_sample_size: 100
+
+    # Endpoint anomalies
+    endpoint_anomaly:
+      enabled: true
+      description: "Requests to unusual or non-existent endpoints"
+      track_404_ratio: true
+      alert_404_threshold: 5  # More than 5% 404s from single IP
+      suspicious_paths:
+        - "/admin"
+        - "/wp-admin"
+        - "/phpmyadmin"
+        - "/.env"
+        - "/config"
+        - "/backup"
+        - "/.git"
+        - "/api/debug"
+        - "/actuator"
+
+    # Method anomalies
+    method_anomaly:
+      enabled: true
+      description: "Unusual HTTP methods"
+      suspicious_methods:
+        - TRACE
+        - TRACK
+        - DEBUG
+        - CONNECT
+      alert_on_detection: true
+
+    # User agent anomalies
+    user_agent_anomaly:
+      enabled: true
+      description: "Suspicious or missing user agents"
+      require_user_agent: true
+      suspicious_patterns:
+        - "sqlmap"
+        - "nikto"
+        - "nmap"
+        - "masscan"
+        - "zgrab"
+        - "python-requests"  # Only in specific contexts
+        - "curl"  # Only in specific contexts
+      block_on_detection: false
+      alert_on_detection: true
+
+    # Payload anomalies
+    payload_anomaly:
+      enabled: true
+      description: "Suspicious request payloads"
+      max_payload_size_kb: 1024
+      detect_patterns:
+        sql_injection:
+          enabled: true
+          patterns:
+            - "(?i)(union|select|insert|update|delete|drop|alter).*(?:from|into|table)"
+            - "(?i)(\\'|\\\")--(\\s|$)"
+            - "(?i)\\b(or|and)\\b.*=.*"
+
+        xss:
+          enabled: true
+          patterns:
+            - "<script[^>]*>"
+            - "javascript:"
+            - "on\\w+\\s*="
+            - "data:text/html"
+
+        path_traversal:
+          enabled: true
+          patterns:
+            - "\\.\\./|\\.\\.%2[fF]"
+            - "%2e%2e[%/]"
+            - "\\\\..\\\\|\\\\..%5[cC]"
+
+        command_injection:
+          enabled: true
+          patterns:
+            - "[;&|`$]"
+            - "\\$\\([^)]+\\)"
+            - "\\b(cat|ls|pwd|whoami|id|uname)\\b"
+
+  # Response configuration
+  response:
+    on_geo_anomaly:
+      log: true
+      notify: true
+      block: false
+
+    on_suspicious_path:
+      log: true
+      notify: true
+      block: true
+      block_duration_minutes: 30
+
+    on_injection_attempt:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+        - email
+      block: true
+      block_duration_minutes: 1440  # 24 hours
+
+# ============================================================================
+# PORT SCAN DETECTION
+# ============================================================================
+
+port_scan_detection:
+  enabled: true
+  description: "Detect port scanning and reconnaissance activity"
+
+  # Detection methods
+  methods:
+    # Detect via connection logs
+    connection_based:
+      enabled: true
+      log_paths:
+        - /var/log/syslog
+        - /var/log/kern.log
+        - /var/log/ufw.log
+      patterns:
+        - "\\[UFW BLOCK\\]"
+        - "REJECT"
+        - "DPT="
+
+    # Detect via netstat/ss monitoring
+    network_monitoring:
+      enabled: true
+      check_interval_seconds: 30
+      track_syn_flood: true
+
+    # Detect via fail2ban integration
+    fail2ban_integration:
+      enabled: true
+      jail_name: portscan
+
+  # Thresholds
+  thresholds:
+    # Single IP port scan
+    ports_per_ip:
+      count: 10
+      window_seconds: 60
+      action: block
+
+    # Horizontal scan (single port, many IPs)
+    ips_per_port:
+      count: 20
+      window_seconds: 300
+      action: alert
+
+    # SYN flood detection
+    syn_flood:
+      connections_per_second: 100
+      action: block_and_alert
+
+  # Known scanners to always block
+  known_scanner_ips:
+    enabled: true
+    update_frequency_hours: 24
+    sources:
+      - https://www.abuseipdb.com/api/v2/blacklist
+      - https://raw.githubusercontent.com/stamparm/ipsum/master/ipsum.txt
+
+  # Response configuration
+  response:
+    alert:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+
+    block:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+        - email
+      add_to_fail2ban: true
+      fail2ban_jail: portscan
+      block_duration_minutes: 1440  # 24 hours
+
+    block_and_alert:
+      log: true
+      notify: true
+      notify_channels:
+        - slack
+        - email
+        - sms  # For critical events
+      add_to_fail2ban: true
+      block_duration_minutes: 10080  # 1 week
+
+# ============================================================================
+# ADDITIONAL MONITORING
+# ============================================================================
+
+additional_monitoring:
+  # File integrity monitoring
+  file_integrity:
+    enabled: true
+    paths:
+      - /opt/leveredge/security/
+      - /etc/fail2ban/
+      - /etc/nginx/
+      - /etc/ssh/sshd_config
+    check_interval_minutes: 60
+    alert_on_change: true
+
+  # Process monitoring
+  process_monitoring:
+    enabled: true
+    suspicious_processes:
+      - nc
+      - ncat
+      - netcat
+      - nmap
+      - masscan
+      - cryptominer
+    alert_on_detection: true
+
+  # Container escape detection
+  container_escape:
+    enabled: true
+    monitor_docker_socket: true
+    monitor_privileged_containers: true
+
+  # Secrets exposure detection
+  secrets_exposure:
+    enabled: true
+    scan_logs_for_secrets: true
+    patterns:
+      - "(?i)(api[_-]?key|apikey)\\s*[:=]\\s*['\"]?[a-zA-Z0-9]{20,}"
+      - "(?i)(secret|password|passwd|pwd)\\s*[:=]\\s*['\"]?[^\\s'\"]{8,}"
+      - "(?i)bearer\\s+[a-zA-Z0-9\\-._~+/]+"
+
+# ============================================================================
+# ALERTING CONFIGURATION
+# ============================================================================
+
+alerting:
+  # Severity levels and their configurations
+  severity_levels:
+    info:
+      channels: []
+      create_incident: false
+
+    low:
+      channels:
+        - slack
+      create_incident: false
+
+    medium:
+      channels:
+        - slack
+        - email
+      create_incident: true
+
+    high:
+      channels:
+        - slack
+        - email
+        - sms
+      create_incident: true
+      escalate_after_minutes: 30
+
+    critical:
+      channels:
+        - slack
+        - email
+        - sms
+        - pagerduty
+      create_incident: true
+      escalate_after_minutes: 5
+
+  # Alert aggregation
+  aggregation:
+    enabled: true
+    window_seconds: 300
+    group_by:
+      - source_ip
+      - attack_type
+      - target_service
+
+  # Escalation rules
+  escalation:
+    enabled: true
+    unacknowledged_timeout_minutes: 30
+    escalation_path:
+      - level: 1
+        channels:
+          - slack
+        wait_minutes: 15
+      - level: 2
+        channels:
+          - email
+          - sms
+        wait_minutes: 30
+      - level: 3
+        channels:
+          - pagerduty
+        wait_minutes: 0  # Immediate
+
+# ============================================================================
+# REPORTING
+# ============================================================================
+
+reporting:
+  # Daily security summary
+  daily_summary:
+    enabled: true
+    time: "08:00"
+    timezone: America/New_York
+    recipients:
+      - security@leveredge.internal
+    include:
+      - total_blocked_ips
+      - top_attack_types
+      - geographic_breakdown
+      - failed_login_summary
+      - rate_limit_summary
+
+  # Weekly security report
+  weekly_report:
+    enabled: true
+    day: monday
+    time: "09:00"
+    recipients:
+      - security@leveredge.internal
+      - ops@leveredge.internal
+    include:
+      - trend_analysis
+      - top_threats
+      - recommendations
+
+  # Real-time dashboard
+  dashboard:
+    enabled: true
+    endpoint: /api/v1/security/dashboard
+    refresh_interval_seconds: 30
+
+# ============================================================================
+# INTEGRATIONS
+# ============================================================================
+
+integrations:
+  # Fail2ban integration
+  fail2ban:
+    enabled: true
+    client_path: /usr/bin/fail2ban-client
+    jail_prefix: cerberus-
+
+  # HERMES notification agent
+  hermes:
+    enabled: true
+    endpoint: http://hermes:8100/api/v1/notify
+    api_key_env: HERMES_API_KEY
+
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    port: 9100
+    path: /metrics
+    metrics:
+      - cerberus_blocked_ips_total
+      - cerberus_alerts_total
+      - cerberus_detection_latency_seconds
+      - cerberus_failed_logins_total
+      - cerberus_rate_limit_violations_total
+      - cerberus_port_scans_detected_total
+
+  # Grafana annotations
+  grafana:
+    enabled: true
+    endpoint: http://grafana:3000/api/annotations
+    api_key_env: GRAFANA_API_KEY
+
+  # External threat intelligence
+  threat_intel:
+    enabled: true
+    sources:
+      - name: abuseipdb
+        enabled: true
+        api_key_env: ABUSEIPDB_API_KEY
+        check_on_alert: true
+
+      - name: virustotal
+        enabled: false
+        api_key_env: VIRUSTOTAL_API_KEY
+
+      - name: shodan
+        enabled: false
+        api_key_env: SHODAN_API_KEY

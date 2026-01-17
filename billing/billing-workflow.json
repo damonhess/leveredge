@@ -1,0 +1,501 @@
+{
+  "name": "Monthly Billing Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 1 * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Monthly Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [100, 300],
+      "notes": "Runs at 9am on the 1st of each month"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "billing/generate",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [100, 500],
+      "webhookId": "billing-generate"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": "public",
+        "table": "billing_clients",
+        "returnAll": true,
+        "options": {
+          "where": {
+            "values": [
+              {
+                "column": "status",
+                "value": "active"
+              }
+            ]
+          }
+        }
+      },
+      "id": "get-clients",
+      "name": "Get Active Clients",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [340, 400],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-postgres",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Calculate billing period\nconst today = new Date();\nconst periodEnd = new Date(today.getFullYear(), today.getMonth(), 0); // Last day of previous month\nconst periodStart = new Date(periodEnd.getFullYear(), periodEnd.getMonth(), 1); // First day of previous month\n\nreturn {\n  json: {\n    ...item.json,\n    period_start: periodStart.toISOString().split('T')[0],\n    period_end: periodEnd.toISOString().split('T')[0],\n    billing_month: periodEnd.toISOString().slice(0, 7)\n  }\n};"
+      },
+      "id": "calc-period",
+      "name": "Calculate Billing Period",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 400]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  agent_name,\n  SUM(input_tokens) as total_input_tokens,\n  SUM(output_tokens) as total_output_tokens,\n  SUM(web_searches) as total_web_searches,\n  SUM(request_count) as total_requests,\n  SUM(total_cost_usd) as total_cost\nFROM billing_usage_records\nWHERE client_id = '{{ $json.id }}'\n  AND period_start >= '{{ $json.period_start }}'\n  AND period_end <= '{{ $json.period_end }}'\nGROUP BY agent_name\nORDER BY total_cost DESC",
+        "options": {}
+      },
+      "id": "get-usage",
+      "name": "Get Client Usage",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [780, 400],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-postgres",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": "public",
+        "table": "billing_config",
+        "returnAll": false,
+        "limit": 1,
+        "options": {
+          "where": {
+            "values": [
+              {
+                "column": "client_id",
+                "value": "={{ $('Calculate Billing Period').item.json.id }}"
+              },
+              {
+                "column": "is_active",
+                "value": "true"
+              }
+            ]
+          }
+        }
+      },
+      "id": "get-config",
+      "name": "Get Billing Config",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [780, 600],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-postgres",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Build invoice from usage and config\nconst client = $('Calculate Billing Period').first().json;\nconst config = $('Get Billing Config').first().json || {\n  minimum_charge: 50,\n  rate_per_1k_input_tokens: 0.003,\n  rate_per_1k_output_tokens: 0.015,\n  rate_per_web_search: 0.01,\n  discount_percent: 0,\n  payment_terms_days: 30\n};\nconst usageItems = $('Get Client Usage').all();\n\n// Calculate line items\nconst lineItems = [];\nlet subtotal = 0;\n\nfor (const usage of usageItems) {\n  const u = usage.json;\n  if (!u.agent_name) continue;\n  \n  const cost = parseFloat(u.total_cost || 0);\n  subtotal += cost;\n  \n  lineItems.push({\n    description: `AI Agent Usage - ${u.agent_name}`,\n    details: `Input: ${Number(u.total_input_tokens || 0).toLocaleString()} tokens | Output: ${Number(u.total_output_tokens || 0).toLocaleString()} tokens`,\n    quantity: `${Number((u.total_input_tokens || 0) + (u.total_output_tokens || 0)).toLocaleString()} tokens`,\n    unit_price: '$0.003/1K',\n    amount: cost.toFixed(2)\n  });\n  \n  // Add web searches as separate line if present\n  if (u.total_web_searches > 0) {\n    const searchCost = u.total_web_searches * config.rate_per_web_search;\n    lineItems.push({\n      description: `Web Search - ${u.agent_name}`,\n      details: 'Real-time web research queries',\n      quantity: u.total_web_searches.toString(),\n      unit_price: `$${config.rate_per_web_search}`,\n      amount: searchCost.toFixed(2)\n    });\n  }\n}\n\n// Apply minimum charge\nlet total = Math.max(subtotal, config.minimum_charge);\nif (subtotal < config.minimum_charge) {\n  lineItems.push({\n    description: 'Platform Minimum Fee',\n    details: 'Minimum monthly platform charge',\n    quantity: '1',\n    unit_price: `$${config.minimum_charge.toFixed(2)}`,\n    amount: (config.minimum_charge - subtotal).toFixed(2)\n  });\n}\n\n// Apply discount\nlet discountAmount = 0;\nif (config.discount_percent > 0) {\n  discountAmount = total * (config.discount_percent / 100);\n  total -= discountAmount;\n}\n\n// Calculate dates\nconst today = new Date();\nconst dueDate = new Date(today);\ndueDate.setDate(dueDate.getDate() + (config.payment_terms_days || 30));\n\n// Generate invoice number\nconst yearMonth = today.toISOString().slice(0, 7).replace('-', '');\nconst invoiceNumber = `INV-${yearMonth}-${String(Math.floor(Math.random() * 9999)).padStart(4, '0')}`;\n\nreturn [{\n  json: {\n    client_id: client.id,\n    client_name: client.name,\n    client_email: client.email,\n    client_company: client.company || client.name,\n    invoice_number: invoiceNumber,\n    invoice_date: today.toISOString().split('T')[0],\n    due_date: dueDate.toISOString().split('T')[0],\n    period_start: client.period_start,\n    period_end: client.period_end,\n    line_items: lineItems,\n    subtotal: subtotal.toFixed(2),\n    discount_percent: config.discount_percent || 0,\n    discount_amount: discountAmount.toFixed(2),\n    total_amount: total.toFixed(2),\n    status: 'draft',\n    currency: 'USD',\n    stripe_customer_id: client.stripe_customer_id,\n    // Usage stats for template\n    total_requests: usageItems.reduce((sum, u) => sum + (parseInt(u.json.total_requests) || 0), 0),\n    total_tokens: usageItems.reduce((sum, u) => sum + (parseInt(u.json.total_input_tokens) || 0) + (parseInt(u.json.total_output_tokens) || 0), 0),\n    total_searches: usageItems.reduce((sum, u) => sum + (parseInt(u.json.total_web_searches) || 0), 0),\n    agents_used: usageItems.filter(u => u.json.agent_name).length\n  }\n}];"
+      },
+      "id": "build-invoice",
+      "name": "Build Invoice Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.total_amount }}",
+              "rightValue": "0.00",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-zero",
+      "name": "Skip Zero Invoices",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.1,
+      "position": [1220, 400]
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "billing_invoices",
+        "columns": "client_id, invoice_number, amount, currency, status, period_start, period_end, due_date, line_items",
+        "options": {
+          "returnFields": "*"
+        }
+      },
+      "id": "save-invoice",
+      "name": "Save Invoice to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1440, 400],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-postgres",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/invoices",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "stripeApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"customer\": \"{{ $json.stripe_customer_id }}\",\n  \"collection_method\": \"send_invoice\",\n  \"days_until_due\": 30,\n  \"description\": \"LeverEdge AI - {{ $json.period_start }} to {{ $json.period_end }}\",\n  \"metadata[leveredge_invoice_id]\": \"{{ $json.id }}\",\n  \"metadata[invoice_number]\": \"{{ $json.invoice_number }}\"\n}",
+        "options": {}
+      },
+      "id": "create-stripe-invoice",
+      "name": "Create Stripe Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1660, 300],
+      "credentials": {
+        "stripeApi": {
+          "id": "stripe-api",
+          "name": "Stripe API"
+        }
+      },
+      "notes": "PLACEHOLDER - Configure Stripe credentials",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.stripe.com/v1/invoices/{{ $json.stripe_invoice_id }}/finalize",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "stripeApi",
+        "options": {}
+      },
+      "id": "finalize-stripe",
+      "name": "Finalize Stripe Invoice",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1880, 300],
+      "credentials": {
+        "stripeApi": {
+          "id": "stripe-api",
+          "name": "Stripe API"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "fromEmail": "billing@leveredgeai.com",
+        "toEmail": "={{ $json.client_email }}",
+        "subject": "=Invoice {{ $json.invoice_number }} from LeverEdge AI",
+        "emailType": "html",
+        "html": "=<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n    .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n    .header { background: #1a1a2e; color: white; padding: 20px; text-align: center; }\n    .content { padding: 20px; background: #f9f9f9; }\n    .amount { font-size: 24px; font-weight: bold; color: #1a1a2e; }\n    .btn { display: inline-block; background: #28a745; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin-top: 20px; }\n    .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <div class=\"header\">\n      <h1>LeverEdge AI</h1>\n    </div>\n    <div class=\"content\">\n      <h2>Invoice {{ $json.invoice_number }}</h2>\n      <p>Hi {{ $json.client_name }},</p>\n      <p>Your invoice for {{ $json.period_start }} to {{ $json.period_end }} is ready.</p>\n      <p class=\"amount\">Amount Due: ${{ $json.total_amount }} USD</p>\n      <p><strong>Due Date:</strong> {{ $json.due_date }}</p>\n      <p>\n        <a href=\"{{ $json.payment_link || 'https://leveredgeai.com/pay/' + $json.invoice_number }}\" class=\"btn\">Pay Now</a>\n      </p>\n      <h3>Summary</h3>\n      <ul>\n        <li>API Requests: {{ $json.total_requests }}</li>\n        <li>Tokens Used: {{ $json.total_tokens.toLocaleString() }}</li>\n        <li>Web Searches: {{ $json.total_searches }}</li>\n      </ul>\n    </div>\n    <div class=\"footer\">\n      <p>Questions? Contact billing@leveredgeai.com</p>\n      <p>LeverEdge AI | AI Automation Infrastructure</p>\n    </div>\n  </div>\n</body>\n</html>",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Invoice Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1660, 500],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP"
+        }
+      },
+      "notes": "Configure SMTP credentials"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "schema": "public",
+        "table": "billing_invoices",
+        "columns": "status, sent_at",
+        "options": {
+          "where": {
+            "values": [
+              {
+                "column": "id",
+                "value": "={{ $('Save Invoice to DB').item.json.id }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "update-status",
+      "name": "Update Invoice Status",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1880, 500],
+      "credentials": {
+        "postgres": {
+          "id": "supabase-postgres",
+          "name": "Supabase Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://hermes:8014/notify",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"telegram\",\n  \"message\": \"Invoice {{ $json.invoice_number }} generated for {{ $json.client_name }}\\nAmount: ${{ $json.total_amount }}\\nDue: {{ $json.due_date }}\",\n  \"priority\": \"low\"\n}",
+        "options": {}
+      },
+      "id": "notify-hermes",
+      "name": "Notify via HERMES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2100, 400]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Summarize billing run\nconst items = $input.all();\nconst totalGenerated = items.length;\nconst totalAmount = items.reduce((sum, item) => sum + parseFloat(item.json.total_amount || 0), 0);\n\nreturn [{\n  json: {\n    summary: 'Monthly billing completed',\n    invoices_generated: totalGenerated,\n    total_amount: totalAmount.toFixed(2),\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "summarize",
+      "name": "Summarize Run",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2320, 400]
+    },
+    {
+      "parameters": {},
+      "id": "merge-triggers",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [240, 400]
+    }
+  ],
+  "connections": {
+    "Monthly Schedule": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Get Active Clients",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Active Clients": {
+      "main": [
+        [
+          {
+            "node": "Calculate Billing Period",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Billing Period": {
+      "main": [
+        [
+          {
+            "node": "Get Client Usage",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Billing Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Client Usage": {
+      "main": [
+        [
+          {
+            "node": "Build Invoice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Billing Config": {
+      "main": [
+        [
+          {
+            "node": "Build Invoice Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Invoice Data": {
+      "main": [
+        [
+          {
+            "node": "Skip Zero Invoices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Zero Invoices": {
+      "main": [
+        [
+          {
+            "node": "Save Invoice to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Invoice to DB": {
+      "main": [
+        [
+          {
+            "node": "Create Stripe Invoice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Invoice Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Stripe Invoice": {
+      "main": [
+        [
+          {
+            "node": "Finalize Stripe Invoice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Invoice Email": {
+      "main": [
+        [
+          {
+            "node": "Update Invoice Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Invoice Status": {
+      "main": [
+        [
+          {
+            "node": "Notify via HERMES",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify via HERMES": {
+      "main": [
+        [
+          {
+            "node": "Summarize Run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "billing"
+    },
+    {
+      "name": "monthly"
+    }
+  ],
+  "triggerCount": 2,
+  "updatedAt": "2026-01-17T12:00:00.000Z",
+  "versionId": "1"
+}

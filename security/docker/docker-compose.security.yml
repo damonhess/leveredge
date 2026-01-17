@@ -1,0 +1,567 @@
+# LeverEdge Docker Compose Security Overlay
+# /opt/leveredge/security/docker/docker-compose.security.yml
+#
+# This overlay adds security hardening to existing Docker Compose configurations.
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.security.yml up -d
+#
+# Version: 1.0.0
+
+version: "3.8"
+
+# ============================================================================
+# NETWORK DEFINITIONS
+# ============================================================================
+
+networks:
+  # DMZ Network - Public facing, highly restricted
+  leveredge-dmz:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-dmz
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+    labels:
+      - "com.leveredge.network=dmz"
+      - "com.leveredge.security.level=high"
+
+  # Application Network
+  leveredge-app:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-app
+      com.docker.network.bridge.enable_icc: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.21.0.0/24
+          gateway: 172.21.0.1
+    labels:
+      - "com.leveredge.network=app"
+      - "com.leveredge.security.level=medium"
+
+  # Agent Network
+  leveredge-agents:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-agents
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "false"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/24
+          gateway: 172.22.0.1
+    labels:
+      - "com.leveredge.network=agents"
+      - "com.leveredge.security.level=high"
+
+  # Data Network - Internal only, no external access
+  leveredge-data:
+    driver: bridge
+    internal: true
+    driver_opts:
+      com.docker.network.bridge.name: br-data
+      com.docker.network.bridge.enable_icc: "true"
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.23.0.0/24
+          gateway: 172.23.0.1
+    labels:
+      - "com.leveredge.network=data"
+      - "com.leveredge.security.level=critical"
+
+  # Monitoring Network
+  leveredge-monitor:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-monitor
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.24.0.0/24
+          gateway: 172.24.0.1
+    labels:
+      - "com.leveredge.network=monitor"
+      - "com.leveredge.security.level=medium"
+
+# ============================================================================
+# SERVICE SECURITY OVERRIDES
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  # NGINX REVERSE PROXY
+  # --------------------------------------------------------------------------
+  nginx:
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETGID
+      - SETUID
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+      - /var/cache/nginx:size=128M,mode=1777
+      - /var/run:size=16M,mode=1777
+    networks:
+      - leveredge-dmz
+      - leveredge-app
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+        reservations:
+          cpus: "0.25"
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        labels: "com.leveredge.service"
+
+  # --------------------------------------------------------------------------
+  # N8N SERVICES
+  # --------------------------------------------------------------------------
+  n8n:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    user: "1000:1000"
+    networks:
+      - leveredge-app
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5678/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+        labels: "com.leveredge.service"
+    environment:
+      # Security-related environment variables
+      - N8N_SECURE_COOKIE=true
+      - N8N_PUSH_BACKEND=websocket
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_TEMPLATES_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+
+  n8n-webhook:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    user: "1000:1000"
+    networks:
+      - leveredge-app
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  n8n-worker:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "1000:1000"
+    networks:
+      - leveredge-app
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "10"
+
+  # --------------------------------------------------------------------------
+  # DATABASE SERVICES
+  # --------------------------------------------------------------------------
+  postgres:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    networks:
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 8G
+        reservations:
+          cpus: "1"
+          memory: 2G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+    environment:
+      # Security settings
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=scram-sha-256
+
+  redis:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "999:999"
+    networks:
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:-changeme}
+      --maxmemory 1gb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --protected-mode yes
+      --rename-command FLUSHDB ""
+      --rename-command FLUSHALL ""
+      --rename-command DEBUG ""
+      --rename-command CONFIG ""
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+
+  # --------------------------------------------------------------------------
+  # SUPABASE SERVICES
+  # --------------------------------------------------------------------------
+  supabase-api:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - leveredge-app
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  supabase-auth:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - leveredge-app
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "10"
+
+  # --------------------------------------------------------------------------
+  # AGENT SERVICES
+  # --------------------------------------------------------------------------
+  cerberus:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_RAW  # Required for network monitoring
+    networks:
+      - leveredge-agents
+      - leveredge-app
+      - leveredge-monitor
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "20"
+        labels: "com.leveredge.service,com.leveredge.security"
+
+  hermes:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    networks:
+      - leveredge-agents
+      - leveredge-app
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  aegis:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - leveredge-agents
+      - leveredge-app
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  # --------------------------------------------------------------------------
+  # MONITORING SERVICES
+  # --------------------------------------------------------------------------
+  prometheus:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65534:65534"
+    read_only: true
+    tmpfs:
+      - /tmp:size=128M,mode=1777
+    networks:
+      - leveredge-monitor
+      - leveredge-app
+      - leveredge-agents
+      - leveredge-data
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 4G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "10"
+
+  grafana:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "472:472"
+    networks:
+      - leveredge-monitor
+      - leveredge-app
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-changeme}
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_ALLOW_ORG_CREATE=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "5"
+
+  loki:
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "10001:10001"
+    networks:
+      - leveredge-monitor
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "30m"
+        max-file: "5"
+
+# ============================================================================
+# VOLUMES WITH SECURITY OPTIONS
+# ============================================================================
+
+volumes:
+  postgres-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/leveredge/data/postgres
+    labels:
+      - "com.leveredge.backup=required"
+      - "com.leveredge.encryption=required"
+
+  redis-data:
+    driver: local
+    labels:
+      - "com.leveredge.backup=optional"
+
+  n8n-data:
+    driver: local
+    labels:
+      - "com.leveredge.backup=required"
+
+# ============================================================================
+# SECRETS CONFIGURATION
+# ============================================================================
+
+secrets:
+  postgres_password:
+    external: true
+  redis_password:
+    external: true
+  n8n_encryption_key:
+    external: true
+  jwt_secret:
+    external: true
+  hermes_api_key:
+    external: true
+
+# ============================================================================
+# CONFIGS
+# ============================================================================
+
+configs:
+  nginx_config:
+    external: true
+  prometheus_config:
+    external: true
+  grafana_datasources:
+    external: true

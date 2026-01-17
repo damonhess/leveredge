@@ -1,0 +1,37 @@
+# FILE-PROCESSOR Agent Dependencies
+# Port: 8050
+
+# Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Async HTTP Client
+httpx>=0.25.0
+
+# File handling
+python-multipart>=0.0.6
+aiofiles>=23.2.1
+
+# PDF Processing
+pdfplumber>=0.10.0
+
+# Image Processing & OCR
+pillow>=10.0.0
+pytesseract>=0.3.10
+
+# Note: For audio transcription, we use OpenAI's Whisper API
+# which only requires httpx (already included)
+# Set OPENAI_API_KEY environment variable
+
+# System Dependencies (install via apt/brew):
+# - tesseract-ocr: For OCR functionality
+# - ffmpeg: For audio/video processing
+#
+# Ubuntu/Debian:
+#   apt-get install tesseract-ocr ffmpeg
+#
+# macOS:
+#   brew install tesseract ffmpeg
+#
+# Alpine:
+#   apk add tesseract-ocr ffmpeg

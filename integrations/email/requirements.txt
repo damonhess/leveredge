@@ -1,0 +1,40 @@
+# Email Integration Dependencies
+# ==============================
+
+# SendGrid Python SDK
+sendgrid>=6.10.0
+
+# Jinja2 for template rendering
+Jinja2>=3.1.2
+
+# MarkupSafe (Jinja2 dependency for security)
+MarkupSafe>=2.1.3
+
+# PyYAML for configuration loading
+PyYAML>=6.0.1
+
+# python-dotenv for environment variable loading
+python-dotenv>=1.0.0
+
+# Premailer for CSS inlining (email compatibility)
+premailer>=3.10.0
+
+# BeautifulSoup for HTML parsing
+beautifulsoup4>=4.12.0
+
+# lxml for faster HTML parsing
+lxml>=4.9.0
+
+# Requests for HTTP calls
+requests>=2.31.0
+
+# Email validation
+email-validator>=2.0.0
+
+# HTML to plain text conversion
+html2text>=2020.1.16
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+responses>=0.23.0

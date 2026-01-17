@@ -1,0 +1,24 @@
+[Unit]
+Description=LIBRARIAN - Knowledge & Information Agent
+Documentation=https://github.com/leveredge/librarian
+After=network.target event-bus.service
+Wants=event-bus.service
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/librarian
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+ExecStart=/home/damon/.local/bin/uvicorn librarian:app --host 0.0.0.0 --port 8033
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=librarian
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+# Uptime Monitoring System
+# Port: 8063
+
+# Web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# HTTP client for pinging agents
+httpx>=0.25.0
+
+# Background scheduler
+apscheduler>=3.10.0
+
+# Data validation
+pydantic>=2.0.0

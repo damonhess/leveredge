@@ -1,0 +1,322 @@
+{
+  "name": "LeverEdge Email Sender",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-email",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "leveredge-email-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "validate-required-fields",
+              "leftValue": "={{ $json.to }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "validate-template",
+              "leftValue": "={{ $json.template }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-input",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get input data\nconst input = $input.first().json;\n\n// Template configurations\nconst templates = {\n  'welcome': {\n    subject: 'Welcome to LeverEdge!',\n    category: 'transactional'\n  },\n  'password-reset': {\n    subject: 'Reset Your Password',\n    category: 'transactional'\n  },\n  'invoice': {\n    subject: `Invoice #${input.data?.invoice_number || 'N/A'} from LeverEdge`,\n    category: 'transactional'\n  },\n  'reminder': {\n    subject: input.data?.reminder_title || 'Reminder from LeverEdge',\n    category: 'notification'\n  },\n  'notification': {\n    subject: input.data?.notification_title || 'Notification from LeverEdge',\n    category: 'notification'\n  },\n  'weekly-summary': {\n    subject: `Your Weekly Summary - ${input.data?.week_range || 'This Week'}`,\n    category: 'marketing'\n  }\n};\n\n// Get template config or use defaults\nconst templateConfig = templates[input.template] || {\n  subject: input.subject || 'Message from LeverEdge',\n  category: 'transactional'\n};\n\n// Merge default variables with provided data\nconst defaultVars = {\n  company_name: 'LeverEdge',\n  company_address: '123 Business St, Suite 100, City, ST 12345',\n  company_website: 'https://leveredge.io',\n  support_email: 'support@leveredge.io',\n  privacy_url: 'https://leveredge.io/privacy',\n  unsubscribe_url: 'https://leveredge.io/unsubscribe',\n  year: new Date().getFullYear(),\n  logo_url: 'https://leveredge.io/logo.png'\n};\n\nconst templateData = {\n  ...defaultVars,\n  ...input.data\n};\n\nreturn {\n  to: input.to,\n  template: input.template,\n  subject: input.subject || templateConfig.subject,\n  category: templateConfig.category,\n  from_email: input.from_email || 'noreply@leveredge.io',\n  from_name: input.from_name || 'LeverEdge',\n  reply_to: input.reply_to || 'support@leveredge.io',\n  data: templateData,\n  request_id: input.request_id || `email-${Date.now()}`\n};"
+      },
+      "id": "prepare-email-data",
+      "name": "Prepare Email Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [690, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.sendgrid.com/v3/mail/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"personalizations\": [\n    {\n      \"to\": [\n        {\n          \"email\": \"{{ $json.to }}\"\n        }\n      ],\n      \"dynamic_template_data\": {{ JSON.stringify($json.data) }}\n    }\n  ],\n  \"from\": {\n    \"email\": \"{{ $json.from_email }}\",\n    \"name\": \"{{ $json.from_name }}\"\n  },\n  \"reply_to\": {\n    \"email\": \"{{ $json.reply_to }}\"\n  },\n  \"subject\": \"{{ $json.subject }}\",\n  \"categories\": [\"{{ $json.category }}\", \"{{ $json.template }}\"],\n  \"tracking_settings\": {\n    \"click_tracking\": {\n      \"enable\": true\n    },\n    \"open_tracking\": {\n      \"enable\": true\n    }\n  }\n}",
+        "options": {}
+      },
+      "id": "send-via-sendgrid",
+      "name": "Send via SendGrid",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [910, 220],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sendgrid-api-key",
+          "name": "SendGrid API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "email_logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "to_email": "={{ $('Prepare Email Data').item.json.to }}",
+            "template": "={{ $('Prepare Email Data').item.json.template }}",
+            "subject": "={{ $('Prepare Email Data').item.json.subject }}",
+            "category": "={{ $('Prepare Email Data').item.json.category }}",
+            "status": "sent",
+            "sendgrid_response": "={{ JSON.stringify($json) }}",
+            "request_id": "={{ $('Prepare Email Data').item.json.request_id }}",
+            "sent_at": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-success",
+      "name": "Log Success to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1130, 140],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-db",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "email_logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "to_email": "={{ $('Prepare Email Data').item.json.to }}",
+            "template": "={{ $('Prepare Email Data').item.json.template }}",
+            "subject": "={{ $('Prepare Email Data').item.json.subject }}",
+            "category": "={{ $('Prepare Email Data').item.json.category }}",
+            "status": "failed",
+            "error_message": "={{ $json.error?.message || JSON.stringify($json) }}",
+            "request_id": "={{ $('Prepare Email Data').item.json.request_id }}",
+            "sent_at": "={{ new Date().toISOString() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "log-failure",
+      "name": "Log Failure to DB",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1130, 300],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-db",
+          "name": "PostgreSQL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"message\": \"Email sent successfully\",\n  \"request_id\": \"{{ $('Prepare Email Data').item.json.request_id }}\",\n  \"to\": \"{{ $('Prepare Email Data').item.json.to }}\",\n  \"template\": \"{{ $('Prepare Email Data').item.json.template }}\"\n}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "success-response",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1350, 140]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": \"Failed to send email\",\n  \"request_id\": \"{{ $('Prepare Email Data').item.json.request_id }}\",\n  \"details\": {{ JSON.stringify($json) }}\n}",
+        "options": {
+          "responseCode": 500
+        }
+      },
+      "id": "failure-response",
+      "name": "Failure Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1350, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"success\": false,\n  \"error\": \"Missing required fields\",\n  \"message\": \"Both 'to' and 'template' fields are required\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "validation-error-response",
+      "name": "Validation Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [690, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Input": {
+      "main": [
+        [
+          {
+            "node": "Prepare Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validation Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Email Data": {
+      "main": [
+        [
+          {
+            "node": "Send via SendGrid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send via SendGrid": {
+      "main": [
+        [
+          {
+            "node": "Log Success to DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Success to DB": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Failure to DB": {
+      "main": [
+        [
+          {
+            "node": "Failure Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "email",
+      "id": "email-tag"
+    },
+    {
+      "name": "sendgrid",
+      "id": "sendgrid-tag"
+    },
+    {
+      "name": "notifications",
+      "id": "notifications-tag"
+    }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-01-17T00:00:00.000Z",
+  "versionId": "1"
+}

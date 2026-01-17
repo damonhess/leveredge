@@ -1,0 +1,24 @@
+[Unit]
+Description=GAIA - Central Orchestration Agent
+Documentation=https://github.com/leveredge/gaia
+After=network.target event-bus.service
+Wants=event-bus.service
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/gaia
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+ExecStart=/home/damon/.local/bin/uvicorn gaia:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gaia
+
+[Install]
+WantedBy=multi-user.target

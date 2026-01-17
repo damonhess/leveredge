@@ -1,0 +1,27 @@
+[Unit]
+Description=SSL Certificate Monitor for LeverEdge
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/leveredge/monitoring/ssl
+ExecStart=/usr/bin/python3 /opt/leveredge/monitoring/ssl/ssl_monitor.py
+Restart=always
+RestartSec=10
+
+# Environment
+Environment="HERMES_URL=http://localhost:8014"
+Environment="CERBERUS_URL=http://localhost:8020"
+Environment="SSL_ALERT_DAYS=14"
+Environment="SSL_CHECK_HOUR=6"
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ssl-monitor
+
+[Install]
+WantedBy=multi-user.target

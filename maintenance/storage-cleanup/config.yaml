@@ -1,0 +1,112 @@
+# Storage Cleanup Configuration
+# ==============================
+
+# General Settings
+cleanup:
+  # Number of days to retain files before considering for cleanup
+  retention_days: 30
+
+  # Dry run mode - when true, only reports what would be deleted
+  # Set to false to actually delete files
+  dry_run: true
+
+  # Buckets to include in cleanup operations
+  buckets_to_clean:
+    - uploads
+    - temp
+    - exports
+
+  # Buckets to exclude from cleanup (takes precedence over buckets_to_clean)
+  buckets_exclude:
+    - avatars
+    - system
+
+  # File patterns to always exclude from deletion (glob patterns)
+  exclude_patterns:
+    - "*.keep"
+    - ".gitkeep"
+    - "README.md"
+
+# Orphan Detection Settings
+orphan_detection:
+  # Enable orphan file detection
+  enabled: true
+
+  # Tables to check for file references
+  # Format: table_name: [column1, column2, ...]
+  reference_tables:
+    documents:
+      - file_path
+      - attachment_url
+    profiles:
+      - avatar_url
+    posts:
+      - image_url
+      - media_urls
+    messages:
+      - attachment_path
+    exports:
+      - export_path
+    imports:
+      - source_path
+
+# Storage Thresholds
+thresholds:
+  # Warn when bucket size exceeds this (in GB)
+  bucket_size_warning_gb: 10
+
+  # Critical alert when bucket size exceeds this (in GB)
+  bucket_size_critical_gb: 50
+
+  # Warn when total storage exceeds this (in GB)
+  total_storage_warning_gb: 100
+
+  # Critical alert when total storage exceeds this (in GB)
+  total_storage_critical_gb: 500
+
+# Reporting Settings
+reporting:
+  # Number of largest files to include in report
+  top_files_count: 20
+
+  # Number of days for growth trend analysis
+  trend_days: 30
+
+  # Output formats: json, html, markdown
+  output_format: markdown
+
+  # Save reports to this directory
+  reports_directory: /opt/leveredge/maintenance/storage-cleanup/reports
+
+# Supabase Connection (can be overridden by environment variables)
+supabase:
+  # Development URL
+  url: "http://localhost:54323"
+
+  # Service role key should be set via SUPABASE_SERVICE_ROLE_KEY env var
+  # Never store the actual key in this file
+
+  # Storage API path
+  storage_api_path: "/storage/v1"
+
+# Notification Settings
+notifications:
+  # Send notifications via HERMES
+  enabled: true
+
+  # Notification channels
+  channels:
+    - system-alerts
+
+  # Only notify on these conditions
+  notify_on:
+    - cleanup_complete
+    - errors
+    - threshold_exceeded
+
+# Logging Settings
+logging:
+  level: INFO
+  file: /opt/leveredge/maintenance/storage-cleanup/logs/cleanup.log
+  max_size_mb: 10
+  backup_count: 5

@@ -1,0 +1,30 @@
+# Storage Cleanup Automation Dependencies
+# ========================================
+
+# HTTP client for API requests
+httpx>=0.25.0
+
+# Environment variable management
+python-dotenv>=1.0.0
+
+# YAML configuration parsing
+pyyaml>=6.0.1
+
+# Date/time handling (stdlib, but listed for clarity)
+# datetime - included in Python stdlib
+
+# Path handling (stdlib, but listed for clarity)
+# pathlib - included in Python stdlib
+
+# Optional: For enhanced logging
+# colorlog>=6.7.0
+
+# Optional: For async operations (future enhancement)
+# anyio>=4.0.0
+
+# Development dependencies (optional)
+# pytest>=7.4.0
+# pytest-cov>=4.1.0
+# black>=23.0.0
+# mypy>=1.5.0
+# ruff>=0.1.0

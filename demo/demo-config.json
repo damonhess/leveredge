@@ -1,0 +1,136 @@
+{
+  "demo": {
+    "enabled": true,
+    "name": "ARIA Demo Environment",
+    "version": "1.0.0",
+    "description": "Sandboxed ARIA instance for demos"
+  },
+  "session": {
+    "max_duration_minutes": 15,
+    "max_messages": 10,
+    "idle_timeout_minutes": 5,
+    "auto_reset": true
+  },
+  "rate_limiting": {
+    "enabled": true,
+    "messages_per_session": 10,
+    "messages_per_minute": 3,
+    "cooldown_seconds": 5
+  },
+  "storage": {
+    "mode": "memory_only",
+    "persist_between_sessions": false,
+    "database": {
+      "type": "sqlite",
+      "path": "/tmp/demo-aria.db",
+      "reset_on_start": true
+    }
+  },
+  "watermark": {
+    "enabled": true,
+    "position": "footer",
+    "text": "---\n[DEMO MODE] This is a demonstration of ARIA.\nStart your free trial at leveredgeai.com"
+  },
+  "features": {
+    "task_management": true,
+    "calendar_integration": true,
+    "memory_system": true,
+    "context_manager": true,
+    "decision_tracker": true,
+    "cbt_therapist": false,
+    "n8n_troubleshooter": false,
+    "external_integrations": false,
+    "real_notifications": false,
+    "agent_fleet": false
+  },
+  "mock_integrations": {
+    "calendar": {
+      "enabled": true,
+      "provider": "mock",
+      "sample_events": true
+    },
+    "email": {
+      "enabled": false,
+      "reason": "Disabled in demo mode"
+    },
+    "notifications": {
+      "enabled": false,
+      "reason": "Disabled in demo mode"
+    }
+  },
+  "ui": {
+    "demo_banner": {
+      "enabled": true,
+      "text": "DEMO MODE - 15 min session | Messages: {remaining}/10",
+      "color": "#FF6B35"
+    },
+    "session_timer": {
+      "enabled": true,
+      "position": "top-right",
+      "warn_at_minutes": 2
+    },
+    "trial_cta": {
+      "enabled": true,
+      "text": "Start Free Trial",
+      "url": "https://leveredgeai.com/signup?ref=demo"
+    }
+  },
+  "analytics": {
+    "enabled": true,
+    "track_sessions": true,
+    "track_queries": true,
+    "anonymize": true,
+    "export_path": "/opt/leveredge/demo/analytics/"
+  },
+  "network": {
+    "port": 5681,
+    "host": "0.0.0.0",
+    "webhook_path": "/webhook/demo-assistant",
+    "cors_origins": [
+      "https://demo.leveredgeai.com",
+      "https://leveredgeai.com"
+    ]
+  },
+  "docker": {
+    "container_name": "demo-n8n",
+    "network": "demo-net",
+    "restart_policy": "unless-stopped",
+    "memory_limit": "512m",
+    "cpu_limit": "0.5"
+  },
+  "reset": {
+    "schedule": "0 */4 * * *",
+    "on_session_end": true,
+    "preserve_analytics": true,
+    "max_session_data_age_hours": 1
+  },
+  "security": {
+    "sandbox_mode": true,
+    "no_production_access": true,
+    "isolated_network": true,
+    "mock_credentials_only": true,
+    "block_external_requests": true,
+    "allowed_domains": [
+      "demo.leveredgeai.com",
+      "leveredgeai.com"
+    ]
+  },
+  "llm": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 1000,
+    "temperature": 0.7,
+    "system_prompt_suffix": "\n\nIMPORTANT: You are running in DEMO MODE. This is a sandboxed demonstration environment. Be helpful and showcase ARIA's capabilities, but remind users this is a demo when appropriate."
+  },
+  "demo_user": {
+    "id": "demo-user-001",
+    "name": "Demo User",
+    "email": "demo@example.com",
+    "timezone": "America/Los_Angeles",
+    "preferences": {
+      "response_style": "concise",
+      "notification_preference": "important_only",
+      "morning_person": true,
+      "preferred_meeting_times": ["9:00", "14:00", "16:00"]
+    }
+  }
+}

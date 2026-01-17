@@ -1,0 +1,1319 @@
+{
+  "name": "ARIA Telegram Bot",
+  "active": false,
+  "nodes": [
+    {
+      "id": "telegram-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "position": [100, 400],
+      "webhookId": "aria-telegram-webhook",
+      "parameters": {
+        "updates": ["message", "callback_query"]
+      },
+      "typeVersion": 1.1,
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_ME",
+          "name": "ARIA Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "telegram-extract-message",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 400],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "number",
+              "value": "={{ $json.message?.from?.id || $json.callback_query?.from?.id }}"
+            },
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "type": "number",
+              "value": "={{ $json.message?.chat?.id || $json.callback_query?.message?.chat?.id }}"
+            },
+            {
+              "id": "username",
+              "name": "username",
+              "type": "string",
+              "value": "={{ $json.message?.from?.username || $json.callback_query?.from?.username || '' }}"
+            },
+            {
+              "id": "first_name",
+              "name": "first_name",
+              "type": "string",
+              "value": "={{ $json.message?.from?.first_name || $json.callback_query?.from?.first_name || '' }}"
+            },
+            {
+              "id": "last_name",
+              "name": "last_name",
+              "type": "string",
+              "value": "={{ $json.message?.from?.last_name || $json.callback_query?.from?.last_name || '' }}"
+            },
+            {
+              "id": "message_id",
+              "name": "message_id",
+              "type": "number",
+              "value": "={{ $json.message?.message_id || $json.callback_query?.message?.message_id }}"
+            },
+            {
+              "id": "text",
+              "name": "text",
+              "type": "string",
+              "value": "={{ $json.message?.text || $json.message?.caption || $json.callback_query?.data || '' }}"
+            },
+            {
+              "id": "has_voice",
+              "name": "has_voice",
+              "type": "boolean",
+              "value": "={{ !!$json.message?.voice || !!$json.message?.audio }}"
+            },
+            {
+              "id": "voice_file_id",
+              "name": "voice_file_id",
+              "type": "string",
+              "value": "={{ $json.message?.voice?.file_id || $json.message?.audio?.file_id || '' }}"
+            },
+            {
+              "id": "has_photo",
+              "name": "has_photo",
+              "type": "boolean",
+              "value": "={{ !!$json.message?.photo?.length }}"
+            },
+            {
+              "id": "photo_file_id",
+              "name": "photo_file_id",
+              "type": "string",
+              "value": "={{ $json.message?.photo ? $json.message.photo[$json.message.photo.length - 1]?.file_id : '' }}"
+            },
+            {
+              "id": "is_command",
+              "name": "is_command",
+              "type": "boolean",
+              "value": "={{ ($json.message?.text || '').startsWith('/') }}"
+            },
+            {
+              "id": "command",
+              "name": "command",
+              "type": "string",
+              "value": "={{ ($json.message?.text || '').startsWith('/') ? ($json.message?.text || '').split(' ')[0].substring(1).split('@')[0] : '' }}"
+            },
+            {
+              "id": "command_args",
+              "name": "command_args",
+              "type": "string",
+              "value": "={{ ($json.message?.text || '').startsWith('/') ? ($json.message?.text || '').substring(($json.message?.text || '').indexOf(' ') + 1) : '' }}"
+            },
+            {
+              "id": "language_code",
+              "name": "language_code",
+              "type": "string",
+              "value": "={{ $json.message?.from?.language_code || 'en' }}"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "type": "string",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "telegram-get-session",
+      "name": "Get or Create Session",
+      "type": "n8n-nodes-base.postgres",
+      "position": [540, 400],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM telegram_get_or_create_session($1::BIGINT, $2::BIGINT, $3, $4, $5, $6)",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id, $json.chat_id, $json.username, $json.first_name, $json.last_name, $json.language_code] }}"
+        }
+      },
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "CONFIGURE_ME",
+          "name": "Supabase Postgres PROD"
+        }
+      }
+    },
+    {
+      "id": "telegram-check-auth",
+      "name": "Check Authorization",
+      "type": "n8n-nodes-base.if",
+      "position": [760, 400],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "is_authorized",
+              "leftValue": "={{ $json.is_authorized }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-unauthorized",
+      "name": "Send Unauthorized Response",
+      "type": "n8n-nodes-base.telegram",
+      "position": [980, 550],
+      "parameters": {
+        "chatId": "={{ $('Extract Message Data').first().json.chat_id }}",
+        "text": "={{ 'Hi ' + $('Extract Message Data').first().json.first_name + '! \\n\\nYour Telegram account is not yet authorized to use ARIA.\\n\\nYour User ID: ' + $('Extract Message Data').first().json.user_id + '\\nYour Chat ID: ' + $('Extract Message Data').first().json.chat_id + '\\n\\nPlease contact the administrator to get access.' }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_ME",
+          "name": "ARIA Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "telegram-route-message",
+      "name": "Route Message Type",
+      "type": "n8n-nodes-base.switch",
+      "position": [980, 350],
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "command",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.is_command }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "voice",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.has_voice }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "photo",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.has_photo }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "text",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.text }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "telegram-route-command",
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "position": [1220, 100],
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputKey": "status",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "status",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "tasks",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "tasks",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "remind",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "remind",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "workout",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "workout",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "meals",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "meals",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "help",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputKey": "start",
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Extract Message Data').first().json.command }}",
+                    "rightValue": "start",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "telegram-cmd-status",
+      "name": "Handle /status",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, -100],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\n\n// Build status message\nconst status = [\n  '*ARIA Status Report*',\n  '',\n  `System: Online`,\n  `User: ${userData.first_name} (@${userData.username || 'N/A'})`,\n  `Session: ${session.id?.substring(0, 8)}...`,\n  `Messages: ${session.message_count}`,\n  '',\n  '_Use /help for available commands_'\n].join('\\n');\n\nreturn [{\n  json: {\n    response_text: status,\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'status'\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-tasks",
+      "name": "Handle /tasks",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 0],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\nconst args = userData.command_args;\n\nlet response;\nif (!args || args === userData.text) {\n  // No args - show task list\n  response = [\n    '*Your Tasks*',\n    '',\n    'To fetch your tasks, I\\'ll route this to ARIA.',\n    '',\n    '_Sending: \"Show me my tasks for today\"_'\n  ].join('\\n');\n} else if (args.startsWith('add ')) {\n  const taskDescription = args.substring(4);\n  response = `Adding task: \"${taskDescription}\"\\n\\n_Routing to ARIA..._`;\n} else {\n  response = `Processing: ${args}\\n\\n_Routing to ARIA..._`;\n}\n\n// This will trigger a follow-up call to ARIA\nconst ariaMessage = !args || args === userData.text \n  ? 'Show me my tasks for today'\n  : args.startsWith('add ') \n    ? `Add a task: ${args.substring(4)}`\n    : args;\n\nreturn [{\n  json: {\n    response_text: response,\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'tasks',\n    aria_message: ariaMessage,\n    route_to_aria: true\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-remind",
+      "name": "Handle /remind",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 100],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\nconst args = userData.command_args;\n\nif (!args || args === userData.text) {\n  return [{\n    json: {\n      response_text: '*Set a Reminder*\\n\\nUsage: `/remind <time> <message>`\\n\\nExamples:\\n- `/remind 30m Call John`\\n- `/remind 1h Check oven`\\n- `/remind tomorrow Review report`',\n      chat_id: userData.chat_id,\n      session_id: session.id,\n      message_type: 'command',\n      command: 'remind'\n    }\n  }];\n}\n\n// Parse time and message\nconst parts = args.split(' ');\nconst timeStr = parts[0];\nconst message = parts.slice(1).join(' ');\n\nlet remindAt = new Date();\nlet timeDescription = '';\n\nif (timeStr.endsWith('m')) {\n  const minutes = parseInt(timeStr);\n  remindAt.setMinutes(remindAt.getMinutes() + minutes);\n  timeDescription = `in ${minutes} minute${minutes > 1 ? 's' : ''}`;\n} else if (timeStr.endsWith('h')) {\n  const hours = parseInt(timeStr);\n  remindAt.setHours(remindAt.getHours() + hours);\n  timeDescription = `in ${hours} hour${hours > 1 ? 's' : ''}`;\n} else if (timeStr === 'tomorrow') {\n  remindAt.setDate(remindAt.getDate() + 1);\n  remindAt.setHours(9, 0, 0, 0);\n  timeDescription = 'tomorrow at 9:00 AM';\n} else {\n  // Default to 30 minutes\n  remindAt.setMinutes(remindAt.getMinutes() + 30);\n  timeDescription = 'in 30 minutes';\n}\n\nconst response = [\n  '*Reminder Set!*',\n  '',\n  `When: ${timeDescription}`,\n  `Message: ${message || timeStr}`,\n  '',\n  `_I'll notify you here on Telegram._`\n].join('\\n');\n\nreturn [{\n  json: {\n    response_text: response,\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'remind',\n    reminder: {\n      remind_at: remindAt.toISOString(),\n      message: message || timeStr,\n      chat_id: userData.chat_id\n    },\n    create_reminder: true\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-workout",
+      "name": "Handle /workout",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 200],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\nconst args = userData.command_args;\n\nlet ariaMessage;\nif (!args || args === userData.text) {\n  ariaMessage = 'What is my workout for today?';\n} else if (args.startsWith('log ')) {\n  ariaMessage = `Log my workout: ${args.substring(4)}`;\n} else if (args === 'complete') {\n  ariaMessage = 'Mark my workout as complete for today';\n} else {\n  ariaMessage = `Workout: ${args}`;\n}\n\nreturn [{\n  json: {\n    response_text: '_Checking your workout..._',\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'workout',\n    aria_message: ariaMessage,\n    route_to_aria: true\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-meals",
+      "name": "Handle /meals",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 300],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\nconst args = userData.command_args;\n\nlet ariaMessage;\nif (!args || args === userData.text) {\n  ariaMessage = 'What should I eat today? Show me my meal plan.';\n} else if (args.startsWith('log ')) {\n  ariaMessage = `Log my meal: ${args.substring(4)}`;\n} else if (args.startsWith('suggest ')) {\n  ariaMessage = `Suggest a ${args.substring(8)}`;\n} else if (args === 'macros') {\n  ariaMessage = 'Show me my macros for today';\n} else {\n  ariaMessage = `Meals: ${args}`;\n}\n\nreturn [{\n  json: {\n    response_text: '_Getting your meal info..._',\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'meals',\n    aria_message: ariaMessage,\n    route_to_aria: true\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-help",
+      "name": "Handle /help",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 400],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\n\nconst helpText = [\n  '*ARIA Telegram Bot*',\n  '',\n  '*Commands:*',\n  '/status - Check system status',\n  '/tasks - Manage your tasks',\n  '/remind <time> <msg> - Set a reminder',\n  '/workout - Today\\'s workout & logging',\n  '/meals - Meal planning & logging',\n  '/help - This help message',\n  '',\n  '*Tips:*',\n  '- Send any text and I\\'ll respond as ARIA',\n  '- Send voice messages for hands-free interaction',\n  '- Send photos of meals for automatic logging',\n  '',\n  '*Examples:*',\n  '\"What\\'s on my schedule today?\"',\n  '\"Add a task to call mom\"',\n  '\"I just finished my workout\"',\n  '\"What should I eat for dinner?\"'\n].join('\\n');\n\nreturn [{\n  json: {\n    response_text: helpText,\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'help'\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-start",
+      "name": "Handle /start",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 500],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\n\nconst welcomeText = [\n  `*Welcome to ARIA, ${userData.first_name}!*`,\n  '',\n  'I\\'m your personal AI assistant, here to help you:',\n  '',\n  '- Manage tasks and reminders',\n  '- Track workouts and meals',\n  '- Stay organized and productive',\n  '- Answer questions and provide guidance',\n  '',\n  '*Getting Started:*',\n  'Just send me a message! You can type, send voice notes, or share photos.',\n  '',\n  'Use /help to see all available commands.',\n  '',\n  '_Let\\'s get things done!_'\n].join('\\n');\n\nreturn [{\n  json: {\n    response_text: welcomeText,\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: 'start'\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-cmd-unknown",
+      "name": "Handle Unknown Command",
+      "type": "n8n-nodes-base.code",
+      "position": [1500, 600],
+      "parameters": {
+        "jsCode": "const session = $('Get or Create Session').first().json;\nconst userData = $('Extract Message Data').first().json;\n\n// Route unknown commands to ARIA as a message\nreturn [{\n  json: {\n    response_text: null,\n    chat_id: userData.chat_id,\n    session_id: session.id,\n    message_type: 'command',\n    command: userData.command,\n    aria_message: userData.text,\n    route_to_aria: true\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-download-voice",
+      "name": "Download Voice File",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1220, 250],
+      "parameters": {
+        "operation": "getFile",
+        "fileId": "={{ $('Extract Message Data').first().json.voice_file_id }}"
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_ME",
+          "name": "ARIA Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "telegram-transcribe-voice",
+      "name": "Transcribe Voice",
+      "type": "n8n-nodes-base.openAi",
+      "position": [1440, 250],
+      "parameters": {
+        "operation": "transcribe",
+        "resource": "audio",
+        "binaryPropertyName": "data",
+        "options": {}
+      },
+      "typeVersion": 1.6,
+      "credentials": {
+        "openAiApi": {
+          "id": "CONFIGURE_ME",
+          "name": "OpenAI"
+        }
+      }
+    },
+    {
+      "id": "telegram-voice-to-text",
+      "name": "Prepare Voice Message",
+      "type": "n8n-nodes-base.set",
+      "position": [1660, 250],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aria_message",
+              "name": "aria_message",
+              "type": "string",
+              "value": "={{ $json.text }}"
+            },
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "type": "number",
+              "value": "={{ $('Extract Message Data').first().json.chat_id }}"
+            },
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "type": "string",
+              "value": "={{ $('Get or Create Session').first().json.id }}"
+            },
+            {
+              "id": "message_type",
+              "name": "message_type",
+              "type": "string",
+              "value": "voice"
+            },
+            {
+              "id": "route_to_aria",
+              "name": "route_to_aria",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "original_voice",
+              "name": "original_voice",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "transcription",
+              "name": "transcription",
+              "type": "string",
+              "value": "={{ $json.text }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "telegram-get-photo",
+      "name": "Get Photo File",
+      "type": "n8n-nodes-base.telegram",
+      "position": [1220, 350],
+      "parameters": {
+        "operation": "getFile",
+        "fileId": "={{ $('Extract Message Data').first().json.photo_file_id }}"
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_ME",
+          "name": "ARIA Telegram Bot"
+        }
+      }
+    },
+    {
+      "id": "telegram-analyze-photo",
+      "name": "Analyze Photo",
+      "type": "n8n-nodes-base.openAi",
+      "position": [1440, 350],
+      "parameters": {
+        "operation": "message",
+        "resource": "chat",
+        "model": "gpt-4o",
+        "messages": {
+          "values": [
+            {
+              "role": "user",
+              "content": "={{ 'Analyze this image. ' + ($('Extract Message Data').first().json.text || 'Describe what you see and if this is food, estimate the nutritional content.') }}"
+            }
+          ]
+        },
+        "options": {
+          "maxTokens": 500
+        }
+      },
+      "typeVersion": 1.6,
+      "credentials": {
+        "openAiApi": {
+          "id": "CONFIGURE_ME",
+          "name": "OpenAI"
+        }
+      },
+      "notesInFlow": true,
+      "notes": "Note: Image analysis requires binary data handling - may need HTTP node to fetch image URL first"
+    },
+    {
+      "id": "telegram-photo-to-text",
+      "name": "Prepare Photo Analysis",
+      "type": "n8n-nodes-base.set",
+      "position": [1660, 350],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aria_message",
+              "name": "aria_message",
+              "type": "string",
+              "value": "={{ 'I sent a photo. Analysis: ' + ($json.message?.content || 'Unable to analyze image') + ($('Extract Message Data').first().json.text ? '. Caption: ' + $('Extract Message Data').first().json.text : '') }}"
+            },
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "type": "number",
+              "value": "={{ $('Extract Message Data').first().json.chat_id }}"
+            },
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "type": "string",
+              "value": "={{ $('Get or Create Session').first().json.id }}"
+            },
+            {
+              "id": "message_type",
+              "name": "message_type",
+              "type": "string",
+              "value": "image"
+            },
+            {
+              "id": "route_to_aria",
+              "name": "route_to_aria",
+              "type": "boolean",
+              "value": true
+            },
+            {
+              "id": "image_analysis",
+              "name": "image_analysis",
+              "type": "string",
+              "value": "={{ $json.message?.content }}"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "telegram-text-message",
+      "name": "Prepare Text Message",
+      "type": "n8n-nodes-base.set",
+      "position": [1220, 450],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "aria_message",
+              "name": "aria_message",
+              "type": "string",
+              "value": "={{ $('Extract Message Data').first().json.text }}"
+            },
+            {
+              "id": "chat_id",
+              "name": "chat_id",
+              "type": "number",
+              "value": "={{ $('Extract Message Data').first().json.chat_id }}"
+            },
+            {
+              "id": "session_id",
+              "name": "session_id",
+              "type": "string",
+              "value": "={{ $('Get or Create Session').first().json.id }}"
+            },
+            {
+              "id": "message_type",
+              "name": "message_type",
+              "type": "string",
+              "value": "text"
+            },
+            {
+              "id": "route_to_aria",
+              "name": "route_to_aria",
+              "type": "boolean",
+              "value": true
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "telegram-merge-command",
+      "name": "Merge Command Outputs",
+      "type": "n8n-nodes-base.merge",
+      "position": [1720, 100],
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "mixed"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "telegram-merge-all",
+      "name": "Merge All Message Types",
+      "type": "n8n-nodes-base.merge",
+      "position": [1880, 350],
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "mixed"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "telegram-check-route-aria",
+      "name": "Check Route to ARIA",
+      "type": "n8n-nodes-base.if",
+      "position": [2100, 350],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "route_to_aria",
+              "leftValue": "={{ $json.route_to_aria }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-call-aria",
+      "name": "Call ARIA",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2320, 300],
+      "parameters": {
+        "url": "http://prod-n8n:5678/webhook/aria-chat",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.aria_message, user_id: $('Get or Create Session').first().json.leveredge_user_id || 'damon', session_id: $json.session_id, source: 'telegram', metadata: { telegram_user_id: $('Extract Message Data').first().json.user_id, telegram_chat_id: $json.chat_id, message_type: $json.message_type } }) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    },
+    {
+      "id": "telegram-format-aria-response",
+      "name": "Format ARIA Response",
+      "type": "n8n-nodes-base.code",
+      "position": [2540, 300],
+      "parameters": {
+        "jsCode": "const ariaResponse = $input.first().json;\nconst originalData = $('Check Route to ARIA').first().json;\n\n// Get ARIA's response\nlet responseText = ariaResponse.response || ariaResponse.text || ariaResponse.message || 'I processed your request but have no response to show.';\n\n// Truncate if too long for Telegram (max 4096 chars)\nif (responseText.length > 4000) {\n  responseText = responseText.substring(0, 3997) + '...';\n}\n\n// Clean up markdown for Telegram\nresponseText = responseText\n  .replace(/\\*\\*\\*/g, '*')  // Triple asterisk to single\n  .replace(/\\*\\*/g, '*');   // Double asterisk to single\n\nreturn [{\n  json: {\n    response_text: responseText,\n    chat_id: originalData.chat_id,\n    session_id: originalData.session_id,\n    message_type: originalData.message_type,\n    aria_processed: true\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "telegram-merge-responses",
+      "name": "Merge All Responses",
+      "type": "n8n-nodes-base.merge",
+      "position": [2760, 350],
+      "parameters": {
+        "mode": "chooseBranch",
+        "output": "mixed"
+      },
+      "typeVersion": 3
+    },
+    {
+      "id": "telegram-send-response",
+      "name": "Send Response",
+      "type": "n8n-nodes-base.telegram",
+      "position": [2980, 350],
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "={{ $json.response_text || 'Message received.' }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "typeVersion": 1.2,
+      "credentials": {
+        "telegramApi": {
+          "id": "CONFIGURE_ME",
+          "name": "ARIA Telegram Bot"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "id": "telegram-log-message",
+      "name": "Log Message",
+      "type": "n8n-nodes-base.postgres",
+      "position": [3200, 350],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT telegram_log_message($1::UUID, $2, $3, $4::BIGINT, NULL, $5, NULL, '{}'::JSONB)",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.message_type || 'text', $('Extract Message Data').first().json.text || $json.transcription || 'media', $('Extract Message Data').first().json.message_id, $json.response_text] }}"
+        }
+      },
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "CONFIGURE_ME",
+          "name": "Supabase Postgres PROD"
+        }
+      }
+    },
+    {
+      "id": "telegram-create-reminder",
+      "name": "Create Reminder",
+      "type": "n8n-nodes-base.postgres",
+      "position": [2320, 450],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT telegram_create_reminder($1::UUID, $2::BIGINT, $3, $4::TIMESTAMPTZ)",
+        "options": {
+          "queryReplacement": "={{ [$json.session_id, $json.reminder?.chat_id, $json.reminder?.message, $json.reminder?.remind_at] }}"
+        }
+      },
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "CONFIGURE_ME",
+          "name": "Supabase Postgres PROD"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "telegram-check-reminder",
+      "name": "Check Create Reminder",
+      "type": "n8n-nodes-base.if",
+      "position": [2100, 450],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "create_reminder",
+              "leftValue": "={{ $json.create_reminder }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Get or Create Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get or Create Session": {
+      "main": [
+        [
+          {
+            "node": "Check Authorization",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Authorization": {
+      "main": [
+        [
+          {
+            "node": "Route Message Type",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Unauthorized Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Message Type": {
+      "main": [
+        [
+          {
+            "node": "Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Download Voice File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Photo File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Text Message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Route Command": {
+      "main": [
+        [
+          {
+            "node": "Handle /status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle /tasks",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle /remind",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle /workout",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle /meals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle /help",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle /start",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Unknown Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /status": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /tasks": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /remind": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /workout": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /meals": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /help": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle /start": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Unknown Command": {
+      "main": [
+        [
+          {
+            "node": "Merge Command Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Command Outputs": {
+      "main": [
+        [
+          {
+            "node": "Merge All Message Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Voice File": {
+      "main": [
+        [
+          {
+            "node": "Transcribe Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe Voice": {
+      "main": [
+        [
+          {
+            "node": "Prepare Voice Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Voice Message": {
+      "main": [
+        [
+          {
+            "node": "Merge All Message Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Photo File": {
+      "main": [
+        [
+          {
+            "node": "Analyze Photo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Photo": {
+      "main": [
+        [
+          {
+            "node": "Prepare Photo Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Photo Analysis": {
+      "main": [
+        [
+          {
+            "node": "Merge All Message Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Text Message": {
+      "main": [
+        [
+          {
+            "node": "Merge All Message Types",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Message Types": {
+      "main": [
+        [
+          {
+            "node": "Check Route to ARIA",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Check Create Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Route to ARIA": {
+      "main": [
+        [
+          {
+            "node": "Call ARIA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge All Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call ARIA": {
+      "main": [
+        [
+          {
+            "node": "Format ARIA Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format ARIA Response": {
+      "main": [
+        [
+          {
+            "node": "Merge All Responses",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Responses": {
+      "main": [
+        [
+          {
+            "node": "Send Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Response": {
+      "main": [
+        [
+          {
+            "node": "Log Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Create Reminder": {
+      "main": [
+        [
+          {
+            "node": "Create Reminder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "telegram"
+    },
+    {
+      "name": "aria"
+    },
+    {
+      "name": "integration"
+    }
+  ],
+  "pinData": {}
+}

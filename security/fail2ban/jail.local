@@ -1,0 +1,219 @@
+# LeverEdge Fail2ban Main Jail Configuration
+# /etc/fail2ban/jail.local
+#
+# This configuration provides comprehensive intrusion prevention
+# for all LeverEdge platform services.
+
+[DEFAULT]
+# Ban duration: 1 hour for first offense
+bantime = 3600
+
+# Incremental ban: doubles with each subsequent offense
+bantime.increment = true
+bantime.factor = 2
+bantime.maxtime = 1w
+
+# Detection window
+findtime = 600
+
+# Max retries before ban
+maxretry = 5
+
+# Ignore localhost and internal networks
+ignoreip = 127.0.0.1/8 ::1 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16
+
+# Default action: ban and notify HERMES
+action = %(action_)s
+         notify-hermes[name=%(__name__)s, protocol="%(protocol)s", port="%(port)s"]
+
+# Backend for log monitoring
+backend = systemd
+
+# Email settings (optional, HERMES handles primary notifications)
+destemail = security@leveredge.internal
+sender = fail2ban@leveredge.internal
+mta = sendmail
+
+# ============================================================================
+# SSH PROTECTION
+# ============================================================================
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 1h
+findtime = 10m
+
+[sshd-ddos]
+enabled = true
+port = ssh
+filter = sshd-ddos
+logpath = /var/log/auth.log
+maxretry = 10
+bantime = 48h
+findtime = 10m
+
+# ============================================================================
+# WEB SERVICES
+# ============================================================================
+
+[nginx-http-auth]
+enabled = true
+port = http,https
+filter = nginx-http-auth
+logpath = /var/log/nginx/error.log
+maxretry = 5
+bantime = 1h
+
+[nginx-botsearch]
+enabled = true
+port = http,https
+filter = nginx-botsearch
+logpath = /var/log/nginx/access.log
+maxretry = 2
+bantime = 1w
+
+[nginx-limit-req]
+enabled = true
+port = http,https
+filter = nginx-limit-req
+logpath = /var/log/nginx/error.log
+maxretry = 10
+bantime = 1h
+findtime = 1m
+
+[nginx-bad-request]
+enabled = true
+port = http,https
+filter = nginx-bad-request
+logpath = /var/log/nginx/access.log
+maxretry = 3
+bantime = 12h
+
+# ============================================================================
+# N8N WORKFLOW ENGINE
+# ============================================================================
+
+[n8n-auth]
+enabled = true
+port = 5678,5679,5680
+filter = leveredge
+logpath = /opt/leveredge/data-plane/prod/n8n/logs/*.log
+          /var/log/docker/n8n*.log
+maxretry = 5
+bantime = 1h
+findtime = 10m
+
+[n8n-api-abuse]
+enabled = true
+port = 5678,5679,5680
+filter = leveredge-api-abuse
+logpath = /opt/leveredge/data-plane/prod/n8n/logs/*.log
+maxretry = 100
+bantime = 30m
+findtime = 1m
+
+# ============================================================================
+# SUPABASE SERVICES
+# ============================================================================
+
+[supabase-auth]
+enabled = true
+port = 8000,5432
+filter = supabase-auth
+logpath = /var/log/supabase/*.log
+          /opt/leveredge/supabase/logs/*.log
+maxretry = 5
+bantime = 1h
+findtime = 10m
+
+[postgresql]
+enabled = true
+port = 5432
+filter = postgres
+logpath = /var/log/postgresql/postgresql-*-main.log
+maxretry = 5
+bantime = 1h
+
+# ============================================================================
+# AGENT SERVICES (8000-8300)
+# ============================================================================
+
+[leveredge-agents]
+enabled = true
+port = 8000:8300
+filter = leveredge
+logpath = /opt/leveredge/agents/logs/*.log
+          /var/log/leveredge/*.log
+maxretry = 10
+bantime = 30m
+findtime = 5m
+
+[leveredge-api-gateway]
+enabled = true
+port = 8080
+filter = leveredge-gateway
+logpath = /opt/leveredge/gateway/logs/*.log
+maxretry = 50
+bantime = 15m
+findtime = 1m
+
+# ============================================================================
+# CERBERUS SECURITY AGENT
+# ============================================================================
+
+[cerberus-detected]
+enabled = true
+port = all
+filter = cerberus-threat
+logpath = /opt/leveredge/cerberus/logs/threats.log
+maxretry = 1
+bantime = 24h
+findtime = 1m
+# Immediate ban on CERBERUS threat detection
+action = %(action_)s
+         notify-hermes[name=%(__name__)s, protocol="%(protocol)s", port="%(port)s", severity="CRITICAL"]
+
+# ============================================================================
+# DOCKER SERVICES
+# ============================================================================
+
+[docker-api]
+enabled = true
+port = 2375,2376
+filter = docker-api
+logpath = /var/log/docker.log
+maxretry = 3
+bantime = 24h
+
+# ============================================================================
+# RECIDIVE - Persistent Offenders
+# ============================================================================
+
+[recidive]
+enabled = true
+logpath = /var/log/fail2ban.log
+banaction = %(banaction_allports)s
+bantime = 1w
+findtime = 1d
+maxretry = 5
+action = %(action_)s
+         notify-hermes[name=%(__name__)s, protocol="all", port="all", severity="HIGH"]
+
+# ============================================================================
+# PORT SCAN DETECTION
+# ============================================================================
+
+[portscan]
+enabled = true
+filter = portscan
+logpath = /var/log/syslog
+          /var/log/kern.log
+maxretry = 5
+bantime = 24h
+findtime = 60
+action = %(action_)s
+         notify-hermes[name=%(__name__)s, protocol="all", port="all", severity="HIGH"]

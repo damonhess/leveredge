@@ -1,0 +1,24 @@
+[Unit]
+Description=HEPHAESTUS - Code Builder Agent
+Documentation=https://github.com/leveredge/hephaestus
+After=network.target event-bus.service
+Wants=event-bus.service
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/hephaestus
+Environment="PATH=/usr/local/bin:/usr/bin:/bin:/home/damon/.local/bin"
+Environment="HOME=/home/damon"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+ExecStart=/home/damon/.local/bin/uvicorn hephaestus:app --host 0.0.0.0 --port 8011
+Restart=always
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hephaestus
+
+[Install]
+WantedBy=multi-user.target

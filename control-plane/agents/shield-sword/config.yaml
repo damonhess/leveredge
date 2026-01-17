@@ -1,0 +1,44 @@
+# SHIELD-SWORD Configuration
+# ARIA Pre/Post Processing Agent
+
+# Shield Settings - Input Protection
+shield_intensity: medium  # off, low, medium, high
+# off: Shield disabled, all input passes through
+# low: Only flag obvious manipulation (jailbreaks, explicit threats)
+# medium: Flag clear manipulation patterns (recommended)
+# high: Flag subtle patterns and edge cases (may have false positives)
+
+# Sword Settings - Response Enhancement
+sword_intensity: medium  # off, low, medium, high
+# off: Sword disabled, ARIA responses unchanged
+# low: Light polish, preserve ARIA's original voice
+# medium: Moderate enhancement, improve structure and impact (recommended)
+# high: Significant restructuring for maximum impact
+
+# Alert Threshold
+# Risk scores above this trigger alerts to Event Bus
+alert_threshold: 0.7  # 0.0-1.0
+
+# Processing Settings
+enabled: true  # Master switch for the entire agent
+
+# Default Tone (can be overridden per request)
+default_tone: balanced  # warm, balanced, direct, assertive
+
+# Logging
+log_all_requests: true  # Log all requests to Event Bus
+log_high_risk_only: false  # Only log when risk_score >= alert_threshold
+
+# Performance
+use_quick_scan: true  # Use rule-based pre-screening before LLM
+quick_scan_threshold: 0.3  # If quick scan below this, skip LLM analysis
+max_input_length: 10000  # Maximum characters to analyze
+max_response_length: 20000  # Maximum characters to enhance
+
+# Model Selection
+shield_model: claude-haiku-4-20250514  # Fast model for screening
+sword_model: claude-haiku-4-20250514  # Fast model for enhancement
+
+# Cost Control
+daily_call_limit: 10000  # Maximum LLM calls per day
+cost_alert_threshold: 10.0  # Alert if daily cost exceeds this (USD)

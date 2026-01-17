@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Invoice from LeverEdge</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style type="text/css">
+        body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+        table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+        img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+        body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+        a[x-apple-data-detectors] { color: inherit !important; text-decoration: none !important; }
+
+        @media screen and (max-width: 600px) {
+            .mobile-wrapper { width: 100% !important; max-width: 100% !important; }
+            .mobile-padding { padding-left: 15px !important; padding-right: 15px !important; }
+            .mobile-stack { display: block !important; width: 100% !important; }
+            .mobile-center { text-align: center !important; }
+        }
+    </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <div style="display: none; max-height: 0; overflow: hidden;">
+        Invoice #{{ invoice_number }} from LeverEdge - ${{ total_amount }}
+        &nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation" class="mobile-wrapper" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+                    <!-- Header -->
+                    <tr>
+                        <td style="padding: 40px; border-bottom: 1px solid #eeeeee;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td class="mobile-stack mobile-center" width="50%" valign="middle">
+                                        <img src="{{ logo_url | default('https://leveredge.io/logo.png') }}" alt="LeverEdge" width="150" style="display: block;">
+                                    </td>
+                                    <td class="mobile-stack mobile-center" width="50%" valign="middle" align="right" style="padding-top: 10px;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 28px; font-weight: 700; color: #333333;">
+                                            INVOICE
+                                        </p>
+                                        <p style="margin: 5px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #667eea;">
+                                            #{{ invoice_number }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Invoice details -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 30px 40px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td class="mobile-stack" width="50%" valign="top">
+                                        <p style="margin: 0 0 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #999999; text-transform: uppercase; letter-spacing: 1px;">
+                                            Bill To
+                                        </p>
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 24px; color: #333333;">
+                                            {{ customer_name }}<br>
+                                            {{ customer_email }}<br>
+                                            {% if customer_address %}{{ customer_address }}{% endif %}
+                                        </p>
+                                    </td>
+                                    <td class="mobile-stack" width="50%" valign="top" align="right" style="padding-top: 20px;">
+                                        <table role="presentation" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="padding: 5px 20px 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                                    Invoice Date:
+                                                </td>
+                                                <td style="padding: 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333; font-weight: 600;">
+                                                    {{ invoice_date }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 5px 20px 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                                    Due Date:
+                                                </td>
+                                                <td style="padding: 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333; font-weight: 600;">
+                                                    {{ due_date }}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 5px 20px 5px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                                    Status:
+                                                </td>
+                                                <td style="padding: 5px 0;">
+                                                    <span style="display: inline-block; padding: 4px 12px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: {% if status == 'paid' %}#28a745{% elif status == 'overdue' %}#dc3545{% else %}#ffc107{% endif %}; background-color: {% if status == 'paid' %}#d4edda{% elif status == 'overdue' %}#f8d7da{% else %}#fff3cd{% endif %}; border-radius: 4px; text-transform: uppercase;">
+                                                        {{ status | default('pending') }}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Line items -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 0 40px 30px 40px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border: 1px solid #eeeeee; border-radius: 8px;">
+                                <!-- Table header -->
+                                <tr>
+                                    <td style="padding: 15px; background-color: #f8f9fa; border-bottom: 1px solid #eeeeee; border-radius: 8px 0 0 0;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #666666; text-transform: uppercase;">
+                                            Description
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; background-color: #f8f9fa; border-bottom: 1px solid #eeeeee; text-align: center;" width="80">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #666666; text-transform: uppercase;">
+                                            Qty
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; background-color: #f8f9fa; border-bottom: 1px solid #eeeeee; text-align: right;" width="100">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #666666; text-transform: uppercase;">
+                                            Price
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; background-color: #f8f9fa; border-bottom: 1px solid #eeeeee; text-align: right; border-radius: 0 8px 0 0;" width="100">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; font-weight: 600; color: #666666; text-transform: uppercase;">
+                                            Total
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <!-- Line items -->
+                                {% for item in line_items %}
+                                <tr>
+                                    <td style="padding: 15px; border-bottom: 1px solid #eeeeee;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333;">
+                                            {{ item.description }}
+                                        </p>
+                                        {% if item.details %}
+                                        <p style="margin: 5px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999;">
+                                            {{ item.details }}
+                                        </p>
+                                        {% endif %}
+                                    </td>
+                                    <td style="padding: 15px; border-bottom: 1px solid #eeeeee; text-align: center;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333;">
+                                            {{ item.quantity }}
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; border-bottom: 1px solid #eeeeee; text-align: right;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333;">
+                                            ${{ item.unit_price }}
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; border-bottom: 1px solid #eeeeee; text-align: right;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333;">
+                                            ${{ item.total }}
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+
+                                <!-- Subtotal -->
+                                <tr>
+                                    <td colspan="3" style="padding: 15px; text-align: right;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                            Subtotal
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; text-align: right;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333;">
+                                            ${{ subtotal }}
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                {% if tax_amount %}
+                                <!-- Tax -->
+                                <tr>
+                                    <td colspan="3" style="padding: 10px 15px; text-align: right;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #666666;">
+                                            Tax ({{ tax_rate | default('0') }}%)
+                                        </p>
+                                    </td>
+                                    <td style="padding: 10px 15px; text-align: right;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; color: #333333;">
+                                            ${{ tax_amount }}
+                                        </p>
+                                    </td>
+                                </tr>
+                                {% endif %}
+
+                                <!-- Total -->
+                                <tr>
+                                    <td colspan="3" style="padding: 15px; text-align: right; background-color: #667eea; border-radius: 0 0 0 8px;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff;">
+                                            Total Due
+                                        </p>
+                                    </td>
+                                    <td style="padding: 15px; text-align: right; background-color: #667eea; border-radius: 0 0 8px 0;">
+                                        <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 18px; font-weight: 700; color: #ffffff;">
+                                            ${{ total_amount }}
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Payment button -->
+                    {% if payment_url %}
+                    <tr>
+                        <td class="mobile-padding" style="padding: 0 40px 30px 40px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{ payment_url }}" style="display: inline-block; padding: 16px 50px; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 16px; font-weight: 600; color: #ffffff; background-color: #28a745; text-decoration: none; border-radius: 8px;">
+                                            Pay Now
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    {% endif %}
+
+                    <!-- Payment info -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 30px 40px; background-color: #f8f9fa;">
+                            <p style="margin: 0 0 15px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 600; color: #333333;">
+                                Payment Methods Accepted:
+                            </p>
+                            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: #666666;">
+                                Credit Card, ACH Bank Transfer, Wire Transfer
+                            </p>
+                            {% if notes %}
+                            <p style="margin: 15px 0 0 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: #666666;">
+                                <strong>Notes:</strong> {{ notes }}
+                            </p>
+                            {% endif %}
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td class="mobile-padding" style="padding: 30px 40px; border-top: 1px solid #eeeeee;">
+                            <p style="margin: 0 0 10px 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center;">
+                                Questions about this invoice? Contact us at
+                                <a href="mailto:{{ billing_email | default('billing@leveredge.io') }}" style="color: #667eea; text-decoration: none;">{{ billing_email | default('billing@leveredge.io') }}</a>
+                            </p>
+                            <p style="margin: 0; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; color: #999999; text-align: center;">
+                                {{ company_name | default('LeverEdge') }} | {{ company_address | default('123 Business St, Suite 100, City, ST 12345') }}
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
