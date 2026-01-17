@@ -1390,3 +1390,118 @@ services:
       com.leveredge.agent: "iris"
       com.leveredge.group: "business"
       com.leveredge.port: "8209"
+
+  # ---------------------------------------------------------------------------
+  # Solon - Legal Advisor Agent (Port 8210)
+  # ---------------------------------------------------------------------------
+  solon:
+    build:
+      context: ./control-plane/agents/solon
+      dockerfile: Dockerfile
+    container_name: solon
+    hostname: solon
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["business", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+    volumes:
+      - ./control-plane/agents/solon:/app:ro
+      - ./shared:/opt/leveredge/shared:ro
+      - fleet-logs:/logs
+      - fleet-data:/data
+    ports:
+      - "${SOLON_PORT:-8210}:8210"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8210/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "solon"
+      com.leveredge.group: "business"
+      com.leveredge.port: "8210"
+
+  # ---------------------------------------------------------------------------
+  # Croesus - Tax & Wealth Advisor Agent (Port 8211)
+  # ---------------------------------------------------------------------------
+  croesus:
+    build:
+      context: ./control-plane/agents/croesus
+      dockerfile: Dockerfile
+    container_name: croesus
+    hostname: croesus
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["business", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+    volumes:
+      - ./control-plane/agents/croesus:/app:ro
+      - ./shared:/opt/leveredge/shared:ro
+      - fleet-logs:/logs
+      - fleet-data:/data
+    ports:
+      - "${CROESUS_PORT:-8211}:8211"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8211/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "croesus"
+      com.leveredge.group: "business"
+      com.leveredge.port: "8211"
+
+  # ---------------------------------------------------------------------------
+  # ARIA Omniscience - Knowledge Ingest Service (Port 8112)
+  # ---------------------------------------------------------------------------
+  aria-omniscience:
+    build:
+      context: ./control-plane/agents/aria-omniscience
+      dockerfile: Dockerfile
+    container_name: aria-omniscience
+    hostname: aria-omniscience
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./control-plane/agents/aria-omniscience:/app:ro
+      - fleet-logs:/logs
+    ports:
+      - "${ARIA_OMNISCIENCE_PORT:-8112}:8112"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8112/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "aria-omniscience"
+      com.leveredge.group: "core"
+      com.leveredge.port: "8112"

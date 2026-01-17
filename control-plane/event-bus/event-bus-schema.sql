@@ -101,7 +101,25 @@ INSERT OR IGNORE INTO agent_subscriptions (agent_name, action_pattern, priority)
   -- ARGUS watches for health events
   ('ARGUS', 'health_*', 1),
   ('ARGUS', '*_started', 5),
-  ('ARGUS', '*_completed', 5);
+  ('ARGUS', '*_completed', 5),
+
+  -- SOLON watches for legal-related events
+  ('SOLON', 'legal_*', 1),
+  ('SOLON', 'contract_*', 1),
+  ('SOLON', 'compliance_*', 1),
+  ('SOLON', 'deadline_legal_*', 2),
+
+  -- CROESUS watches for financial/tax events
+  ('CROESUS', 'tax_*', 1),
+  ('CROESUS', 'financial_*', 1),
+  ('CROESUS', 'deadline_tax_*', 2),
+  ('CROESUS', 'income_*', 2),
+  ('CROESUS', 'expense_*', 2),
+  ('CROESUS', 'transaction_*', 3),
+
+  -- ARIA-OMNISCIENCE subscribes to all events for knowledge extraction
+  ('ARIA-OMNISCIENCE', '*', 10),
+  ('ARIA-OMNISCIENCE', 'aria.*', 1);
 
 -- View for pending human requests
 CREATE VIEW IF NOT EXISTS pending_human_requests AS
