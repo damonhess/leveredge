@@ -605,3 +605,68 @@ docker run -d --name chiron --network control-plane-net -p 8017:8017 \
 ---
 
 *Add new entries above this line*
+
+### 2026-01-17 01:10 - [VARYS Mission Guardian]
+**Status:** Deployed and running
+**Components:** FastAPI agent (port 8020), n8n scheduler workflow
+
+**What Was Built:**
+- VARYS agent: Mission guardian with drift detection
+- Sacred texts: /opt/leveredge/mission/ with MISSION, LAUNCH-DATE, REVENUE-GOAL, BOUNDARIES, PORTFOLIO-TARGET
+- n8n workflow: VARYS Scheduler (daily briefs 6 AM, weekly reviews Sunday 8 PM)
+- Agent registry entry added to config/agent-registry.yaml
+
+**Key Endpoints:**
+- `/health` - Health check
+- `/days-to-launch` - 42 days remaining (HIGH urgency)
+- `/todays-focus` - Extract focus from MASTER-LAUNCH-CALENDAR
+- `/scan-drift` - Detect scope creep in git commits
+- `/validate-decision` - Check decisions against mission alignment
+- `/daily-brief` - Generate daily accountability brief (sends via HERMES)
+- `/weekly-review` - Comprehensive weekly review (triggers CHIRON)
+- `/mission/{doc}` - Retrieve sacred mission documents
+
+**Drift Detection Patterns:**
+- "quick (addition|fix|change)"
+- "small (enhancement|tweak|update)"
+- "while we're at it", "one more thing", "might as well"
+- "real quick", "shouldn't take long", "just need to add"
+
+**Integrations:**
+- HERMES for notifications
+- CHIRON for weekly reviews
+- Event Bus for logging
+- n8n scheduler for automation
+
+**Container:** varys on control-plane-net, volumes /opt/leveredge readonly
+
+### 2026-01-17 01:44 - [ARIA Life Coaching Tools - Phase 1]
+**Status:** Deployed to DEV
+**Components:** 12 database tables, 4 n8n workflow tools, ARIA integration
+
+**What Was Built:**
+- Database schema: 12 coaching tables (aria_wheel_of_life, aria_values, aria_goals, aria_daily_checkins, aria_grow_sessions, aria_habits, aria_habit_completions, aria_decisions, aria_resistance_patterns, aria_commitments, aria_coaching_sessions, aria_tool_analytics)
+- Helper functions: aria_record_tool_usage, aria_get_latest_wheel, aria_compare_wheels, aria_goal_stats, aria_habit_streak, aria_complete_habit, aria_check_commitments, aria_checkin_patterns
+- n8n workflows: 17 - Wheel of Life, 18 - Values Clarifier, 19 - Progress Tracker, 20 - Goal Architect
+- ARIA integration: Tools connected to AI Agent, system prompt updated
+
+**Tools Implemented:**
+1. **wheel_of_life**: Assess life balance across 8 dimensions with trend tracking
+2. **values_clarifier**: Identify, rank, and check alignment of core values
+3. **progress_tracker**: Daily check-ins with pattern analysis
+4. **goal_architect**: Transform vague goals into SMART goals with DARN-C motivation scoring
+
+**Key Database Functions:**
+- `aria_get_latest_wheel(user_id)` - Get most recent wheel assessment
+- `aria_compare_wheels(user_id)` - Compare current vs previous assessment
+- `aria_checkin_patterns(user_id, days)` - Analyze mood/energy trends
+- `aria_goal_stats(user_id)` - Goal completion statistics
+
+**Technical Notes:**
+- Tools added to ARIA workflow via direct database update (nodes + connections)
+- n8n workflow import script created: data-plane/dev/n8n/workflows-to-import/import-v2.sh
+- All tables in postgres_dev (supabase), workflows in n8n_dev
+
+**Remaining Phases (Not Yet Built):**
+- Phase 2: grow_session, habit_designer, energy_optimizer, decision_accelerator, resistance_decoder
+- Phase 3: coaching_insights, system_architect, identity_shifter

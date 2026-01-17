@@ -1,0 +1,293 @@
+{
+  "name": "18 - Values Clarifier",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "val-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'identify' }}"
+            },
+            {
+              "id": "values",
+              "name": "values",
+              "type": "array",
+              "value": "={{ $json.values || [] }}"
+            },
+            {
+              "id": "context",
+              "name": "context",
+              "type": "string",
+              "value": "={{ $json.context || '' }}"
+            },
+            {
+              "id": "decision",
+              "name": "decision",
+              "type": "string",
+              "value": "={{ $json.decision || '' }}"
+            },
+            {
+              "id": "user-id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "val-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT value_name, rank, definition FROM aria_values WHERE user_id = $1 ORDER BY rank ASC LIMIT 10",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "val-get-current",
+      "name": "Get Current Values",
+      "type": "n8n-nodes-base.postgres",
+      "position": [540, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst currentValues = $('Get Current Values').all().map(v => v.json);\nconst operation = input.operation;\n\nconst VALUES_MENU = [\n  'Achievement', 'Adventure', 'Authenticity', 'Balance', 'Challenge', \n  'Compassion', 'Creativity', 'Curiosity', 'Excellence', 'Faith',\n  'Family', 'Freedom', 'Friendship', 'Fun', 'Growth', 'Health',\n  'Honesty', 'Impact', 'Independence', 'Influence', 'Innovation',\n  'Integrity', 'Justice', 'Knowledge', 'Leadership', 'Legacy',\n  'Love', 'Loyalty', 'Peace', 'Power', 'Recognition', 'Respect',\n  'Security', 'Service', 'Simplicity', 'Spirituality', 'Stability',\n  'Success', 'Trust', 'Wealth', 'Wisdom'\n];\n\n// IDENTIFY: Start or continue value identification\nif (operation === 'identify') {\n  if (currentValues.length === 0) {\n    return [{\n      json: {\n        status: 'start_identification',\n        values_menu: VALUES_MENU,\n        message: `Let's identify your core values. Look at this list and pick 10-15 that resonate most strongly with you:\\n\\n${VALUES_MENU.join(', ')}\\n\\nDon't overthink it - go with your gut. Which ones immediately feel important to you?`\n      }\n    }];\n  }\n  \n  return [{\n    json: {\n      status: 'existing_values',\n      current_values: currentValues,\n      message: `Your current top values are:\\n${currentValues.map((v, i) => `${i+1}. ${v.value_name}${v.definition ? ' - ' + v.definition : ''}`).join('\\n')}\\n\\nWant to update these? Use operation: 'rank' with your values array.`\n    }\n  }];\n}\n\n// RANK: User provides values to rank\nif (operation === 'rank') {\n  const providedValues = input.values;\n  \n  if (!providedValues || providedValues.length === 0) {\n    return [{\n      json: {\n        status: 'need_values',\n        message: 'Please provide an array of values to rank. Example: [\"Freedom\", \"Growth\", \"Family\", \"Health\", \"Impact\"]'\n      }\n    }];\n  }\n  \n  if (providedValues.length < 5) {\n    return [{\n      json: {\n        status: 'need_more',\n        provided: providedValues.length,\n        message: `You've listed ${providedValues.length} values. Let's narrow down to your top 5-7 core values. Add a few more, then we'll rank them.`\n      }\n    }];\n  }\n  \n  // Help with ranking\n  return [{\n    json: {\n      status: 'ready_to_save',\n      values_to_save: providedValues.slice(0, 7).map((v, i) => ({\n        value_name: v,\n        rank: i + 1\n      })),\n      save_to_db: true,\n      message: `Great! Your top ${Math.min(providedValues.length, 7)} values will be saved as:\\n${providedValues.slice(0, 7).map((v, i) => `${i+1}. ${v}`).join('\\n')}\\n\\nThese values will guide decisions and help me hold you accountable to what matters most.`\n    }\n  }];\n}\n\n// CHECK_ALIGNMENT: Check if a decision aligns with values\nif (operation === 'check_alignment') {\n  const decision = input.decision || input.context;\n  \n  if (!decision) {\n    return [{\n      json: {\n        status: 'need_context',\n        message: 'What decision or situation should I check against your values?'\n      }\n    }];\n  }\n  \n  if (currentValues.length === 0) {\n    return [{\n      json: {\n        status: 'no_values',\n        message: \"We haven't identified your core values yet. Let's do that first so we can check alignment.\"\n      }\n    }];\n  }\n  \n  // Analyze alignment\n  const valueNames = currentValues.map(v => v.value_name.toLowerCase());\n  const decisionLower = decision.toLowerCase();\n  \n  // Check for value mentions\n  const alignedWith = [];\n  const potentialConflicts = [];\n  \n  // Simple keyword matching for alignment\n  const alignmentKeywords = {\n    'freedom': ['autonomy', 'independent', 'choice', 'own terms'],\n    'growth': ['learn', 'improve', 'develop', 'challenge', 'stretch'],\n    'family': ['kids', 'spouse', 'parents', 'home'],\n    'health': ['exercise', 'sleep', 'energy', 'wellbeing'],\n    'impact': ['help', 'contribute', 'difference', 'value'],\n    'wealth': ['money', 'income', 'revenue', 'financial'],\n    'creativity': ['create', 'build', 'design', 'innovate'],\n    'security': ['stable', 'safe', 'reliable', 'consistent']\n  };\n  \n  valueNames.forEach(v => {\n    const keywords = alignmentKeywords[v] || [v];\n    if (keywords.some(k => decisionLower.includes(k))) {\n      alignedWith.push(v);\n    }\n  });\n  \n  return [{\n    json: {\n      status: 'alignment_check',\n      decision: decision,\n      your_values: currentValues.map(v => v.value_name),\n      aligned_with: alignedWith.length > 0 ? alignedWith : ['Analysis needed - describe more about the decision'],\n      potential_conflicts: potentialConflicts,\n      recommendation: alignedWith.length >= 2 \n        ? 'This decision appears to align well with your core values.'\n        : 'Consider: Does this decision serve your top values? What would you do if [value] was your only consideration?'\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    status: 'unknown_operation',\n    valid_operations: ['identify', 'rank', 'check_alignment'],\n    message: `Unknown operation: ${operation}`\n  }\n}];"
+      },
+      "id": "val-process",
+      "name": "Process Values",
+      "type": "n8n-nodes-base.code",
+      "position": [760, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "val-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [980, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "DELETE FROM aria_values WHERE user_id = $1",
+        "options": {
+          "queryReplacement": "={{ [$('Extract Input').first().json.user_id] }}"
+        }
+      },
+      "id": "val-clear-old",
+      "name": "Clear Old Values",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1200, 200],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ 'INSERT INTO aria_values (user_id, value_name, rank) VALUES ' + $('Process Values').first().json.values_to_save.map(v => `('${$('Extract Input').first().json.user_id}', '${v.value_name}', ${v.rank})`).join(', ') }}",
+        "options": {}
+      },
+      "id": "val-save-new",
+      "name": "Save New Values",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1420, 200],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('values_clarifier', true, null)",
+        "options": {}
+      },
+      "id": "val-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1420, 400],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ JSON.stringify($('Process Values').first().json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "val-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [1640, 300],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Get Current Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Current Values": {
+      "main": [
+        [
+          {
+            "node": "Process Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Values": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Clear Old Values",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear Old Values": {
+      "main": [
+        [
+          {
+            "node": "Save New Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save New Values": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

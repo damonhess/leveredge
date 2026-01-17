@@ -1,0 +1,362 @@
+{
+  "name": "17 - Wheel of Life",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "wol-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'assess' }}"
+            },
+            {
+              "id": "ratings",
+              "name": "ratings",
+              "type": "object",
+              "value": "={{ $json.ratings || {} }}"
+            },
+            {
+              "id": "user-id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wol-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "assess",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "assess",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "wol-router",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.if",
+      "position": [540, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM aria_get_latest_wheel($1::text)",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "wol-get-latest",
+      "name": "Get Latest Assessment",
+      "type": "n8n-nodes-base.postgres",
+      "position": [760, 180],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst latest = $('Get Latest Assessment').first().json;\nconst ratings = input.ratings;\n\n// If we have new ratings, create new assessment\nif (ratings && Object.keys(ratings).length > 0) {\n  // Validate all 8 dimensions present\n  const dimensions = ['career', 'finances', 'health', 'relationships', 'personal_growth', 'fun_recreation', 'environment', 'contribution'];\n  const missing = dimensions.filter(d => !ratings[d]);\n  \n  if (missing.length > 0) {\n    return [{\n      json: {\n        status: 'incomplete',\n        missing_dimensions: missing,\n        message: `Please rate these remaining areas (1-10): ${missing.join(', ')}`\n      }\n    }];\n  }\n  \n  // All dimensions present, calculate balance\n  const total = dimensions.reduce((sum, d) => sum + (ratings[d] || 0), 0);\n  const avg = total / 8;\n  const min = Math.min(...dimensions.map(d => ratings[d]));\n  const max = Math.max(...dimensions.map(d => ratings[d]));\n  const gap = max - min;\n  \n  // Find lowest and highest\n  const sorted = dimensions\n    .map(d => ({ name: d, score: ratings[d] }))\n    .sort((a, b) => a.score - b.score);\n  \n  const lowest = sorted.slice(0, 2);\n  const highest = sorted.slice(-2).reverse();\n  \n  // Generate ASCII wheel\n  const wheel = generateWheelASCII(ratings);\n  \n  return [{\n    json: {\n      status: 'new_assessment',\n      ratings: ratings,\n      wheel_visual: wheel,\n      balance_score: avg.toFixed(1),\n      lowest_areas: lowest.map(l => l.name),\n      highest_areas: highest.map(h => h.name),\n      gap_analysis: `${gap.toFixed(1)} point gap between highest and lowest`,\n      recommendations: generateRecommendations(lowest, highest),\n      save_to_db: true\n    }\n  }];\n}\n\n// No new ratings - return latest or prompt for assessment\nif (latest && latest.id) {\n  const dimensions = ['career', 'finances', 'health', 'relationships', 'personal_growth', 'fun_recreation', 'environment', 'contribution'];\n  const currentRatings = {};\n  dimensions.forEach(d => currentRatings[d] = latest[d]);\n  \n  const wheel = generateWheelASCII(currentRatings);\n  const sorted = dimensions\n    .map(d => ({ name: d, score: latest[d] }))\n    .sort((a, b) => a.score - b.score);\n  \n  return [{\n    json: {\n      status: 'existing_assessment',\n      assessed_at: latest.assessed_at,\n      ratings: currentRatings,\n      wheel_visual: wheel,\n      balance_score: latest.balance_score,\n      lowest_areas: sorted.slice(0, 2).map(l => l.name),\n      highest_areas: sorted.slice(-2).reverse().map(h => h.name),\n      message: 'Would you like to create a new assessment? Rate each area 1-10.'\n    }\n  }];\n}\n\n// No existing assessment, prompt for new one\nreturn [{\n  json: {\n    status: 'no_assessment',\n    dimensions: ['career', 'finances', 'health', 'relationships', 'personal_growth', 'fun_recreation', 'environment', 'contribution'],\n    message: 'Let\\'s assess your Wheel of Life. Rate each area from 1 (needs work) to 10 (thriving):\\n\\n1. Career - Your job satisfaction, professional growth\\n2. Finances - Financial security, money management\\n3. Health - Physical health, energy, fitness\\n4. Relationships - Family, friends, romantic partner\\n5. Personal Growth - Learning, self-improvement, hobbies\\n6. Fun & Recreation - Leisure, play, enjoyment\\n7. Environment - Physical space, living situation\\n8. Contribution - Giving back, community, purpose'\n  }\n}];\n\nfunction generateWheelASCII(ratings) {\n  const dims = [\n    { name: 'Career', key: 'career' },\n    { name: 'Finances', key: 'finances' },\n    { name: 'Health', key: 'health' },\n    { name: 'Relationships', key: 'relationships' },\n    { name: 'Growth', key: 'personal_growth' },\n    { name: 'Fun', key: 'fun_recreation' },\n    { name: 'Environment', key: 'environment' },\n    { name: 'Contribution', key: 'contribution' }\n  ];\n  \n  let wheel = '\\n        WHEEL OF LIFE\\n';\n  wheel += '    ========================\\n';\n  \n  dims.forEach(d => {\n    const score = ratings[d.key] || 0;\n    const bar = '█'.repeat(score) + '░'.repeat(10 - score);\n    wheel += `    ${d.name.padEnd(12)} ${bar} ${score}/10\\n`;\n  });\n  \n  wheel += '    ========================\\n';\n  \n  return wheel;\n}\n\nfunction generateRecommendations(lowest, highest) {\n  const recs = [];\n  \n  lowest.forEach(l => {\n    if (l.score <= 3) {\n      recs.push(`${l.name} at ${l.score}/10 is critical - identify one small action you can take this week`);\n    } else if (l.score <= 5) {\n      recs.push(`${l.name} at ${l.score}/10 needs attention - what's one thing blocking improvement?`);\n    }\n  });\n  \n  if (highest[0].score - lowest[0].score > 4) {\n    recs.push(`Consider: How might your strength in ${highest[0].name} help improve ${lowest[0].name}?`);\n  }\n  \n  return recs;\n}"
+      },
+      "id": "wol-analyze",
+      "name": "Analyze Wheel",
+      "type": "n8n-nodes-base.code",
+      "position": [980, 180],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "wol-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [1200, 180],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_wheel_of_life"
+        },
+        "columns": {
+          "value": {
+            "user_id": "={{ $('Extract Input').first().json.user_id }}",
+            "career": "={{ $json.ratings.career }}",
+            "finances": "={{ $json.ratings.finances }}",
+            "health": "={{ $json.ratings.health }}",
+            "relationships": "={{ $json.ratings.relationships }}",
+            "personal_growth": "={{ $json.ratings.personal_growth }}",
+            "fun_recreation": "={{ $json.ratings.fun_recreation }}",
+            "environment": "={{ $json.ratings.environment }}",
+            "contribution": "={{ $json.ratings.contribution }}"
+          },
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "wol-save",
+      "name": "Save Assessment",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1420, 80],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('wheel_of_life', true, null)",
+        "options": {}
+      },
+      "id": "wol-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1640, 180],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ JSON.stringify($('Analyze Wheel').first().json, null, 2) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "wol-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [1860, 180],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM aria_compare_wheels($1::text)",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "wol-compare",
+      "name": "Compare Assessments",
+      "type": "n8n-nodes-base.postgres",
+      "position": [760, 420],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const comparisons = $('Compare Assessments').all();\n\nif (comparisons.length === 0) {\n  return [{\n    json: {\n      status: 'no_history',\n      message: 'No previous assessments to compare. Complete your first Wheel of Life assessment.'\n    }\n  }];\n}\n\nlet improved = [];\nlet declined = [];\nlet stable = [];\n\ncomparisons.forEach(c => {\n  const d = c.json;\n  if (d.change > 0) improved.push({ dimension: d.dimension, change: `+${d.change}` });\n  else if (d.change < 0) declined.push({ dimension: d.dimension, change: d.change });\n  else stable.push(d.dimension);\n});\n\nreturn [{\n  json: {\n    status: 'comparison',\n    improved: improved,\n    declined: declined,\n    stable: stable,\n    summary: improved.length > declined.length \n      ? `Overall positive trend! ${improved.length} areas improved.`\n      : declined.length > improved.length\n        ? `Some areas need attention. ${declined.length} areas declined.`\n        : 'Balanced progress across areas.'\n  }\n}];"
+      },
+      "id": "wol-format-compare",
+      "name": "Format Comparison",
+      "type": "n8n-nodes-base.code",
+      "position": [980, 420],
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Get Latest Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Compare Assessments",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Latest Assessment": {
+      "main": [
+        [
+          {
+            "node": "Analyze Wheel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Wheel": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Save Assessment",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Assessment": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compare Assessments": {
+      "main": [
+        [
+          {
+            "node": "Format Comparison",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

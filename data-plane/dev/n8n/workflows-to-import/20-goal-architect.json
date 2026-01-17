@@ -1,0 +1,381 @@
+{
+  "name": "20 - Goal Architect",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "goal-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'create' }}"
+            },
+            {
+              "id": "goal_statement",
+              "name": "goal_statement",
+              "type": "string",
+              "value": "={{ $json.goal_statement || $json.goal || '' }}"
+            },
+            {
+              "id": "goal_id",
+              "name": "goal_id",
+              "type": "string",
+              "value": "={{ $json.goal_id || null }}"
+            },
+            {
+              "id": "status",
+              "name": "status",
+              "type": "string",
+              "value": "={{ $json.status || null }}"
+            },
+            {
+              "id": "user-id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "goal-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "create",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "create",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "refine",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "refine",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "goal-router",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.if",
+      "position": [540, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst goalStatement = input.goal_statement;\n\nif (!goalStatement) {\n  return [{\n    json: {\n      status: 'need_goal',\n      message: \"What goal would you like to work on? Tell me what you want to achieve, even if it's vague. We'll refine it together.\"\n    }\n  }];\n}\n\n// Parse vague goal into SMART components\nconst smartAnalysis = analyzeGoal(goalStatement);\nconst darnC = assessMotivation(goalStatement);\n\nfunction analyzeGoal(goal) {\n  const lower = goal.toLowerCase();\n  \n  // Check for SMART components\n  const hasSpecific = /\\d|specific|exactly|particular/.test(lower);\n  const hasMeasurable = /\\d|%|measure|track|count/.test(lower);\n  const hasTimebound = /by |before |within |deadline|week|month|year|january|february|march|april|may|june|july|august|september|october|november|december/.test(lower);\n  const hasNumbers = /\\d/.test(goal);\n  \n  let suggestions = [];\n  \n  if (!hasSpecific && !hasNumbers) {\n    suggestions.push(\"Be specific: What exactly does success look like? Can you quantify it?\");\n  }\n  if (!hasMeasurable) {\n    suggestions.push(\"Make it measurable: How will you know when you've achieved it?\");\n  }\n  if (!hasTimebound) {\n    suggestions.push(\"Add a deadline: By when do you want to achieve this?\");\n  }\n  \n  return {\n    original: goal,\n    is_smart: suggestions.length === 0,\n    missing: suggestions,\n    score: Math.round((3 - suggestions.length) / 3 * 100)\n  };\n}\n\nfunction assessMotivation(goal) {\n  // DARN-C: Desire, Ability, Reasons, Need, Commitment\n  return {\n    questions: [\n      { aspect: 'Desire', question: 'On a scale of 1-10, how much do you WANT this?', weight: 0.2 },\n      { aspect: 'Ability', question: 'On a scale of 1-10, how confident are you that you CAN achieve this?', weight: 0.2 },\n      { aspect: 'Reasons', question: 'On a scale of 1-10, how clear are your REASONS for wanting this?', weight: 0.2 },\n      { aspect: 'Need', question: 'On a scale of 1-10, how much do you NEED this vs want it?', weight: 0.2 },\n      { aspect: 'Commitment', question: 'On a scale of 1-10, how COMMITTED are you to taking action this week?', weight: 0.2 }\n    ]\n  };\n}\n\n// Generate refined SMART goal suggestion\nlet smartSuggestion = goalStatement;\nif (!smartAnalysis.is_smart) {\n  smartSuggestion = `Consider refining to: \"${goalStatement}\" with:\\n`;\n  if (!smartAnalysis.original.match(/\\d/)) {\n    smartSuggestion += \"- A specific number or target\\n\";\n  }\n  if (!smartAnalysis.original.match(/by |before |within /i)) {\n    smartSuggestion += \"- A clear deadline\\n\";\n  }\n}\n\nreturn [{\n  json: {\n    status: 'goal_analysis',\n    original_statement: goalStatement,\n    smart_analysis: smartAnalysis,\n    darn_c_assessment: darnC,\n    refinement_needed: !smartAnalysis.is_smart,\n    smart_score: smartAnalysis.score,\n    next_step: smartAnalysis.is_smart \n      ? 'Ready to save! What\\'s your first action toward this goal?'\n      : `Let's strengthen this goal:\\n${smartAnalysis.missing.join('\\n')}`,\n    save_to_db: smartAnalysis.is_smart\n  }\n}];"
+      },
+      "id": "goal-analyze",
+      "name": "Analyze Goal",
+      "type": "n8n-nodes-base.code",
+      "position": [760, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "save",
+              "leftValue": "={{ $json.save_to_db }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "goal-check-save",
+      "name": "Check if Save",
+      "type": "n8n-nodes-base.if",
+      "position": [980, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_goals"
+        },
+        "columns": {
+          "value": {
+            "user_id": "={{ $('Extract Input').first().json.user_id }}",
+            "title": "={{ $json.original_statement.substring(0, 100) }}",
+            "original_statement": "={{ $json.original_statement }}",
+            "smart_goal": "={{ JSON.stringify($json.smart_analysis) }}",
+            "motivation_score": "={{ JSON.stringify($json.darn_c_assessment) }}",
+            "status": "active"
+          },
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "goal-save",
+      "name": "Save Goal",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1200, 100],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM aria_goal_stats($1::text)",
+        "options": {
+          "queryReplacement": "={{ [$('Extract Input').first().json.user_id] }}"
+        }
+      },
+      "id": "goal-get-stats",
+      "name": "Get Goal Stats",
+      "type": "n8n-nodes-base.postgres",
+      "position": [760, 400],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, title, status, created_at, target_date FROM aria_goals WHERE user_id = $1 AND status = 'active' ORDER BY created_at DESC LIMIT 10",
+        "options": {
+          "queryReplacement": "={{ [$('Extract Input').first().json.user_id] }}"
+        }
+      },
+      "id": "goal-list-active",
+      "name": "List Active Goals",
+      "type": "n8n-nodes-base.postgres",
+      "position": [980, 400],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const stats = $('Get Goal Stats').first().json;\nconst activeGoals = $('List Active Goals').all().map(g => g.json);\n\nlet output = `📊 GOAL PROGRESS\\n`;\noutput += `================\\n\\n`;\noutput += `Total goals: ${stats.total_goals}\\n`;\noutput += `Active: ${stats.active_goals}\\n`;\noutput += `Completed: ${stats.completed_goals}\\n`;\noutput += `Completion rate: ${stats.completion_rate}%\\n\\n`;\n\nif (activeGoals.length > 0) {\n  output += `🎯 ACTIVE GOALS:\\n`;\n  activeGoals.forEach((g, i) => {\n    output += `${i+1}. ${g.title}${g.target_date ? ` (due: ${g.target_date})` : ''}\\n`;\n  });\n}\n\nreturn [{\n  json: {\n    status: 'goal_stats',\n    summary: output,\n    stats: stats,\n    active_goals: activeGoals\n  }\n}];"
+      },
+      "id": "goal-format-progress",
+      "name": "Format Progress",
+      "type": "n8n-nodes-base.code",
+      "position": [1200, 400],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('goal_architect', true, null)",
+        "options": {}
+      },
+      "id": "goal-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1420, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge outputs from different paths\nconst analyzeOutput = $('Analyze Goal').first()?.json;\nconst progressOutput = $('Format Progress').first()?.json;\n\nlet output = analyzeOutput || progressOutput;\n\nreturn [{\n  json: {\n    output: JSON.stringify(output, null, 2)\n  }\n}];"
+      },
+      "id": "goal-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "position": [1640, 300],
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Analyze Goal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Goal Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Goal": {
+      "main": [
+        [
+          {
+            "node": "Check if Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Save": {
+      "main": [
+        [
+          {
+            "node": "Save Goal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Goal": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Goal Stats": {
+      "main": [
+        [
+          {
+            "node": "List Active Goals",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Active Goals": {
+      "main": [
+        [
+          {
+            "node": "Format Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Progress": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

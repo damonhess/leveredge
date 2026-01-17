@@ -1,0 +1,312 @@
+{
+  "name": "19 - Progress Tracker",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "prog-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'check_in' }}"
+            },
+            {
+              "id": "mood",
+              "name": "mood",
+              "type": "number",
+              "value": "={{ $json.mood || null }}"
+            },
+            {
+              "id": "energy",
+              "name": "energy",
+              "type": "number",
+              "value": "={{ $json.energy || null }}"
+            },
+            {
+              "id": "wins",
+              "name": "wins",
+              "type": "array",
+              "value": "={{ $json.wins || [] }}"
+            },
+            {
+              "id": "challenges",
+              "name": "challenges",
+              "type": "array",
+              "value": "={{ $json.challenges || [] }}"
+            },
+            {
+              "id": "notes",
+              "name": "notes",
+              "type": "string",
+              "value": "={{ $json.notes || '' }}"
+            },
+            {
+              "id": "days",
+              "name": "days",
+              "type": "number",
+              "value": "={{ $json.days || 7 }}"
+            },
+            {
+              "id": "user-id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "prog-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check_in",
+              "leftValue": "={{ $json.operation }}",
+              "rightValue": "check_in",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "prog-router",
+      "name": "Route Operation",
+      "type": "n8n-nodes-base.if",
+      "position": [540, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\n\n// Validate check-in data\nif (!input.mood && !input.energy) {\n  return [{\n    json: {\n      status: 'need_data',\n      message: \"Let's do a quick check-in. On a scale of 1-10:\\n\\n1. How's your mood today? (1=terrible, 10=amazing)\\n2. What's your energy level? (1=exhausted, 10=energized)\\n3. Any wins to celebrate?\\n4. Any challenges you're facing?\"\n    }\n  }];\n}\n\n// Prepare check-in data\nconst checkinData = {\n  user_id: input.user_id,\n  mood: input.mood,\n  energy: input.energy,\n  wins: JSON.stringify(input.wins || []),\n  challenges: JSON.stringify(input.challenges || []),\n  notes: input.notes\n};\n\n// Generate response based on mood/energy\nlet feedback = '';\nconst mood = input.mood;\nconst energy = input.energy;\n\nif (mood <= 3) {\n  feedback = \"I see you're having a tough day. \";\n} else if (mood >= 8) {\n  feedback = \"Great to see you in high spirits! \";\n}\n\nif (energy <= 3) {\n  feedback += \"Low energy - have you eaten, hydrated, moved today? Consider a short walk or power nap.\";\n} else if (energy >= 8) {\n  feedback += \"High energy - perfect time for tackling that challenging task you've been avoiding.\";\n}\n\nif (input.wins && input.wins.length > 0) {\n  feedback += `\\n\\n🎉 Wins to celebrate: ${input.wins.join(', ')}`;\n}\n\nif (input.challenges && input.challenges.length > 0) {\n  feedback += `\\n\\n⚡ Challenges on deck: ${input.challenges.join(', ')}`;\n}\n\nreturn [{\n  json: {\n    status: 'save_checkin',\n    checkin_data: checkinData,\n    save_to_db: true,\n    feedback: feedback || `Check-in recorded. Mood: ${mood}/10, Energy: ${energy}/10`\n  }\n}];"
+      },
+      "id": "prog-process-checkin",
+      "name": "Process Check-in",
+      "type": "n8n-nodes-base.code",
+      "position": [760, 200],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "mode": "list",
+          "value": "aria_daily_checkins"
+        },
+        "columns": {
+          "value": {
+            "user_id": "={{ $json.checkin_data.user_id }}",
+            "mood": "={{ $json.checkin_data.mood }}",
+            "energy": "={{ $json.checkin_data.energy }}",
+            "wins": "={{ $json.checkin_data.wins }}",
+            "challenges": "={{ $json.checkin_data.challenges }}",
+            "notes": "={{ $json.checkin_data.notes }}"
+          },
+          "schema": [],
+          "mappingMode": "defineBelow",
+          "matchingColumns": []
+        },
+        "options": {}
+      },
+      "id": "prog-save-checkin",
+      "name": "Save Check-in",
+      "type": "n8n-nodes-base.postgres",
+      "position": [980, 200],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM aria_checkin_patterns($1::text, $2::int)",
+        "options": {
+          "queryReplacement": "={{ [$('Extract Input').first().json.user_id, $('Extract Input').first().json.days] }}"
+        }
+      },
+      "id": "prog-get-patterns",
+      "name": "Get Patterns",
+      "type": "n8n-nodes-base.postgres",
+      "position": [760, 400],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const patterns = $('Get Patterns').first().json;\nconst days = $('Extract Input').first().json.days;\n\nif (!patterns || !patterns.checkin_count) {\n  return [{\n    json: {\n      status: 'no_data',\n      message: `No check-ins found in the last ${days} days. Start tracking with a daily check-in!`\n    }\n  }];\n}\n\nlet analysis = `📊 PROGRESS REPORT (Last ${days} days)\\n`;\nanalysis += `================================\\n\\n`;\n\nanalysis += `Check-ins: ${patterns.checkin_count}\\n`;\nanalysis += `Avg Mood: ${patterns.avg_mood}/10 (trend: ${patterns.mood_trend})\\n`;\nanalysis += `Avg Energy: ${patterns.avg_energy}/10 (trend: ${patterns.energy_trend})\\n`;\nanalysis += `Wins recorded: ${patterns.total_wins}\\n`;\nanalysis += `Challenges faced: ${patterns.total_challenges}\\n\\n`;\n\n// Add insights\nlet insights = [];\n\nif (patterns.mood_trend === 'improving') {\n  insights.push('🌟 Mood trending up! Whatever you\\'re doing, keep doing it.');\n} else if (patterns.mood_trend === 'declining') {\n  insights.push('⚠️ Mood trending down. Time to check in - what\\'s weighing on you?');\n}\n\nif (patterns.energy_trend === 'declining') {\n  insights.push('⚡ Energy dropping. Review sleep, nutrition, and stress levels.');\n}\n\nif (patterns.total_wins > patterns.total_challenges) {\n  insights.push('💪 More wins than challenges - you\\'re on a roll!');\n}\n\nif (patterns.checkin_count < days * 0.5) {\n  insights.push('📝 Consistency opportunity: try checking in daily for better pattern detection.');\n}\n\nreturn [{\n  json: {\n    status: 'patterns',\n    summary: analysis,\n    patterns: patterns,\n    insights: insights\n  }\n}];"
+      },
+      "id": "prog-analyze-patterns",
+      "name": "Analyze Patterns",
+      "type": "n8n-nodes-base.code",
+      "position": [980, 400],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('progress_tracker', true, null)",
+        "options": {}
+      },
+      "id": "prog-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1200, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge outputs from both paths\nconst checkinOutput = $('Process Check-in').first()?.json;\nconst patternOutput = $('Analyze Patterns').first()?.json;\n\nlet output = checkinOutput || patternOutput;\n\n// If we did a check-in, add the feedback\nif (checkinOutput && checkinOutput.feedback) {\n  output = {\n    status: 'checkin_saved',\n    feedback: checkinOutput.feedback\n  };\n}\n\nreturn [{\n  json: {\n    output: JSON.stringify(output, null, 2)\n  }\n}];"
+      },
+      "id": "prog-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "position": [1420, 300],
+      "typeVersion": 2
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Route Operation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Operation": {
+      "main": [
+        [
+          {
+            "node": "Process Check-in",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Check-in": {
+      "main": [
+        [
+          {
+            "node": "Save Check-in",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Check-in": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patterns": {
+      "main": [
+        [
+          {
+            "node": "Analyze Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Patterns": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
