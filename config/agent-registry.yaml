@@ -1471,8 +1471,8 @@ agents:
 
   thalia:
     name: THALIA
-    version: "1.0"
-    description: "Designer - Presentations, charts, layouts"
+    version: "1.1"
+    description: "Designer - Presentations, charts, layouts, web/UI design"
     category: creative
     llm_powered: false
 
@@ -1486,6 +1486,10 @@ agents:
       - document_formatting
       - chart_generation
       - thumbnail_creation
+      - landing_page_design
+      - ui_component_design
+      - wireframe_generation
+      - website_template_design
 
     actions:
 
@@ -1540,6 +1544,126 @@ agents:
         returns:
           type: object
           fields: [image_path, sizes]
+
+      design-landing-page:
+        endpoint: /design/landing-page
+        method: POST
+        description: "Generate complete landing page with Tailwind CSS"
+        timeout_ms: 60000
+        params:
+          - name: title
+            type: string
+            required: true
+          - name: sections
+            type: array
+            required: true
+            description: "Array of section definitions (hero, features, pricing, etc.)"
+          - name: brand_id
+            type: string
+            required: false
+          - name: style
+            type: string
+            required: false
+            enum: [modern, minimal, corporate, playful, dark]
+          - name: use_tailwind
+            type: boolean
+            required: false
+            default: true
+          - name: include_animations
+            type: boolean
+            required: false
+            default: true
+        returns:
+          type: object
+          fields: [file_path, filename, preview_url, sections_generated, style]
+
+      design-ui-component:
+        endpoint: /design/ui-component
+        method: POST
+        description: "Generate individual UI components with Tailwind CSS"
+        timeout_ms: 30000
+        params:
+          - name: component_type
+            type: string
+            required: true
+            enum: [button, card, form, navbar, footer, modal, alert, badge, input, dropdown, tabs, accordion, pricing_card, testimonial_card, feature_card, hero, cta_banner]
+          - name: variant
+            type: string
+            required: false
+            default: "primary"
+          - name: size
+            type: string
+            required: false
+            enum: [sm, md, lg, xl]
+          - name: brand_id
+            type: string
+            required: false
+          - name: dark_mode
+            type: boolean
+            required: false
+            default: false
+        returns:
+          type: object
+          fields: [file_path, filename, preview_url, component_type, variant, size]
+
+      design-wireframe:
+        endpoint: /design/wireframe
+        method: POST
+        description: "Generate wireframe/mockup for page layout"
+        timeout_ms: 30000
+        params:
+          - name: page_type
+            type: string
+            required: true
+            enum: [landing, dashboard, blog, ecommerce, portfolio, saas, app]
+          - name: sections
+            type: array
+            required: true
+            description: "Section names to include"
+          - name: brand_id
+            type: string
+            required: false
+          - name: annotations
+            type: boolean
+            required: false
+            default: true
+          - name: include_grid
+            type: boolean
+            required: false
+            default: true
+        returns:
+          type: object
+          fields: [file_path, filename, preview_url, page_type, sections]
+
+      design-website-template:
+        endpoint: /design/website-template
+        method: POST
+        description: "Generate complete website template with multiple pages"
+        timeout_ms: 120000
+        params:
+          - name: template_type
+            type: string
+            required: true
+            enum: [landing, portfolio, blog, business, saas, agency, startup]
+          - name: pages
+            type: array
+            required: false
+            default: ["home"]
+            description: "Pages to generate (home, about, contact, pricing, etc.)"
+          - name: brand_id
+            type: string
+            required: false
+          - name: style
+            type: string
+            required: false
+            enum: [modern, minimal, corporate, playful, dark]
+          - name: include_javascript
+            type: boolean
+            required: false
+            default: true
+        returns:
+          type: object
+          fields: [template_id, template_dir, pages, template_type, style]
 
   erato:
     name: ERATO
