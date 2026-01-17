@@ -1,0 +1,187 @@
+{
+  "name": "28 - Identity Shifter",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "identity-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'explore' }}"
+            },
+            {
+              "id": "current_identity",
+              "name": "current_identity",
+              "type": "string",
+              "value": "={{ $json.current_identity || '' }}"
+            },
+            {
+              "id": "target_identity",
+              "name": "target_identity",
+              "type": "string",
+              "value": "={{ $json.target_identity || '' }}"
+            },
+            {
+              "id": "context",
+              "name": "context",
+              "type": "string",
+              "value": "={{ $json.context || '' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "identity-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  (SELECT json_agg(row_to_json(v.*)) FROM (\n    SELECT value_name, rank, definition FROM aria_values WHERE user_id = $1 ORDER BY rank LIMIT 5\n  ) v) as values,\n  (SELECT json_agg(row_to_json(g.*)) FROM (\n    SELECT title, status FROM aria_goals WHERE user_id = $1 AND status = 'active'\n  ) g) as goals,\n  (SELECT json_agg(row_to_json(h.*)) FROM (\n    SELECT habit_name, current_streak, status FROM aria_habits WHERE user_id = $1 AND status IN ('building', 'established')\n  ) h) as habits,\n  (SELECT json_agg(row_to_json(w.*)) FROM (\n    SELECT career, finances, health, relationships, personal_growth, fun_recreation, environment, contribution, balance_score\n    FROM aria_wheel_of_life WHERE user_id = $1 ORDER BY assessed_at DESC LIMIT 1\n  ) w) as wheel,\n  (SELECT json_agg(row_to_json(r.*)) FROM (\n    SELECT resistance_type, COUNT(*) as count FROM aria_resistance_patterns \n    WHERE user_id = $1 GROUP BY resistance_type ORDER BY count DESC LIMIT 3\n  ) r) as resistance_patterns",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "identity-gather",
+      "name": "Gather Context",
+      "type": "n8n-nodes-base.postgres",
+      "position": [540, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst context = $('Gather Context').first().json;\nconst operation = input.operation;\nconst currentIdentity = input.current_identity;\nconst targetIdentity = input.target_identity;\n\nconst values = context.values || [];\nconst goals = context.goals || [];\nconst habits = context.habits || [];\nconst wheel = context.wheel?.[0] || {};\nconst resistancePatterns = context.resistance_patterns || [];\n\n// Identity archetypes with characteristics\nconst archetypes = {\n  entrepreneur: {\n    beliefs: ['I create value', 'Problems are opportunities', 'I take calculated risks', 'Failure is feedback'],\n    behaviors: ['Ship fast, iterate faster', 'Talk to customers weekly', 'Invest in myself', 'Build before you\\'re ready'],\n    language: ['When I launch...', 'My customers...', 'The market...', 'ROI on...'],\n    daily_evidence: ['Made a business decision', 'Created something', 'Talked to potential customer', 'Invested in growth']\n  },\n  athlete: {\n    beliefs: ['I am disciplined', 'Discomfort is growth', 'Consistency beats intensity', 'My body is a temple'],\n    behaviors: ['Train regardless of mood', 'Prioritize sleep', 'Fuel properly', 'Track metrics'],\n    language: ['My training...', 'Recovery day...', 'Personal best...', 'The discipline...'],\n    daily_evidence: ['Completed workout', 'Made healthy food choice', 'Got 7+ hours sleep', 'Tracked fitness metric']\n  },\n  creator: {\n    beliefs: ['I have something to say', 'Done is better than perfect', 'Creativity is a practice', 'My voice matters'],\n    behaviors: ['Create before consuming', 'Ship weekly', 'Embrace ugly first drafts', 'Build in public'],\n    language: ['My work...', 'I\\'m working on...', 'I published...', 'My audience...'],\n    daily_evidence: ['Created something', 'Published/shared work', 'Got feedback', 'Improved a skill']\n  },\n  leader: {\n    beliefs: ['I empower others', 'Vision drives action', 'Accountability starts with me', 'My example matters'],\n    behaviors: ['Communicate vision regularly', 'Develop others', 'Make hard decisions', 'Own outcomes'],\n    language: ['Our team...', 'I\\'ve decided...', 'Here\\'s the direction...', 'How can I help you succeed?'],\n    daily_evidence: ['Made a leadership decision', 'Developed someone', 'Communicated vision', 'Took responsibility']\n  },\n  learner: {\n    beliefs: ['I don\\'t know what I don\\'t know', 'Every expert was once a beginner', 'Struggle is learning', 'Curiosity is a superpower'],\n    behaviors: ['Read/learn daily', 'Embrace being wrong', 'Ask questions', 'Teach what you learn'],\n    language: ['I\\'m learning...', 'I discovered...', 'What if...', 'How does...work?'],\n    daily_evidence: ['Learned something new', 'Asked a good question', 'Changed mind based on evidence', 'Taught someone']\n  },\n  minimalist: {\n    beliefs: ['Less is more', 'Quality over quantity', 'Freedom comes from focus', 'I need less than I think'],\n    behaviors: ['Regular decluttering', 'Say no by default', 'Buy less, own better', 'Simplify ruthlessly'],\n    language: ['I don\\'t need...', 'What\\'s essential?', 'I\\'m simplifying...', 'That\\'s enough'],\n    daily_evidence: ['Removed something', 'Said no', 'Chose simple option', 'Appreciated what I have']\n  }\n};\n\nlet output = '';\nlet identityPlan = {};\n\nif (operation === 'explore') {\n  // Help user explore who they want to become\n  const questions = [\n    '\\ud83e\\uddd0 WHO DO YOU WANT TO BECOME?',\n    '',\n    'Start by answering these questions:',\n    '',\n    '1. ADMIRATION: Who do you admire? What specifically do you admire about them?',\n    '',\n    '2. REGRET: What kind of person would you regret NOT becoming?',\n    '',\n    '3. DAILY LIFE: Describe your ideal day 5 years from now. What does that person do?',\n    '',\n    '4. OBITUARY: What would you want said about you at your funeral?',\n    '',\n    '5. IDENTITY STATEMENT: Complete this sentence:',\n    '   \"I am the kind of person who __________\"',\n    '',\n    '\\ud83c\\udfaf IDENTITY ARCHETYPES (pick 1-2 that resonate):',\n    '',\n    Object.entries(archetypes).map(([name, data]) => \n      `\\u2022 ${name.toUpperCase()}: \"${data.beliefs[0]}\"\\n  Behaviors: ${data.behaviors.slice(0, 2).join(', ')}`\n    ).join('\\n\\n'),\n    '',\n    'Tell me your target identity and I\\'ll build your transformation plan.'\n  ];\n  \n  output = questions.join('\\n');\n  identityPlan = { status: 'exploring', archetypes: Object.keys(archetypes) };\n  \n} else if (operation === 'design' || targetIdentity) {\n  // Build identity transformation plan\n  const target = targetIdentity.toLowerCase();\n  const archetype = archetypes[target] || null;\n  \n  // Identity Gap Analysis\n  const gaps = [];\n  const bridges = [];\n  const evidence = [];\n  \n  // Check values alignment\n  if (values.length > 0) {\n    const topValues = values.slice(0, 3).map(v => v.value_name);\n    bridges.push(`Your values (${topValues.join(', ')}) will anchor this identity shift`);\n  }\n  \n  // Check existing habits that support the shift\n  if (habits.length > 0) {\n    const strongHabits = habits.filter(h => h.current_streak >= 7);\n    if (strongHabits.length > 0) {\n      bridges.push(`Existing habits supporting this: ${strongHabits.map(h => h.habit_name).join(', ')}`);\n    }\n  }\n  \n  // Check resistance patterns\n  if (resistancePatterns.length > 0) {\n    const topResistance = resistancePatterns[0];\n    gaps.push(`Watch for ${topResistance.resistance_type} - it\\'s your most common blocker`);\n  }\n  \n  // Build the plan\n  const beliefWork = archetype ? archetype.beliefs : [\n    `I am someone who ${targetIdentity}`,\n    'My actions define me, not my feelings',\n    'Every day I become more of who I want to be',\n    'Small consistent actions compound'\n  ];\n  \n  const behaviorWork = archetype ? archetype.behaviors : [\n    `Do one thing a ${targetIdentity} would do`,\n    'Start smaller than feels meaningful',\n    'Never miss twice',\n    'Track your evidence'\n  ];\n  \n  const dailyEvidence = archetype ? archetype.daily_evidence : [\n    `Did something a ${targetIdentity} would do`,\n    'Made a decision as this identity',\n    'Spoke as this identity',\n    'Felt like this identity (even briefly)'\n  ];\n  \n  const rituals = [\n    '\\ud83c\\udf05 MORNING: State your identity out loud: \"I am...\"',\n    '\\ud83d\\udcdd DAILY: Record one piece of identity evidence',\n    '\\ud83c\\udf19 EVENING: Review - \"How did I show up as [identity] today?\"',\n    '\\ud83d\\udcc5 WEEKLY: Celebrate evidence, adjust approach'\n  ];\n  \n  output = `\\n\\n\\ud83e\\uddd1\\u200d\\ud83c\\udf93 IDENTITY SHIFTER\\n${'='.repeat(50)}\\n\\n` +\n    `\\ud83c\\udfaf TARGET IDENTITY: ${targetIdentity.toUpperCase()}\\n` +\n    (currentIdentity ? `\\ud83d\\udd04 FROM: ${currentIdentity}\\n` : '') +\n    `\\n\\ud83e\\udde0 BELIEF WORK (Adopt These):\\n${beliefWork.map((b, i) => `${i+1}. \"${b}\"`).join('\\n')}\\n\\n` +\n    `\\ud83c\\udfac BEHAVIOR WORK (Do These):\\n${behaviorWork.map((b, i) => `${i+1}. ${b}`).join('\\n')}\\n\\n` +\n    `\\u2705 DAILY IDENTITY EVIDENCE (Collect These):\\n${dailyEvidence.map(e => `\\u2022 ${e}`).join('\\n')}\\n\\n` +\n    `\\ud83d\\udd2e IDENTITY RITUALS:\\n${rituals.join('\\n')}\\n\\n` +\n    (bridges.length > 0 ? `\\ud83c\\udf09 BRIDGES (What Helps):\\n${bridges.map(b => `\\u2022 ${b}`).join('\\n')}\\n\\n` : '') +\n    (gaps.length > 0 ? `\\u26a0\\ufe0f GAPS (Watch For):\\n${gaps.map(g => `\\u2022 ${g}`).join('\\n')}\\n\\n` : '') +\n    `\\ud83d\\udca1 KEY INSIGHT:\\nIdentity change is NOT:\\n\\u2022 \\u274c Changing how you feel first\\n\\u2022 \\u274c Waiting until you\\'re ready\\n\\u2022 \\u274c One big transformation\\n\\nIdentity change IS:\\n\\u2022 \\u2705 Acting AS IF you already are that person\\n\\u2022 \\u2705 Collecting small evidence every day\\n\\u2022 \\u2705 1% shifts that compound\\n\\n` +\n    `\\\"Every action is a vote for the person you want to become.\\\" - James Clear\\n\\n` +\n    `Start TODAY: What\\'s ONE thing a ${targetIdentity} would do right now?`;\n  \n  identityPlan = {\n    status: 'designed',\n    target_identity: targetIdentity,\n    beliefs: beliefWork,\n    behaviors: behaviorWork,\n    daily_evidence: dailyEvidence,\n    rituals: rituals,\n    bridges: bridges,\n    gaps: gaps\n  };\n}\n\nreturn [{\n  json: {\n    status: identityPlan.status || 'processed',\n    operation: operation,\n    current_identity: currentIdentity,\n    target_identity: targetIdentity,\n    plan: identityPlan,\n    context: { values: values.length, goals: goals.length, habits: habits.length },\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "identity-process",
+      "name": "Process Identity",
+      "type": "n8n-nodes-base.code",
+      "position": [760, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('identity_shifter', true, null)",
+        "options": {}
+      },
+      "id": "identity-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [980, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $('Process Identity').first().json.formatted_output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "identity-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [1200, 300],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Gather Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Context": {
+      "main": [
+        [
+          {
+            "node": "Process Identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Identity": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "identity-shifter-001"
+}

@@ -1,0 +1,181 @@
+{
+  "name": "26 - Coaching Insights",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "insights-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'analyze' }}"
+            },
+            {
+              "id": "timeframe",
+              "name": "timeframe",
+              "type": "string",
+              "value": "={{ $json.timeframe || '30d' }}"
+            },
+            {
+              "id": "focus_area",
+              "name": "focus_area",
+              "type": "string",
+              "value": "={{ $json.focus_area || 'all' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "insights-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH energy_patterns AS (\n  SELECT \n    AVG(energy_level) as avg_energy,\n    AVG(focus_level) as avg_focus,\n    AVG(mood) as avg_mood,\n    EXTRACT(HOUR FROM timestamp) as hour_of_day,\n    COUNT(*) as samples\n  FROM aria_energy_logs \n  WHERE user_id = $1 AND timestamp > NOW() - INTERVAL '30 days'\n  GROUP BY EXTRACT(HOUR FROM timestamp)\n),\nhabit_stats AS (\n  SELECT \n    h.habit_name,\n    h.current_streak,\n    h.longest_streak,\n    COUNT(hc.id) as completions,\n    AVG(hc.quality_rating) as avg_quality\n  FROM aria_habits h\n  LEFT JOIN aria_habit_completions hc ON h.id = hc.habit_id\n  WHERE h.user_id = $1 AND h.status != 'abandoned'\n  GROUP BY h.id, h.habit_name, h.current_streak, h.longest_streak\n),\ndecision_patterns AS (\n  SELECT \n    framework_used,\n    AVG(confidence_score) as avg_confidence,\n    AVG(outcome_rating) as avg_outcome,\n    COUNT(*) as decision_count\n  FROM aria_decisions\n  WHERE user_id = $1 AND created_at > NOW() - INTERVAL '30 days'\n  GROUP BY framework_used\n),\nresistance_types AS (\n  SELECT \n    resistance_type,\n    COUNT(*) as occurrences,\n    mode() WITHIN GROUP (ORDER BY root_cause) as common_root_cause\n  FROM aria_resistance_patterns\n  WHERE user_id = $1 AND detected_at > NOW() - INTERVAL '30 days'\n  GROUP BY resistance_type\n),\nwheel_trend AS (\n  SELECT \n    career, finances, health, relationships,\n    personal_growth, fun_recreation, environment, contribution,\n    balance_score,\n    assessed_at\n  FROM aria_wheel_of_life\n  WHERE user_id = $1\n  ORDER BY assessed_at DESC\n  LIMIT 2\n),\ngoal_progress AS (\n  SELECT \n    status,\n    COUNT(*) as count\n  FROM aria_goals\n  WHERE user_id = $1\n  GROUP BY status\n),\ngrow_sessions AS (\n  SELECT \n    COUNT(*) as total_sessions,\n    COUNT(CASE WHEN current_phase = 'complete' THEN 1 END) as completed_sessions\n  FROM aria_grow_sessions\n  WHERE user_id = $1 AND started_at > NOW() - INTERVAL '30 days'\n)\nSELECT json_build_object(\n  'energy_patterns', (SELECT json_agg(e.*) FROM energy_patterns e),\n  'habit_stats', (SELECT json_agg(h.*) FROM habit_stats h),\n  'decision_patterns', (SELECT json_agg(d.*) FROM decision_patterns d),\n  'resistance_types', (SELECT json_agg(r.*) FROM resistance_types r),\n  'wheel_trend', (SELECT json_agg(w.*) FROM wheel_trend w),\n  'goal_progress', (SELECT json_agg(g.*) FROM goal_progress g),\n  'grow_sessions', (SELECT json_agg(gs.*) FROM grow_sessions gs)\n) as coaching_data",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "insights-gather",
+      "name": "Gather All Data",
+      "type": "n8n-nodes-base.postgres",
+      "position": [540, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst rawData = $('Gather All Data').first().json;\nconst data = rawData.coaching_data || {};\n\nlet insights = [];\nlet patterns = [];\nlet recommendations = [];\nlet warnings = [];\n\n// Analyze Energy Patterns\nconst energyData = data.energy_patterns || [];\nif (energyData.length > 0) {\n  const peakHour = energyData.reduce((max, e) => \n    e.avg_energy > max.avg_energy ? e : max, energyData[0]);\n  const lowHour = energyData.reduce((min, e) => \n    e.avg_energy < min.avg_energy ? e : min, energyData[0]);\n  \n  patterns.push(`Peak energy typically at ${peakHour.hour_of_day}:00 (${peakHour.avg_energy?.toFixed(1)}/10)`);\n  patterns.push(`Energy dip around ${lowHour.hour_of_day}:00 (${lowHour.avg_energy?.toFixed(1)}/10)`);\n  \n  if (peakHour.avg_energy - lowHour.avg_energy > 3) {\n    recommendations.push('Schedule deep work during peak hours, administrative tasks during energy dips');\n  }\n}\n\n// Analyze Habit Performance\nconst habitData = data.habit_stats || [];\nif (habitData.length > 0) {\n  const strongHabits = habitData.filter(h => h.current_streak >= 7);\n  const strugglingHabits = habitData.filter(h => h.current_streak < 3 && h.completions < 5);\n  \n  if (strongHabits.length > 0) {\n    insights.push(`Strong habits: ${strongHabits.map(h => h.habit_name).join(', ')}`);\n  }\n  if (strugglingHabits.length > 0) {\n    warnings.push(`Struggling habits need attention: ${strugglingHabits.map(h => h.habit_name).join(', ')}`);\n    recommendations.push('Consider making struggling habits smaller (2-minute rule) or changing the trigger');\n  }\n}\n\n// Analyze Decision Patterns\nconst decisionData = data.decision_patterns || [];\nif (decisionData.length > 0) {\n  const bestFramework = decisionData.reduce((best, d) => \n    (d.avg_outcome || 0) > (best.avg_outcome || 0) ? d : best, decisionData[0]);\n  \n  if (bestFramework.avg_outcome) {\n    patterns.push(`Best decision framework: ${bestFramework.framework_used} (${bestFramework.avg_outcome?.toFixed(1)}/10 outcomes)`);\n  }\n}\n\n// Analyze Resistance Patterns\nconst resistanceData = data.resistance_types || [];\nif (resistanceData.length > 0) {\n  const topResistance = resistanceData.reduce((max, r) => \n    r.occurrences > max.occurrences ? r : max, resistanceData[0]);\n  \n  warnings.push(`Most common resistance: ${topResistance.resistance_type} (${topResistance.occurrences}x)`);\n  \n  const interventions = {\n    fear: 'Use fear-setting: write out worst case, then shrink the risk',\n    overwhelm: 'Apply 2-minute rule: what\\'s the smallest possible next step?',\n    perfectionism: 'Ship ugly. B- work beats A+ planning.',\n    boredom: 'Gamify or stack with enjoyable activities'\n  };\n  \n  if (interventions[topResistance.resistance_type]) {\n    recommendations.push(interventions[topResistance.resistance_type]);\n  }\n}\n\n// Analyze Wheel of Life Trend\nconst wheelData = data.wheel_trend || [];\nif (wheelData.length >= 2) {\n  const current = wheelData[0];\n  const previous = wheelData[1];\n  const diff = current.balance_score - previous.balance_score;\n  \n  if (diff > 0) {\n    insights.push(`Life balance improved: ${previous.balance_score?.toFixed(1)} → ${current.balance_score?.toFixed(1)} (+${diff.toFixed(1)})`);\n  } else if (diff < 0) {\n    warnings.push(`Life balance declined: ${previous.balance_score?.toFixed(1)} → ${current.balance_score?.toFixed(1)} (${diff.toFixed(1)})`);\n  }\n  \n  // Find lowest area\n  const areas = ['career', 'finances', 'health', 'relationships', 'personal_growth', 'fun_recreation', 'environment', 'contribution'];\n  const lowest = areas.reduce((min, area) => \n    current[area] < current[min] ? area : min, areas[0]);\n  \n  recommendations.push(`Focus area: ${lowest.replace('_', ' ')} at ${current[lowest]}/10`);\n}\n\n// Analyze Goal Progress\nconst goalData = data.goal_progress || [];\nif (goalData.length > 0) {\n  const stats = goalData.reduce((acc, g) => {\n    acc[g.status] = g.count;\n    return acc;\n  }, {});\n  \n  const completed = stats.completed || 0;\n  const active = stats.active || 0;\n  const abandoned = stats.abandoned || 0;\n  \n  if (completed > 0) {\n    insights.push(`Goals completed: ${completed}`);\n  }\n  if (abandoned > active) {\n    warnings.push(`More goals abandoned (${abandoned}) than active (${active}) - consider setting fewer, more meaningful goals`);\n  }\n}\n\n// Analyze GROW Sessions\nconst growData = data.grow_sessions || [];\nif (growData.length > 0 && growData[0]) {\n  const total = growData[0].total_sessions || 0;\n  const completed = growData[0].completed_sessions || 0;\n  \n  if (total > 0) {\n    const rate = (completed / total * 100).toFixed(0);\n    patterns.push(`GROW session completion: ${rate}% (${completed}/${total})`);\n    \n    if (rate < 50) {\n      recommendations.push('Many GROW sessions started but not completed - consider shorter sessions or clearer initial goals');\n    }\n  }\n}\n\n// Generate output\nconst output = `\\n\\n\\ud83d\\udcca COACHING INSIGHTS REPORT\\n${'='.repeat(50)}\\n\\n` +\n  `\\ud83d\\udd0d PATTERNS DETECTED:\\n${patterns.length > 0 ? patterns.map(p => '\\u2022 ' + p).join('\\n') : '\\u2022 Not enough data yet'}\\n\\n` +\n  `\\ud83d\\udca1 KEY INSIGHTS:\\n${insights.length > 0 ? insights.map(i => '\\u2022 ' + i).join('\\n') : '\\u2022 Continue tracking to build insights'}\\n\\n` +\n  `\\u26a0\\ufe0f AREAS OF ATTENTION:\\n${warnings.length > 0 ? warnings.map(w => '\\u2022 ' + w).join('\\n') : '\\u2022 No warnings - keep up the good work!'}\\n\\n` +\n  `\\u2705 RECOMMENDATIONS:\\n${recommendations.length > 0 ? recommendations.map((r, i) => `${i+1}. ${r}`).join('\\n') : '\\u2022 Keep building data for personalized recommendations'}\\n\\n` +\n  `Data sources: energy logs, habits, decisions, resistance patterns, wheel of life, goals, GROW sessions`;\n\nreturn [{\n  json: {\n    status: 'analyzed',\n    patterns: patterns,\n    insights: insights,\n    warnings: warnings,\n    recommendations: recommendations,\n    raw_data: data,\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "insights-analyze",
+      "name": "Analyze Patterns",
+      "type": "n8n-nodes-base.code",
+      "position": [760, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('coaching_insights', true, null)",
+        "options": {}
+      },
+      "id": "insights-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [980, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $('Analyze Patterns').first().json.formatted_output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "insights-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [1200, 300],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Gather All Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather All Data": {
+      "main": [
+        [
+          {
+            "node": "Analyze Patterns",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze Patterns": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "coaching-insights-001"
+}

@@ -1,0 +1,187 @@
+{
+  "name": "27 - System Architect",
+  "active": true,
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "system-trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "operation",
+              "name": "operation",
+              "type": "string",
+              "value": "={{ $json.operation || 'design' }}"
+            },
+            {
+              "id": "system_type",
+              "name": "system_type",
+              "type": "string",
+              "value": "={{ $json.system_type || 'routine' }}"
+            },
+            {
+              "id": "goal",
+              "name": "goal",
+              "type": "string",
+              "value": "={{ $json.goal || '' }}"
+            },
+            {
+              "id": "constraints",
+              "name": "constraints",
+              "type": "string",
+              "value": "={{ $json.constraints || '' }}"
+            },
+            {
+              "id": "user_id",
+              "name": "user_id",
+              "type": "string",
+              "value": "={{ $json.user_id || 'damon' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "system-extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "typeVersion": 3.3
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  (SELECT json_agg(row_to_json(e.*)) FROM (\n    SELECT energy_level, focus_level, mood, \n           EXTRACT(HOUR FROM timestamp) as hour,\n           EXTRACT(DOW FROM timestamp) as day_of_week\n    FROM aria_energy_logs WHERE user_id = $1 \n    ORDER BY timestamp DESC LIMIT 50\n  ) e) as energy_data,\n  (SELECT json_agg(row_to_json(h.*)) FROM (\n    SELECT habit_name, trigger_cue, routine, reward, current_streak, status\n    FROM aria_habits WHERE user_id = $1 AND status != 'abandoned'\n  ) h) as habits,\n  (SELECT json_agg(row_to_json(v.*)) FROM (\n    SELECT value_name, rank FROM aria_values WHERE user_id = $1 ORDER BY rank\n  ) v) as values,\n  (SELECT json_agg(row_to_json(g.*)) FROM (\n    SELECT title, status, target_date FROM aria_goals WHERE user_id = $1 AND status = 'active'\n  ) g) as goals",
+        "options": {
+          "queryReplacement": "={{ [$json.user_id] }}"
+        }
+      },
+      "id": "system-gather",
+      "name": "Gather Context",
+      "type": "n8n-nodes-base.postgres",
+      "position": [540, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $('Extract Input').first().json;\nconst context = $('Gather Context').first().json;\nconst systemType = input.system_type;\nconst goal = input.goal;\nconst constraints = input.constraints;\n\n// Analyze energy patterns to find optimal times\nconst energyData = context.energy_data || [];\nlet peakHours = [];\nlet lowHours = [];\n\nif (energyData.length > 0) {\n  const hourlyAvg = {};\n  energyData.forEach(e => {\n    if (!hourlyAvg[e.hour]) hourlyAvg[e.hour] = { total: 0, count: 0 };\n    hourlyAvg[e.hour].total += e.energy_level + e.focus_level;\n    hourlyAvg[e.hour].count++;\n  });\n  \n  const sorted = Object.entries(hourlyAvg)\n    .map(([hour, data]) => ({ hour: parseInt(hour), avg: data.total / data.count / 2 }))\n    .sort((a, b) => b.avg - a.avg);\n  \n  peakHours = sorted.slice(0, 3).map(h => h.hour);\n  lowHours = sorted.slice(-3).map(h => h.hour);\n}\n\n// Get existing habits and values\nconst habits = context.habits || [];\nconst values = context.values || [];\nconst goals = context.goals || [];\n\n// System templates based on type\nconst templates = {\n  morning: {\n    name: 'Morning Launch System',\n    phases: [\n      { name: 'Wake Protocol', duration: '15min', activities: ['No phone first 15min', 'Hydrate (16oz water)', 'Light exposure'] },\n      { name: 'Body Activation', duration: '20min', activities: ['Movement (walk/stretch/workout)', 'Cold exposure (optional)', 'Deep breathing'] },\n      { name: 'Mind Priming', duration: '15min', activities: ['Journaling or meditation', 'Review daily priorities', 'Visualize key outcomes'] },\n      { name: 'Fuel', duration: '20min', activities: ['Protein-rich breakfast', 'No screens during eating', 'Coffee/tea (if applicable)'] },\n      { name: 'Deep Work Block', duration: '90min', activities: ['Most important task', 'No interruptions', 'Phone on airplane mode'] }\n    ],\n    triggers: ['Alarm goes off', 'Feet hit floor'],\n    exit_criteria: 'First deep work block completed by 10am'\n  },\n  evening: {\n    name: 'Evening Wind-Down System',\n    phases: [\n      { name: 'Work Closure', duration: '15min', activities: ['Brain dump tomorrow\\'s tasks', 'Close all work tabs', 'Set top 3 priorities'] },\n      { name: 'Transition Ritual', duration: '30min', activities: ['Change clothes', 'Movement (walk/stretch)', 'No work talk'] },\n      { name: 'Connection', duration: '60min', activities: ['Quality time (people/pets)', 'No phones visible', 'Meaningful conversation'] },\n      { name: 'Wind Down', duration: '45min', activities: ['Dim lights', 'No screens after 9pm', 'Reading or relaxation'] },\n      { name: 'Sleep Prep', duration: '15min', activities: ['Bedroom cool (65-68F)', 'Gratitude reflection', 'Consistent bedtime'] }\n    ],\n    triggers: ['5pm work end', 'Sunset'],\n    exit_criteria: 'In bed by 10:30pm, asleep by 11pm'\n  },\n  weekly: {\n    name: 'Weekly Operating System',\n    phases: [\n      { name: 'Sunday Planning', duration: '60min', activities: ['Review last week wins/lessons', 'Set 3 weekly outcomes', 'Block calendar for priorities'] },\n      { name: 'Daily Standup', duration: '5min', activities: ['Check 3 daily priorities', 'Identify blockers', 'Commit to one thing'] },\n      { name: 'Wednesday Review', duration: '15min', activities: ['Mid-week progress check', 'Adjust if off-track', 'Celebrate small wins'] },\n      { name: 'Friday Shutdown', duration: '30min', activities: ['Close all loops', 'Capture learnings', 'Celebrate weekly wins'] },\n      { name: 'Weekend Recharge', duration: 'flexible', activities: ['Full day off (ideally Sunday)', 'No work communication', 'Activities that restore energy'] }\n    ],\n    triggers: ['Calendar reminders', 'ARIA daily check-in'],\n    exit_criteria: 'Weekly goals achieved, energy maintained'\n  },\n  productivity: {\n    name: 'Deep Work Operating System',\n    phases: [\n      { name: 'Environment Setup', duration: '5min', activities: ['Close all apps except 1-2 needed', 'Phone on airplane mode', 'Noise canceling or silence'] },\n      { name: 'Focus Block', duration: '90min', activities: ['Single task only', 'No context switching', 'Pomodoro optional (25/5)'] },\n      { name: 'Recovery', duration: '15min', activities: ['Stand/walk', 'Hydrate', 'Brief social check (5min max)'] },\n      { name: 'Admin Block', duration: '30min', activities: ['Batch email/messages', 'Quick tasks (<2min)', 'Schedule, don\\'t do'] },\n      { name: 'Creative Block', duration: '60min', activities: ['Brainstorming', 'Strategic thinking', 'No pressure output'] }\n    ],\n    triggers: ['Calendar block', 'Energy peak detection'],\n    exit_criteria: '4+ hours of focused work daily'\n  },\n  routine: {\n    name: 'Custom Life System',\n    phases: [\n      { name: 'Define Outcomes', duration: 'varies', activities: ['What does success look like?', 'What\\'s the ONE metric?', 'What\\'s the timeline?'] },\n      { name: 'Identify Keystone Habits', duration: 'varies', activities: ['What one habit enables others?', 'What\\'s the minimum viable version?', 'What\\'s the trigger?'] },\n      { name: 'Design Environment', duration: 'varies', activities: ['Remove friction from good behaviors', 'Add friction to bad behaviors', 'Make cues obvious'] },\n      { name: 'Build Feedback Loops', duration: 'varies', activities: ['How will you know if it\\'s working?', 'Daily/weekly check-ins', 'Adjustment triggers'] },\n      { name: 'Plan Recovery', duration: 'varies', activities: ['What happens when you fail?', 'Never miss twice rule', 'Pre-planned restart protocol'] }\n    ],\n    triggers: ['Goal statement', 'Frustration with current approach'],\n    exit_criteria: 'System running on autopilot within 30 days'\n  }\n};\n\nconst template = templates[systemType] || templates.routine;\n\n// Personalize based on context\nlet personalizations = [];\n\nif (peakHours.length > 0) {\n  personalizations.push(`Schedule deep work during your peak hours: ${peakHours.map(h => h + ':00').join(', ')}`);\n  personalizations.push(`Use ${lowHours.map(h => h + ':00').join(', ')} for admin tasks and recovery`);\n}\n\nif (habits.length > 0) {\n  const strongHabits = habits.filter(h => h.current_streak >= 7);\n  if (strongHabits.length > 0) {\n    personalizations.push(`Stack new behaviors after: ${strongHabits.map(h => h.habit_name).join(', ')}`);\n  }\n}\n\nif (values.length > 0) {\n  const topValues = values.slice(0, 3).map(v => v.value_name);\n  personalizations.push(`Align activities with your values: ${topValues.join(', ')}`);\n}\n\nif (goals.length > 0) {\n  personalizations.push(`Connect to active goals: ${goals.map(g => g.title).slice(0, 3).join(', ')}`);\n}\n\n// Build output\nconst output = `\\n\\n\\ud83d\\udee0\\ufe0f SYSTEM ARCHITECT\\n${'='.repeat(50)}\\n\\n` +\n  `\\ud83c\\udfaf SYSTEM: ${template.name}\\n` +\n  (goal ? `\\ud83c\\udfaf GOAL: ${goal}\\n` : '') +\n  (constraints ? `\\u26a0\\ufe0f CONSTRAINTS: ${constraints}\\n` : '') +\n  `\\n\\ud83d\\udcdd PHASES:\\n\\n` +\n  template.phases.map((p, i) => \n    `${i+1}. ${p.name} (${p.duration})\\n   ${p.activities.map(a => '\\u2022 ' + a).join('\\n   ')}`\n  ).join('\\n\\n') +\n  `\\n\\n\\u26a1 TRIGGERS:\\n${template.triggers.map(t => '\\u2022 ' + t).join('\\n')}\\n\\n` +\n  `\\u2705 SUCCESS CRITERIA:\\n${template.exit_criteria}\\n\\n` +\n  `\\ud83c\\udfaf PERSONALIZED FOR YOU:\\n${personalizations.length > 0 ? personalizations.map(p => '\\u2022 ' + p).join('\\n') : '\\u2022 Build more data for personalization'}\\n\\n` +\n  `\\ud83d\\udca1 IMPLEMENTATION TIPS:\\n` +\n  `\\u2022 Start with ONE phase, not the whole system\\n` +\n  `\\u2022 Run it for 2 weeks before adjusting\\n` +\n  `\\u2022 Expect 66 days to make it automatic\\n` +\n  `\\u2022 Never miss twice - restart immediately after a miss`;\n\nreturn [{\n  json: {\n    status: 'designed',\n    system_type: systemType,\n    system_name: template.name,\n    phases: template.phases,\n    triggers: template.triggers,\n    exit_criteria: template.exit_criteria,\n    personalizations: personalizations,\n    context: { peak_hours: peakHours, habits: habits.length, values: values.length, goals: goals.length },\n    formatted_output: output\n  }\n}];"
+      },
+      "id": "system-design",
+      "name": "Design System",
+      "type": "n8n-nodes-base.code",
+      "position": [760, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT aria_record_tool_usage('system_architect', true, null)",
+        "options": {}
+      },
+      "id": "system-record-usage",
+      "name": "Record Tool Usage",
+      "type": "n8n-nodes-base.postgres",
+      "position": [980, 300],
+      "typeVersion": 2.4,
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output",
+              "name": "output",
+              "type": "string",
+              "value": "={{ $('Design System').first().json.formatted_output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "system-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.set",
+      "position": [1200, 300],
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Input": {
+      "main": [
+        [
+          {
+            "node": "Gather Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gather Context": {
+      "main": [
+        [
+          {
+            "node": "Design System",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Design System": {
+      "main": [
+        [
+          {
+            "node": "Record Tool Usage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Record Tool Usage": {
+      "main": [
+        [
+          {
+            "node": "Format Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "system-architect-001"
+}
