@@ -27,6 +27,10 @@ N8N_URLS = {
 N8N_API_KEY = os.getenv("N8N_API_KEY", "")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
 
+# OLYMPUS Orchestration URLs
+SENTINEL_URL = os.getenv("SENTINEL_URL", "http://sentinel:8019")
+ATLAS_URL = os.getenv("ATLAS_URL", "http://atlas:8007")
+
 def get_n8n_headers():
     """Get headers for n8n API authentication"""
     return {"X-N8N-API-KEY": N8N_API_KEY}
@@ -245,6 +249,52 @@ async def list_tools() -> list[Tool]:
                 "required": ["message"]
             }
         ),
+        Tool(
+            name="orchestrate",
+            description="Execute orchestration through OLYMPUS (ATLAS/SENTINEL). Run pre-defined chains like research-and-plan, or single agent calls. Use this to have agents do work automatically.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "chain_name": {
+                        "type": "string",
+                        "description": "Pre-defined chain to execute",
+                        "enum": ["research-and-plan", "validate-and-decide", "comprehensive-market-analysis", "niche-evaluation", "weekly-planning", "fear-to-action"]
+                    },
+                    "input": {
+                        "type": "object",
+                        "description": "Input data for the chain. For research-and-plan: {topic: '...'}. For validate-and-decide: {assumption: '...'}. For fear-to-action: {situation: '...'}"
+                    },
+                    "agent": {
+                        "type": "string",
+                        "description": "For single agent calls: scholar, chiron, hermes, chronos, hades, aegis, argus"
+                    },
+                    "action": {
+                        "type": "string",
+                        "description": "For single agent calls: the action to perform (e.g., deep-research, sprint-plan, chat)"
+                    },
+                    "params": {
+                        "type": "object",
+                        "description": "Parameters for single agent action"
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="list_chains",
+            description="List available orchestration chains that can be used with the orchestrate tool",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="list_agents",
+            description="List available agents that can be called through orchestration",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
     ]
 
 
@@ -438,6 +488,143 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
             await log_to_event_bus("git_commit", repo_path, {"message": message})
             return [TextContent(type="text", text=f"Git commit result:\n{result.stdout}\n{result.stderr}")]
+
+        elif name == "orchestrate":
+            # Determine request type
+            if arguments.get("chain_name"):
+                # Chain execution
+                request = {
+                    "source": "hephaestus",
+                    "chain_name": arguments["chain_name"],
+                    "input": arguments.get("input", {})
+                }
+            elif arguments.get("agent") and arguments.get("action"):
+                # Single agent call
+                request = {
+                    "source": "hephaestus",
+                    "type": "single",
+                    "steps": [{
+                        "id": f"{arguments['agent']}_{arguments['action']}",
+                        "agent": arguments["agent"],
+                        "action": arguments["action"],
+                        "params": arguments.get("params", {})
+                    }]
+                }
+            else:
+                return [TextContent(type="text", text="ERROR: Must provide either chain_name or agent+action")]
+
+            # Execute through SENTINEL with fallback to ATLAS
+            async with httpx.AsyncClient(timeout=180.0) as client:
+                try:
+                    response = await client.post(
+                        f"{SENTINEL_URL}/orchestrate",
+                        json=request
+                    )
+                    result = response.json()
+                except httpx.ConnectError:
+                    # Fallback to ATLAS directly if SENTINEL is down
+                    try:
+                        response = await client.post(
+                            f"{ATLAS_URL}/execute",
+                            json=request
+                        )
+                        result = response.json()
+                        result["_fallback"] = "atlas_direct"
+                    except Exception as e:
+                        return [TextContent(type="text", text=f"ERROR: Both SENTINEL and ATLAS unreachable: {e}")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Orchestration failed: {e}")]
+
+                # Format response
+                if result.get("status") == "failed":
+                    error_msg = result.get("error", "Unknown error")
+                    errors = result.get("errors", [])
+                    if errors:
+                        error_msg = "\n".join([e.get("error", str(e)) for e in errors])
+                    return [TextContent(type="text", text=f"Orchestration failed:\n{error_msg}")]
+
+                # Extract useful content
+                outputs = result.get("step_outputs", result.get("step_results", {}))
+                formatted_parts = []
+
+                for step_id, step in outputs.items():
+                    output = step.get("output", step)
+                    content = (output.get("response") or
+                              output.get("research") or
+                              output.get("sprint_plan") or
+                              output.get("pricing_strategy") or
+                              output.get("fear_analysis") or
+                              output.get("hype") or
+                              output.get("daily_priorities") or
+                              json.dumps(output, indent=2) if isinstance(output, dict) else str(output))
+                    agent = step.get("agent", step_id).upper()
+                    formatted_parts.append(f"**{agent}:**\n{content}")
+
+                response_text = "\n\n---\n\n".join(formatted_parts)
+
+                # Add metadata
+                cost = result.get("total_cost", 0)
+                duration = result.get("duration_ms", 0)
+                routed_to = result.get("_routed_to", "unknown")
+                fallback = result.get("_fallback", "")
+
+                meta = []
+                if cost > 0:
+                    meta.append(f"${cost:.4f}")
+                if duration > 0:
+                    meta.append(f"{duration}ms")
+                meta.append(f"via {routed_to}")
+                if fallback:
+                    meta.append(f"(fallback: {fallback})")
+
+                if meta:
+                    response_text += f"\n\n*{' | '.join(meta)}*"
+
+                await log_to_event_bus("orchestration_executed", arguments.get("chain_name") or f"{arguments.get('agent')}/{arguments.get('action')}", {"status": result.get("status")})
+                return [TextContent(type="text", text=response_text)]
+
+        elif name == "list_chains":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(f"{ATLAS_URL}/chains")
+                    chains = response.json()
+                    return [TextContent(type="text", text=json.dumps(chains, indent=2))]
+                except:
+                    # Fallback list
+                    chains = {
+                        "chains": [
+                            {"name": "research-and-plan", "description": "Research topic, then create action plan"},
+                            {"name": "validate-and-decide", "description": "Validate assumption, then decide next steps"},
+                            {"name": "comprehensive-market-analysis", "description": "Parallel research, then synthesis"},
+                            {"name": "niche-evaluation", "description": "Compare niches, recommend best"},
+                            {"name": "weekly-planning", "description": "Review, research blockers, plan week"},
+                            {"name": "fear-to-action", "description": "Analyze fear, find evidence, create action plan"}
+                        ]
+                    }
+                    return [TextContent(type="text", text=json.dumps(chains, indent=2))]
+
+        elif name == "list_agents":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(f"{ATLAS_URL}/agents")
+                    agents = response.json()
+                    return [TextContent(type="text", text=json.dumps(agents, indent=2))]
+                except:
+                    # Fallback list
+                    agents = {
+                        "agents": [
+                            {"name": "scholar", "description": "Market research with web search"},
+                            {"name": "chiron", "description": "Business strategy and ADHD planning"},
+                            {"name": "hermes", "description": "Notifications"},
+                            {"name": "chronos", "description": "Backups"},
+                            {"name": "hades", "description": "Rollback"},
+                            {"name": "aegis", "description": "Credentials"},
+                            {"name": "argus", "description": "Monitoring"},
+                            {"name": "aloy", "description": "Audit"},
+                            {"name": "athena", "description": "Documentation"}
+                        ]
+                    }
+                    return [TextContent(type="text", text=json.dumps(agents, indent=2))]
 
         else:
             return [TextContent(type="text", text=f"ERROR: Unknown tool: {name}")]

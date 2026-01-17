@@ -2,6 +2,10 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+# Environment variables for OLYMPUS orchestration
+# SENTINEL_URL - URL for SENTINEL smart routing (default: http://sentinel:8019)
+# ATLAS_URL - URL for ATLAS orchestration (default: http://atlas:8007)
+
 # Install git
 RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
 
