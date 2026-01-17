@@ -742,6 +742,69 @@ docker run -d --name chiron --network control-plane-net -p 8017:8017 \
 - Delete_at column enables scheduled deletion
 
 
+### 2026-01-17 07:20 - [Unified Memory Elite - Complete Implementation]
+**Status:** COMPLETE - All core components working in DEV
+
+**What Was Built:**
+1. **Unified Memory V2 Schema** - Full schema with embeddings, source tracking, confidence decay
+2. **Memory Functions** - aria_store_memory, aria_search_memory, aria_hybrid_search_memory, aria_find_conflicts, aria_merge_memories, aria_decay_confidence
+3. **Memory Service** - Python service at `/home/damon/environments/dev/aria-threading/services/memory_service.py`
+4. **Context Assembler Elite** - Combines recent messages + unified memory + semantic chunks + async tasks
+5. **REST API Endpoints** - /memory/store, /memory/search, /memory/update, /memory/forget, /memory/list, /memory/stats, /memory/duplicates, /memory/merge, /memory/decay, /context/elite
+
+**Key Implementation Details:**
+- Memory embeddings use OpenAI text-embedding-ada-002 (1536 dimensions)
+- PostgreSQL pgvector with IVFFlat index for efficient similarity search
+- Source tracking: every memory knows where it came from (conversation, task, manual)
+- Conflict detection: automatically finds similar memories when storing new ones
+- Budget-based context assembly: allocates tokens across sources (45% recent, 30% memory, 15% semantic, 10% tasks)
+
+**API Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /memory/store | POST | Store memory with auto-embedding |
+| /memory/search | POST | Semantic search |
+| /memory/list | GET | List by type/category |
+| /memory/stats | GET | Memory statistics |
+| /memory/forget/{id} | POST | Soft delete |
+| /context/elite | POST | Assemble context from all sources |
+
+**Gotchas Found:**
+1. **OpenAI key loading**: When running via nohup, env vars don't pass properly. Added fallback to load from .env file in embedding_service.py
+2. **aria_memory_stats GROUP BY error**: Original function used "GROUP BY TRUE" which PostgreSQL rejected. Fixed with subqueries.
+3. **aria_messages missing columns**: Added token_count, input_tokens, output_tokens columns
+
+**Testing Commands:**
+```bash
+# Store a memory
+curl -X POST http://localhost:8113/memory/store \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Test memory", "memory_type": "fact", "category": "test"}'
+
+# Search memories
+curl -X POST http://localhost:8113/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is LeverEdge?", "limit": 5}'
+
+# Get elite context
+curl -X POST http://localhost:8113/context/elite \
+  -H "Content-Type: application/json" \
+  -d '{"query": "Tell me about the project"}'
+```
+
+**Files Created/Modified:**
+- `/home/damon/environments/dev/aria-threading/schema/001-unified-memory-elite.sql` - Complete schema
+- `/home/damon/environments/dev/aria-threading/services/memory_service.py` - New service
+- `/home/damon/environments/dev/aria-threading/services/context_assembler.py` - Added elite context
+- `/home/damon/environments/dev/aria-threading/services/embedding_service.py` - Added .env fallback
+- `/home/damon/environments/dev/aria-threading/api.py` - Added memory endpoints
+
+**Still TODO (Future):**
+- n8n workflows: 33-Task Result Extractor, 34-Memory Consolidation
+- Automatic memory extraction after conversation turns
+- Event Bus integration for memory events
+- Privacy enforcement across interfaces
+
 ### 2026-01-17 06:45 - [aria-threading Database Connectivity Fix]
 **Symptom:** `socket.gaierror: [Errno -3] Temporary failure in name resolution`
 **Cause:** aria-threading running on host tried to connect to `supabase-db` hostname (Docker internal DNS). Host system can't resolve Docker container hostnames.
