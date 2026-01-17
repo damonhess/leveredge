@@ -1199,6 +1199,146 @@ Be tough. This is how we make progress.
     }
 
 
+# =============================================================================
+# ORCHESTRATION ENDPOINTS (for HEPHAESTUS integration)
+# =============================================================================
+
+class BreakDownRequest(BaseModel):
+    task: str
+    max_steps: Optional[int] = 10
+    context: Optional[str] = None
+
+class PrioritizeRequest(BaseModel):
+    tasks: List[str]
+    criteria: Optional[List[str]] = None
+    context: Optional[str] = None
+
+
+@app.post("/break-down")
+async def break_down_task(req: BreakDownRequest):
+    """Break large task into ADHD-friendly small steps"""
+
+    time_ctx = get_time_context()
+
+    prompt = f"""Break this task into small, ADHD-friendly steps.
+
+**Task:** {req.task}
+**Max Steps:** {req.max_steps}
+**Context:** {req.context or 'None provided'}
+**Days to Launch:** {time_ctx['days_to_launch']}
+
+Requirements:
+1. Each step should be completable in 15-30 minutes
+2. First step should be the EASIEST (build momentum)
+3. Each step has a clear "done" state
+4. Include dopamine checkpoints (quick wins)
+5. Flag any steps that might trigger avoidance
+
+Format each step as:
+## Step N: [Action Verb] [Specific Thing]
+- **Time:** [Estimated minutes]
+- **Done when:** [Specific completion criteria]
+- **Avoidance risk:** [Low/Medium/High] - [Why if high]
+- **Quick win?:** [Yes/No]
+
+End with:
+- Total estimated time
+- Suggested order (if not sequential)
+- First step to do RIGHT NOW
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm(messages, time_ctx)
+
+    await notify_event_bus("task_broken_down", {
+        "task": req.task[:100],
+        "steps_requested": req.max_steps
+    })
+
+    return {
+        "breakdown": response,
+        "agent": "CHIRON",
+        "task": req.task,
+        "time_context": time_ctx,
+        "timestamp": time_ctx['current_datetime']
+    }
+
+
+@app.post("/prioritize")
+async def prioritize_tasks(req: PrioritizeRequest):
+    """Order tasks by impact and urgency using Eisenhower matrix"""
+
+    time_ctx = get_time_context()
+    portfolio_ctx = await get_portfolio_context()
+
+    default_criteria = [
+        "Impact on $30K MRR goal",
+        "Urgency (deadline-driven)",
+        "Dependencies (blocks other work)",
+        "Energy required (ADHD consideration)",
+        "Alignment with current phase"
+    ]
+
+    criteria = req.criteria or default_criteria
+
+    prompt = f"""Prioritize these tasks using strategic frameworks.
+
+**Tasks to Prioritize:**
+{chr(10).join(f'{i+1}. {t}' for i, t in enumerate(req.tasks))}
+
+**Criteria:**
+{chr(10).join(f'- {c}' for c in criteria)}
+
+**Context:**
+- Days to Launch: {time_ctx['days_to_launch']}
+- Phase: {time_ctx['phase']}
+- Portfolio: ${portfolio_ctx.get('total_value_low', 0):,.0f} - ${portfolio_ctx.get('total_value_high', 0):,.0f}
+- Additional: {req.context or 'None provided'}
+
+Apply these frameworks:
+1. **Eisenhower Matrix** - Urgent/Important classification
+2. **Impact vs Effort** - Quick wins first
+3. **Dependencies** - What unblocks other work?
+4. **ADHD Energy** - Match task difficulty to energy patterns
+
+Output:
+
+## Priority Matrix
+| Rank | Task | Urgency | Impact | Effort | Classification |
+|------|------|---------|--------|--------|----------------|
+
+## Recommended Order
+1. **[Task]** - [Why first]
+2. **[Task]** - [Why second]
+...
+
+## Do NOT Do (Eliminate/Delegate)
+- [Any tasks that shouldn't be done at all]
+
+## Today's Focus
+If you could only do ONE thing today, do: [Specific task]
+
+## This Week's Must-Complete
+- [Max 3 items]
+"""
+
+    messages = [{"role": "user", "content": prompt}]
+    response = await call_llm(messages, time_ctx, portfolio_ctx)
+
+    await notify_event_bus("tasks_prioritized", {
+        "task_count": len(req.tasks)
+    })
+
+    return {
+        "prioritization": response,
+        "agent": "CHIRON",
+        "task_count": len(req.tasks),
+        "criteria_used": criteria,
+        "time_context": time_ctx,
+        "timestamp": time_ctx['current_datetime']
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8017)

@@ -456,6 +456,49 @@ agents:
           type: object
           fields: [framework, principles, examples]
 
+      break-down:
+        endpoint: /break-down
+        method: POST
+        description: "Break large task into ADHD-friendly small steps"
+        timeout_ms: 60000
+        params:
+          - name: task
+            type: string
+            required: true
+            description: "The task to break down into steps"
+          - name: max_steps
+            type: integer
+            required: false
+            default: 10
+          - name: context
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [breakdown, steps, total_time, first_step]
+
+      prioritize:
+        endpoint: /prioritize
+        method: POST
+        description: "Order tasks by impact and urgency using Eisenhower matrix"
+        timeout_ms: 60000
+        params:
+          - name: tasks
+            type: array
+            required: true
+            items: string
+            description: "List of tasks to prioritize"
+          - name: criteria
+            type: array
+            required: false
+            items: string
+          - name: context
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [prioritization, matrix, today_focus, week_focus]
+
   # ─────────────────────────────────────────────────────────────────────────────
   # HERMES - Notifications & Messaging
   # ─────────────────────────────────────────────────────────────────────────────

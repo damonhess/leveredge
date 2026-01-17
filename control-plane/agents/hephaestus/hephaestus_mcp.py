@@ -635,17 +635,55 @@ async def git_push(repo_path: str):
 
 @app.post("/tools/agent/call")
 async def call_agent(req: AgentCall):
-    """Call another agent's webhook"""
-    agent_urls = {
+    """Call another agent's webhook or HTTP endpoint"""
+    # Webhook-based agents (n8n workflows)
+    webhook_agents = {
         "atlas": "https://control.n8n.leveredgeai.com/webhook/atlas",
         "aegis": "https://control.n8n.leveredgeai.com/webhook/aegis",
         "chronos": "https://control.n8n.leveredgeai.com/webhook/chronos",
         "hades": "https://control.n8n.leveredgeai.com/webhook/hades",
     }
 
-    url = agent_urls.get(req.agent.lower())
+    # HTTP-based agents (Python FastAPI services)
+    http_agents = {
+        "scholar": {"base_url": "http://scholar:8018", "port": 8018},
+        "chiron": {"base_url": "http://chiron:8017", "port": 8017},
+    }
+
+    agent_lower = req.agent.lower()
+
+    # Check if it's an HTTP-based agent (SCHOLAR, CHIRON)
+    if agent_lower in http_agents:
+        agent_config = http_agents[agent_lower]
+        # Map action to endpoint - HTTP agents use REST endpoints
+        # Actions map to endpoints: deep-research -> /deep-research, sprint-plan -> /sprint-plan
+        endpoint = f"/{req.action.replace('_', '-')}"
+        url = f"{agent_config['base_url']}{endpoint}"
+
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.post(
+                    url,
+                    json=req.payload,
+                    timeout=120.0  # Longer timeout for LLM-powered agents
+                )
+                await log_event("agent_called", req.agent, {"action": req.action, "type": "http"})
+                return resp.json()
+            except httpx.TimeoutException:
+                await log_event("agent_timeout", req.agent, {"action": req.action}, "failed")
+                raise HTTPException(status_code=504, detail=f"Agent {req.agent} timed out")
+            except Exception as e:
+                await log_event("agent_error", req.agent, {"action": req.action, "error": str(e)}, "failed")
+                raise HTTPException(status_code=502, detail=f"Agent {req.agent} error: {str(e)}")
+
+    # Check if it's a webhook-based agent
+    url = webhook_agents.get(agent_lower)
     if not url:
-        raise HTTPException(status_code=404, detail=f"Unknown agent: {req.agent}")
+        available_agents = list(webhook_agents.keys()) + list(http_agents.keys())
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown agent: {req.agent}. Available: {', '.join(available_agents)}"
+        )
 
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -654,7 +692,7 @@ async def call_agent(req: AgentCall):
             timeout=90.0
         )
 
-        await log_event("agent_called", req.agent, {"action": req.action})
+        await log_event("agent_called", req.agent, {"action": req.action, "type": "webhook"})
         return resp.json()
 
 
@@ -669,6 +707,8 @@ async def get_agent_health(agent: str):
         "chronos": 8010,
         "hephaestus": 8011,
         "aegis": 8012,
+        "chiron": 8017,
+        "scholar": 8018,
     }
 
     port = ports.get(agent.lower())
@@ -693,6 +733,8 @@ async def list_agents():
         "chronos": 8010,
         "hephaestus": 8011,
         "aegis": 8012,
+        "chiron": 8017,
+        "scholar": 8018,
     }
 
     results = []

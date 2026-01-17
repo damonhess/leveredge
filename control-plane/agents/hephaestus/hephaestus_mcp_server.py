@@ -202,22 +202,22 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="call_agent",
-            description="Call another LeverEdge agent (CHRONOS, HADES, AEGIS, etc.)",
+            description="Call another LeverEdge agent. SCHOLAR for research (deep-research, market-size, competitors). CHIRON for planning (sprint-plan, break-down, prioritize, chat). Also CHRONOS, HADES, AEGIS, ATLAS for infrastructure.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "agent": {
                         "type": "string",
-                        "enum": ["chronos", "hades", "aegis", "atlas"],
+                        "enum": ["scholar", "chiron", "chronos", "hades", "aegis", "atlas"],
                         "description": "Which agent to call"
                     },
                     "action": {
                         "type": "string",
-                        "description": "Action to perform"
+                        "description": "Action to perform. SCHOLAR: deep-research, market-size, competitors, niche, lead, validate-assumption. CHIRON: sprint-plan, break-down, prioritize, chat, decide, fear-check."
                     },
                     "payload": {
                         "type": "object",
-                        "description": "Additional data to send",
+                        "description": "Additional data to send. SCHOLAR deep-research: {question: '...'}. CHIRON sprint-plan: {goals: [...], time_available: '...'}.",
                         "default": {}
                     }
                 },
@@ -444,16 +444,67 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             action = arguments["action"]
             payload = arguments.get("payload", {})
 
-            agent_urls = {
+            # Webhook-based agents (n8n workflows)
+            webhook_agents = {
                 "chronos": "https://control.n8n.leveredgeai.com/webhook/chronos",
                 "hades": "https://control.n8n.leveredgeai.com/webhook/hades",
                 "aegis": "https://control.n8n.leveredgeai.com/webhook/aegis",
                 "atlas": "https://control.n8n.leveredgeai.com/webhook/atlas",
             }
 
-            url = agent_urls.get(agent)
+            # HTTP-based agents (Python FastAPI services)
+            http_agents = {
+                "scholar": {"base_url": "http://scholar:8018", "port": 8018},
+                "chiron": {"base_url": "http://chiron:8017", "port": 8017},
+            }
+
+            # Check if HTTP-based agent
+            if agent in http_agents:
+                agent_config = http_agents[agent]
+                # Map action to endpoint: deep_research -> /deep-research
+                endpoint = f"/{action.replace('_', '-')}"
+                url = f"{agent_config['base_url']}{endpoint}"
+
+                async with httpx.AsyncClient() as client:
+                    try:
+                        resp = await client.post(
+                            url,
+                            json=payload,
+                            timeout=120.0  # Longer timeout for LLM agents
+                        )
+                        await log_to_event_bus("agent_called", agent, {"action": action, "type": "http"})
+
+                        # Parse and format response
+                        try:
+                            data = resp.json()
+                            # Extract main content field
+                            content = (data.get("research") or
+                                      data.get("sprint_plan") or
+                                      data.get("breakdown") or
+                                      data.get("prioritization") or
+                                      data.get("response") or
+                                      data.get("fear_analysis") or
+                                      data.get("decision_analysis") or
+                                      data.get("hype") or
+                                      json.dumps(data, indent=2))
+                            return [TextContent(type="text", text=f"**{agent.upper()}** ({action}):\n\n{content}")]
+                        except:
+                            return [TextContent(type="text", text=f"**{agent.upper()}** ({action}):\n\n{resp.text}")]
+
+                    except httpx.TimeoutException:
+                        await log_to_event_bus("agent_timeout", agent, {"action": action})
+                        return [TextContent(type="text", text=f"ERROR: Agent {agent} timed out")]
+                    except httpx.ConnectError:
+                        return [TextContent(type="text", text=f"ERROR: Cannot connect to agent {agent}. Is it running?")]
+                    except Exception as e:
+                        await log_to_event_bus("agent_error", agent, {"action": action, "error": str(e)})
+                        return [TextContent(type="text", text=f"ERROR: Agent {agent} error: {str(e)}")]
+
+            # Check webhook-based agent
+            url = webhook_agents.get(agent)
             if not url:
-                return [TextContent(type="text", text=f"ERROR: Unknown agent: {agent}")]
+                available = list(webhook_agents.keys()) + list(http_agents.keys())
+                return [TextContent(type="text", text=f"ERROR: Unknown agent: {agent}. Available: {', '.join(available)}")]
 
             async with httpx.AsyncClient() as client:
                 resp = await client.post(
@@ -462,7 +513,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     timeout=90.0
                 )
 
-                await log_to_event_bus("agent_called", agent, {"action": action})
+                await log_to_event_bus("agent_called", agent, {"action": action, "type": "webhook"})
                 return [TextContent(type="text", text=f"Agent {agent} response:\n{resp.text}")]
 
         elif name == "git_commit":

@@ -112,10 +112,11 @@ Multi-agent AI automation infrastructure with control plane / data plane separat
 |-------|------|---------|--------|
 | GAIA | 8000 | Emergency bootstrap/rebuild | ✅ Ready |
 
-### Tier 1: Control Plane
+### Tier 1: Control Plane - Infrastructure
 | Agent | Port | Purpose | Status |
 |-------|------|---------|--------|
-| ATLAS | n8n | Master orchestrator, request routing | ✅ Active |
+| ATLAS | 8007 | Orchestration engine, chain execution | ✅ Active |
+| SENTINEL | 8019 | Smart routing, health monitoring | ✅ Active |
 | HEPHAESTUS | 8011 | Builder/deployer, MCP server for Claude Web | ✅ Active |
 | AEGIS | 8012 | Credential vault, secret management | ✅ Active |
 | CHRONOS | 8010 | Backup manager, scheduled snapshots | ✅ Active |
@@ -124,7 +125,14 @@ Multi-agent AI automation infrastructure with control plane / data plane separat
 | ARGUS | 8016 | Monitoring, Prometheus integration | ✅ Active |
 | ALOY | 8015 | Audit log analysis, anomaly detection | ✅ Active |
 | ATHENA | 8013 | Documentation generation | ✅ Active |
+| VARYS | 8020 | Mission Guardian, accountability | ✅ Active |
 | Event Bus | 8099 | Inter-agent communication | ✅ Active |
+
+### Tier 1: Control Plane - Business Intelligence (LLM-Powered)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| SCHOLAR | 8018 | Market research, competitive intelligence | ✅ Active |
+| CHIRON | 8017 | Business strategy, ADHD planning | ✅ Active |
 
 ### Tier 2: Data Plane
 | Component | Port | Purpose | Status |
@@ -284,6 +292,111 @@ User Request
 
 ---
 
+## OLYMPUS Orchestration System
+
+The OLYMPUS orchestration system enables multi-agent chains for complex tasks.
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                      OLYMPUS ORCHESTRATION                          │
+│                                                                     │
+│   ┌─────────────┐                                                  │
+│   │  HEPHAESTUS │  MCP Server - Entry point for Claude Web         │
+│   │    (MCP)    │  Tools: call_agent, orchestrate, list_chains     │
+│   └──────┬──────┘                                                  │
+│          │ orchestrate                                              │
+│          ▼                                                          │
+│   ┌─────────────┐     ┌─────────────┐                              │
+│   │  SENTINEL   │────▶│    ATLAS    │  Chain execution engine      │
+│   │  (Router)   │     │  (Executor) │  Reads agent-registry.yaml   │
+│   └─────────────┘     └──────┬──────┘                              │
+│          │                    │                                     │
+│          │                    │ Execute steps                       │
+│          ▼                    ▼                                     │
+│   ┌─────────────────────────────────────────────────────────┐      │
+│   │              AGENT POOL                                  │      │
+│   │                                                          │      │
+│   │  Business (LLM)         Infrastructure (Executors)      │      │
+│   │  ┌─────────┐            ┌─────────┐  ┌─────────┐       │      │
+│   │  │ SCHOLAR │            │ CHRONOS │  │  HADES  │       │      │
+│   │  │  8018   │            │  8010   │  │  8008   │       │      │
+│   │  └─────────┘            └─────────┘  └─────────┘       │      │
+│   │  ┌─────────┐            ┌─────────┐  ┌─────────┐       │      │
+│   │  │ CHIRON  │            │  AEGIS  │  │ HERMES  │       │      │
+│   │  │  8017   │            │  8012   │  │  8014   │       │      │
+│   │  └─────────┘            └─────────┘  └─────────┘       │      │
+│   └─────────────────────────────────────────────────────────┘      │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Available Chains
+
+| Chain | Description | Agents |
+|-------|-------------|--------|
+| `research-and-plan` | Research a topic, create action plan | SCHOLAR → CHIRON |
+| `validate-and-decide` | Validate assumption, decide next steps | SCHOLAR → CHIRON |
+| `comprehensive-market-analysis` | Parallel research, strategic synthesis | SCHOLAR (parallel) → CHIRON |
+| `niche-evaluation` | Compare niches, recommend best | SCHOLAR → CHIRON |
+| `weekly-planning` | Review week, research blockers, plan sprint | CHIRON → SCHOLAR → CHIRON |
+| `fear-to-action` | Analyze fear, find evidence, create plan | CHIRON → SCHOLAR → CHIRON |
+| `safe-deployment` | Backup, deploy, verify, rollback if needed | CHRONOS → HERMES → ARGUS → HADES |
+
+### SCHOLAR Actions
+
+| Action | Endpoint | Purpose |
+|--------|----------|---------|
+| `deep-research` | /deep-research | Comprehensive multi-source research with web search |
+| `competitors` | /competitors | Competitive analysis for a niche |
+| `market-size` | /market-size | TAM/SAM/SOM market sizing |
+| `pain-discovery` | /pain-discovery | Discover and quantify pain points |
+| `validate-assumption` | /validate-assumption | Test business assumption with evidence |
+| `niche` | /niche | Analyze niche viability |
+| `compare` | /compare | Compare multiple niches |
+| `lead` | /lead | Research specific company as lead |
+| `icp` | /icp | Develop Ideal Customer Profile |
+
+### CHIRON Actions
+
+| Action | Endpoint | Purpose |
+|--------|----------|---------|
+| `sprint-plan` | /sprint-plan | ADHD-optimized sprint planning |
+| `break-down` | /break-down | Break large task into small steps |
+| `prioritize` | /prioritize | Order tasks by impact/urgency |
+| `chat` | /chat | General strategic conversation |
+| `decide` | /decide | Decision framework analysis |
+| `fear-check` | /fear-check | Rapid fear analysis and reframe |
+| `weekly-review` | /weekly-review | Structured weekly accountability |
+| `pricing-help` | /pricing-help | Value-based pricing strategy |
+| `hype` | /hype | Evidence-based motivation boost |
+
+### Usage via HEPHAESTUS MCP
+
+**Single Agent Call:**
+```json
+{
+  "agent": "scholar",
+  "action": "deep-research",
+  "payload": {"question": "Water utility compliance market size"}
+}
+```
+
+**Chain Execution:**
+```json
+{
+  "chain_name": "research-and-plan",
+  "input": {"topic": "Cold outreach strategy for water utilities"}
+}
+```
+
+### Configuration
+
+All agent and chain definitions are in `/opt/leveredge/config/agent-registry.yaml`.
+
+---
+
 ## File Reference
 
 | File | Purpose |
@@ -292,4 +405,5 @@ User Request
 | MASTER-LAUNCH-CALENDAR.md | Launch timeline, milestones |
 | LESSONS-LEARNED.md | Technical knowledge base |
 | LESSONS-SCRATCH.md | Quick debug capture |
+| /opt/leveredge/config/agent-registry.yaml | Agent and chain definitions |
 | /home/damon/.claude/EXECUTION_RULES.md | Claude Code rules |
