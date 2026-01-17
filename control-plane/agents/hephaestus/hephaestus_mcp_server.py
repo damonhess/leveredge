@@ -689,19 +689,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
 
 sse = SseServerTransport("/messages/")
 
-async def handle_sse(request):
-    """Handle SSE connections from Claude"""
-    async with sse.connect_sse(
-        request.scope, request.receive, request._send
-    ) as streams:
-        await mcp.run(
-            streams[0], streams[1], mcp.create_initialization_options()
-        )
-
-async def handle_messages(request):
-    """Handle POST messages"""
-    await sse.handle_post_message(request.scope, request.receive, request._send)
-
 async def health(request):
     """Health check endpoint"""
     return JSONResponse({
@@ -713,15 +700,214 @@ async def health(request):
         "timestamp": datetime.utcnow().isoformat()
     })
 
-# Create Starlette app with routes
-app = Starlette(
+# Create Starlette app with just health endpoint
+starlette_app = Starlette(
     debug=True,
     routes=[
         Route("/health", health),
-        Route("/sse", handle_sse),
-        Route("/messages/", handle_messages, methods=["POST"]),
     ]
 )
+
+# CORS configuration for Claude.ai
+CORS_HEADERS = [
+    [b"access-control-allow-origin", b"https://claude.ai"],
+    [b"access-control-allow-methods", b"GET, POST, OPTIONS"],
+    [b"access-control-allow-headers", b"Content-Type, Authorization, X-Requested-With, Accept, Cache-Control"],
+    [b"access-control-allow-credentials", b"true"],
+    [b"access-control-max-age", b"86400"],
+]
+
+async def send_with_cors(send, scope):
+    """Wrap send to add CORS headers to responses"""
+    async def cors_send(message):
+        if message["type"] == "http.response.start":
+            headers = list(message.get("headers", []))
+            headers.extend(CORS_HEADERS)
+            message = {**message, "headers": headers}
+        await send(message)
+    return cors_send
+
+async def receive_body(receive):
+    """Helper to receive full request body"""
+    body = b""
+    while True:
+        message = await receive()
+        if message["type"] == "http.request":
+            body += message.get("body", b"")
+            if not message.get("more_body", False):
+                break
+        elif message["type"] == "http.disconnect":
+            break
+    return body
+
+
+async def send_json_response(send, status, data, content_type="application/json"):
+    """Helper to send JSON response with CORS headers"""
+    body = json.dumps(data).encode() if isinstance(data, dict) else data
+    headers = list(CORS_HEADERS) + [[b"content-type", content_type.encode()]]
+    await send({
+        "type": "http.response.start",
+        "status": status,
+        "headers": headers,
+    })
+    await send({
+        "type": "http.response.body",
+        "body": body,
+    })
+
+
+# Main ASGI app that properly routes SSE connections
+# The bug was using request._send which doesn't exist on Starlette Request objects
+# This raw ASGI wrapper gets scope, receive, send directly from the ASGI interface
+async def app(scope, receive, send):
+    """Main ASGI app with SSE support, OAuth discovery, and Claude.ai compatibility"""
+    if scope["type"] != "http":
+        # Handle lifespan events etc
+        return
+
+    path = scope.get("path", "")
+    method = scope.get("method", "GET")
+
+    # Handle CORS preflight (OPTIONS)
+    if method == "OPTIONS":
+        await send({
+            "type": "http.response.start",
+            "status": 204,
+            "headers": CORS_HEADERS,
+        })
+        await send({
+            "type": "http.response.body",
+            "body": b"",
+        })
+        return
+
+    # Wrap send to add CORS headers to all responses
+    cors_send = await send_with_cors(send, scope)
+
+    # Health check
+    if path == "/health":
+        await starlette_app(scope, receive, cors_send)
+        return
+
+    # OAuth discovery - protected resource metadata
+    if path == "/.well-known/oauth-protected-resource":
+        discovery = {
+            "resource": "https://hephaestus.leveredgeai.com",
+            "authorization_servers": ["https://hephaestus.leveredgeai.com"],
+            "bearer_methods_supported": ["header"],
+            "scopes_supported": ["mcp:tools"]
+        }
+        await send_json_response(cors_send, 200, discovery)
+        return
+
+    # OAuth discovery - authorization server metadata
+    if path == "/.well-known/oauth-authorization-server":
+        metadata = {
+            "issuer": "https://hephaestus.leveredgeai.com",
+            "authorization_endpoint": "https://hephaestus.leveredgeai.com/authorize",
+            "token_endpoint": "https://hephaestus.leveredgeai.com/token",
+            "registration_endpoint": "https://hephaestus.leveredgeai.com/register",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "client_credentials"],
+            "token_endpoint_auth_methods_supported": ["client_secret_post", "client_secret_basic", "none"],
+            "scopes_supported": ["mcp:tools"],
+            "code_challenge_methods_supported": ["S256"]
+        }
+        await send_json_response(cors_send, 200, metadata)
+        return
+
+    # Dynamic client registration (auto-approve for now)
+    if path == "/register" and method == "POST":
+        body = await receive_body(receive)
+
+        try:
+            client_metadata = json.loads(body) if body else {}
+        except:
+            client_metadata = {}
+
+        # Generate client credentials
+        import secrets
+        client_id = f"claude_{secrets.token_hex(16)}"
+        client_secret = secrets.token_hex(32)
+
+        response = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "client_id_issued_at": int(datetime.utcnow().timestamp()),
+            "client_secret_expires_at": 0,  # Never expires
+            "redirect_uris": client_metadata.get("redirect_uris", []),
+            "grant_types": ["authorization_code", "client_credentials"],
+            "response_types": ["code"],
+            "token_endpoint_auth_method": "client_secret_basic"
+        }
+        await send_json_response(cors_send, 201, response)
+        return
+
+    # Token endpoint (issue tokens)
+    if path == "/token" and method == "POST":
+        import secrets
+        token = secrets.token_hex(32)
+        response = {
+            "access_token": token,
+            "token_type": "Bearer",
+            "expires_in": 3600,
+            "scope": "mcp:tools"
+        }
+        await send_json_response(cors_send, 200, response)
+        return
+
+    # Authorization endpoint (for OAuth flow)
+    if path == "/authorize":
+        from urllib.parse import parse_qs
+        query = scope.get("query_string", b"").decode()
+        params = parse_qs(query)
+        redirect_uri = params.get("redirect_uri", [""])[0]
+        state = params.get("state", [""])[0]
+
+        if redirect_uri:
+            import secrets
+            code = secrets.token_hex(16)
+            callback = f"{redirect_uri}?code={code}&state={state}"
+            await send({
+                "type": "http.response.start",
+                "status": 302,
+                "headers": [[b"location", callback.encode()]]
+            })
+            await send({"type": "http.response.body", "body": b""})
+            return
+
+        await send_json_response(cors_send, 400, b"Missing redirect_uri", "text/plain")
+        return
+
+    # SSE endpoint - handle at BOTH / and /sse for Claude.ai compatibility
+    if path in ["/", "/sse"]:
+        if method == "GET":
+            # Raw ASGI SSE handler - properly passes send callable
+            async with sse.connect_sse(scope, receive, cors_send) as streams:
+                await mcp.run(
+                    streams[0], streams[1], mcp.create_initialization_options()
+                )
+        elif method == "POST":
+            # Message handling
+            await sse.handle_post_message(scope, receive, cors_send)
+        return
+
+    # Messages endpoint
+    if path.startswith("/messages"):
+        # Raw ASGI message handler - properly passes send callable
+        await sse.handle_post_message(scope, receive, cors_send)
+        return
+
+    # 404 Not Found
+    await cors_send({
+        "type": "http.response.start",
+        "status": 404,
+        "headers": [[b"content-type", b"text/plain"]],
+    })
+    await cors_send({
+        "type": "http.response.body",
+        "body": b"Not Found",
+    })
 
 
 if __name__ == "__main__":
