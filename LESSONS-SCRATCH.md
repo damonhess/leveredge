@@ -863,3 +863,28 @@ python3 -c "import asyncio, asyncpg; asyncio.run(asyncpg.connect('postgresql://p
 - Port 8113 for aria-threading API
 - Follows aria-reminders pattern (FastAPI + asyncpg)
 - Tools endpoint format matches n8n HTTP Request node expectations
+
+### 2026-01-17 07:45 - [ARIA Integration Validation]
+**Context:** Validated all ARIA systems work together after January 2026 upgrades
+**Status:** Complete - all smoke tests pass
+
+**Components Validated:**
+- Unified Memory Elite (port 8113): ✓ store, search, update, forget working
+- Async Tasks: ✓ Table created, privacy controls in place
+- Coaching tools (17-28): ✓ Already imported
+- Task Dispatcher (30): ✓ Active with privacy detection
+- Task Listener (31), Cleanup (32): ✓ Active
+- NEW Task Result Extractor (33): Extracts memories from completed tasks
+- NEW Memory Consolidation Engine (34): Daily dedup/decay at 3 AM
+
+**Key Additions:**
+1. `/health/full` endpoint in aria-threading - comprehensive health check
+2. ARIA system prompt updated with 33+ tools and routing guide
+3. update_memory and forget_memory tools added
+4. VARYS daily brief now includes ARIA health status
+5. aria_unified_memory got privacy_level, category, keywords columns
+
+**Discovery:** The aria_async_tasks table didn't exist. Created with full schema including privacy controls from spec.
+
+**Pattern:** When validating integrations, check that database tables actually exist - the workflows reference tables that may not have been created yet.
+

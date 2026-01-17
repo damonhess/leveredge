@@ -1,0 +1,280 @@
+{
+  "id": "memory-consolidation-001",
+  "name": "34 - Memory Consolidation Engine",
+  "active": true,
+  "versionId": "b1c23d45-6789-4abc-def0-123456789abc",
+  "nodes": [
+    {
+      "id": "consolidation-trigger",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [100, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.2
+    },
+    {
+      "id": "consolidation-init",
+      "name": "Initialize",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "user_id", "name": "user_id", "type": "string", "value": "damon"},
+            {"id": "started_at", "name": "started_at", "type": "string", "value": "={{ $now.toISO() }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "consolidation-find-duplicates",
+      "name": "Find Duplicates",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [540, 300],
+      "parameters": {
+        "url": "http://host.docker.internal:8113/memory/duplicates",
+        "method": "GET",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "={{ $json.user_id }}"},
+            {"name": "threshold", "value": "0.85"}
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "consolidation-check-duplicates",
+      "name": "Has Duplicates?",
+      "type": "n8n-nodes-base.if",
+      "position": [760, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-duplicates",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "consolidation-split-duplicates",
+      "name": "Split Duplicate Pairs",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [980, 200],
+      "parameters": {
+        "fieldToSplitOut": "duplicates",
+        "include": "allOtherFields"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "consolidation-merge-duplicates",
+      "name": "Merge Duplicate Pair",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1200, 200],
+      "parameters": {
+        "url": "http://host.docker.internal:8113/memory/merge",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "={{ $('Initialize').first().json.user_id }}"},
+            {"name": "keep_id", "value": "={{ $json.memory_id_1 }}"},
+            {"name": "supersede_id", "value": "={{ $json.memory_id_2 }}"}
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    },
+    {
+      "id": "consolidation-aggregate-merges",
+      "name": "Aggregate Merges",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [1420, 200],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "consolidation-no-duplicates",
+      "name": "No Duplicates",
+      "type": "n8n-nodes-base.set",
+      "position": [980, 400],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "duplicates_merged", "name": "duplicates_merged", "type": "number", "value": 0}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "consolidation-run-decay",
+      "name": "Run Confidence Decay",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1640, 300],
+      "parameters": {
+        "url": "http://host.docker.internal:8113/memory/decay",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "={{ $('Initialize').first().json.user_id }}"}
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "consolidation-cleanup-tasks",
+      "name": "Cleanup Old Tasks",
+      "type": "n8n-nodes-base.postgres",
+      "position": [1860, 300],
+      "parameters": {
+        "query": "SELECT aria_cleanup_tasks(); SELECT COUNT(*) as deleted_count FROM aria_async_tasks WHERE deleted_at IS NOT NULL AND deleted_at > NOW() - INTERVAL '1 minute';",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "DGroZIqnHY4mrCB7",
+          "name": "Supabase Postgres DEV"
+        }
+      },
+      "typeVersion": 2.4
+    },
+    {
+      "id": "consolidation-get-stats",
+      "name": "Get Memory Stats",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2080, 300],
+      "parameters": {
+        "url": "http://host.docker.internal:8113/memory/stats",
+        "method": "GET",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "={{ $('Initialize').first().json.user_id }}"}
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "consolidation-summary",
+      "name": "Create Summary",
+      "type": "n8n-nodes-base.code",
+      "position": [2300, 300],
+      "parameters": {
+        "jsCode": "const init = $('Initialize').first().json;\nconst duplicates = $('Find Duplicates').first().json;\nconst decay = $('Run Confidence Decay').first().json;\nconst tasks = $('Cleanup Old Tasks').first().json;\nconst stats = $input.first().json;\n\nconst mergeResults = $('Aggregate Merges')?.first()?.json?.data || [];\nconst successfulMerges = mergeResults.filter(m => m.merged !== false).length;\n\nreturn [{\n  json: {\n    consolidation_report: {\n      started_at: init.started_at,\n      completed_at: new Date().toISOString(),\n      user_id: init.user_id,\n      actions: {\n        duplicates_found: duplicates.count || 0,\n        duplicates_merged: successfulMerges,\n        memories_decayed: decay.decayed_count || 0,\n        tasks_cleaned: tasks.deleted_count || 0\n      },\n      memory_stats: stats\n    }\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "consolidation-notify",
+      "name": "Notify Event Bus",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [2520, 300],
+      "parameters": {
+        "url": "http://gaia-event-bus:8099/publish",
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ event: 'memory_consolidation_complete', agent: 'aria', data: $json.consolidation_report, timestamp: new Date().toISOString() }) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "typeVersion": 4.2,
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [[{"node": "Initialize", "type": "main", "index": 0}]]
+    },
+    "Initialize": {
+      "main": [[{"node": "Find Duplicates", "type": "main", "index": 0}]]
+    },
+    "Find Duplicates": {
+      "main": [[{"node": "Has Duplicates?", "type": "main", "index": 0}]]
+    },
+    "Has Duplicates?": {
+      "main": [
+        [{"node": "Split Duplicate Pairs", "type": "main", "index": 0}],
+        [{"node": "No Duplicates", "type": "main", "index": 0}]
+      ]
+    },
+    "Split Duplicate Pairs": {
+      "main": [[{"node": "Merge Duplicate Pair", "type": "main", "index": 0}]]
+    },
+    "Merge Duplicate Pair": {
+      "main": [[{"node": "Aggregate Merges", "type": "main", "index": 0}]]
+    },
+    "Aggregate Merges": {
+      "main": [[{"node": "Run Confidence Decay", "type": "main", "index": 0}]]
+    },
+    "No Duplicates": {
+      "main": [[{"node": "Run Confidence Decay", "type": "main", "index": 0}]]
+    },
+    "Run Confidence Decay": {
+      "main": [[{"node": "Cleanup Old Tasks", "type": "main", "index": 0}]]
+    },
+    "Cleanup Old Tasks": {
+      "main": [[{"node": "Get Memory Stats", "type": "main", "index": 0}]]
+    },
+    "Get Memory Stats": {
+      "main": [[{"node": "Create Summary", "type": "main", "index": 0}]]
+    },
+    "Create Summary": {
+      "main": [[{"node": "Notify Event Bus", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

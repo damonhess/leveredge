@@ -1,0 +1,293 @@
+{
+  "id": "task-result-extractor-001",
+  "name": "33 - Task Result Extractor",
+  "active": true,
+  "versionId": "a9b12c34-5678-4def-9abc-def012345678",
+  "nodes": [
+    {
+      "id": "extractor-trigger",
+      "name": "Event Bus Trigger",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1,
+      "notesInFlow": true,
+      "notes": "This workflow is triggered via HTTP when a task completes. Call POST /webhook/task-result-extractor with task data."
+    },
+    {
+      "id": "extractor-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [100, 300],
+      "webhookId": "task-result-extractor",
+      "parameters": {
+        "path": "task-result-extractor",
+        "options": {},
+        "httpMethod": "POST",
+        "responseMode": "responseNode"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "extractor-validate",
+      "name": "Validate Input",
+      "type": "n8n-nodes-base.if",
+      "position": [320, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-output",
+              "leftValue": "={{ $json.body?.output || $json.output }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "extractor-skip",
+      "name": "Skip - No Output",
+      "type": "n8n-nodes-base.set",
+      "position": [540, 450],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "skipped", "name": "skipped", "type": "boolean", "value": true},
+            {"id": "reason", "name": "reason", "type": "string", "value": "No output to extract memories from"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "extractor-prepare",
+      "name": "Prepare for Extraction",
+      "type": "n8n-nodes-base.set",
+      "position": [540, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "task_id", "name": "task_id", "type": "string", "value": "={{ $json.body?.task_id || $json.task_id }}"},
+            {"id": "task_type", "name": "task_type", "type": "string", "value": "={{ $json.body?.task_type || $json.task_type }}"},
+            {"id": "output", "name": "output", "type": "object", "value": "={{ $json.body?.output || $json.output }}"},
+            {"id": "user_id", "name": "user_id", "type": "string", "value": "={{ $json.body?.user_id || $json.user_id || 'damon' }}"},
+            {"id": "privacy_level", "name": "privacy_level", "type": "string", "value": "={{ $json.body?.privacy_level || $json.privacy_level || 'normal' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "extractor-ai",
+      "name": "Extract Key Facts",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "position": [760, 300],
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "resource": "chat",
+        "prompt": "={{ 'Analyze this task result and extract key facts, decisions, and insights that should be remembered long-term.\\n\\nTask Type: ' + $json.task_type + '\\n\\nOutput:\\n' + JSON.stringify($json.output, null, 2) + '\\n\\nExtract memories in this JSON format:\\n{\\n  \"memories\": [\\n    {\\n      \"content\": \"The specific fact or insight\",\\n      \"memory_type\": \"fact|decision|insight|preference|commitment\",\\n      \"confidence\": 0.7-1.0,\\n      \"keywords\": [\"keyword1\", \"keyword2\"]\\n    }\\n  ]\\n}\\n\\nRules:\\n- Only extract genuinely important, long-term relevant information\\n- Skip temporary or context-specific details\\n- Focus on decisions, key facts, preferences, commitments\\n- Confidence should reflect how permanent/important the info is\\n- Return empty array if nothing worth remembering\\n\\nReturn only valid JSON.' }}",
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 1000,
+          "responseFormat": "json_object"
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "NwBBzlF8e3kVmFHG",
+          "name": "OpenAI API"
+        }
+      },
+      "typeVersion": 1.6
+    },
+    {
+      "id": "extractor-parse",
+      "name": "Parse Memories",
+      "type": "n8n-nodes-base.code",
+      "position": [980, 300],
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst context = $('Prepare for Extraction').first().json;\n\nlet memories = [];\ntry {\n  const parsed = JSON.parse(input.message?.content || input.text || '{}');\n  memories = parsed.memories || [];\n} catch (e) {\n  // Try to extract from text if JSON parsing fails\n  memories = [];\n}\n\n// Filter out low-confidence or duplicate memories\nmemories = memories.filter(m => m.confidence >= 0.7 && m.content && m.content.length > 10);\n\nreturn [{\n  json: {\n    task_id: context.task_id,\n    user_id: context.user_id,\n    privacy_level: context.privacy_level,\n    memories: memories,\n    memory_count: memories.length\n  }\n}];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "extractor-check-memories",
+      "name": "Has Memories?",
+      "type": "n8n-nodes-base.if",
+      "position": [1200, 300],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-memories",
+              "leftValue": "={{ $json.memory_count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ]
+        }
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "extractor-split",
+      "name": "Split Memories",
+      "type": "n8n-nodes-base.splitOut",
+      "position": [1420, 300],
+      "parameters": {
+        "fieldToSplitOut": "memories",
+        "include": "allOtherFields"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "extractor-store",
+      "name": "Store Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1640, 300],
+      "parameters": {
+        "url": "http://host.docker.internal:8113/memory/store",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "={{ $json.user_id }}"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ content: $json.content, memory_type: $json.memory_type || 'fact', confidence: $json.confidence || 0.8, keywords: $json.keywords || [], privacy_level: $('Parse Memories').first().json.privacy_level }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "extractor-aggregate",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "position": [1860, 300],
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "extractor-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "position": [2080, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "success", "name": "success", "type": "boolean", "value": true},
+            {"id": "memories_stored", "name": "memories_stored", "type": "number", "value": "={{ $json.data?.length || 0 }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ 'Extracted and stored ' + ($json.data?.length || 0) + ' memories from task result' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "extractor-no-memories",
+      "name": "No Memories",
+      "type": "n8n-nodes-base.set",
+      "position": [1420, 450],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "success", "name": "success", "type": "boolean", "value": true},
+            {"id": "memories_stored", "name": "memories_stored", "type": "number", "value": 0},
+            {"id": "message", "name": "message", "type": "string", "value": "No memories worth extracting from this task result"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "extractor-respond",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [2300, 375],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "typeVersion": 1.1
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{"node": "Validate Input", "type": "main", "index": 0}]]
+    },
+    "Validate Input": {
+      "main": [
+        [{"node": "Prepare for Extraction", "type": "main", "index": 0}],
+        [{"node": "Skip - No Output", "type": "main", "index": 0}]
+      ]
+    },
+    "Skip - No Output": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    },
+    "Prepare for Extraction": {
+      "main": [[{"node": "Extract Key Facts", "type": "main", "index": 0}]]
+    },
+    "Extract Key Facts": {
+      "main": [[{"node": "Parse Memories", "type": "main", "index": 0}]]
+    },
+    "Parse Memories": {
+      "main": [[{"node": "Has Memories?", "type": "main", "index": 0}]]
+    },
+    "Has Memories?": {
+      "main": [
+        [{"node": "Split Memories", "type": "main", "index": 0}],
+        [{"node": "No Memories", "type": "main", "index": 0}]
+      ]
+    },
+    "Split Memories": {
+      "main": [[{"node": "Store Memory", "type": "main", "index": 0}]]
+    },
+    "Store Memory": {
+      "main": [[{"node": "Aggregate Results", "type": "main", "index": 0}]]
+    },
+    "Aggregate Results": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    },
+    "Format Response": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    },
+    "No Memories": {
+      "main": [[{"node": "Respond", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

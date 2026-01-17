@@ -1,0 +1,84 @@
+{
+  "id": "forget-memory-tool-001",
+  "name": "36 - Forget Memory",
+  "active": true,
+  "versionId": "d3e45f67-8901-4cde-f012-345678901bcd",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "memory_id", "name": "memory_id", "type": "string", "value": "={{ $json.memory_id }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "forget",
+      "name": "Forget Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [540, 300],
+      "parameters": {
+        "url": "=http://host.docker.internal:8113/memory/forget/{{ $json.memory_id }}",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "damon"}
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "position": [760, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "forgot", "name": "forgot", "type": "boolean", "value": "={{ $json.forgot !== false }}"},
+            {"id": "memory_id", "name": "memory_id", "type": "string", "value": "={{ $('Extract Input').first().json.memory_id }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ $json.forgot !== false ? 'Memory removed successfully' : 'Failed to remove memory' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Extract Input", "type": "main", "index": 0}]]
+    },
+    "Extract Input": {
+      "main": [[{"node": "Forget Memory", "type": "main", "index": 0}]]
+    },
+    "Forget Memory": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}

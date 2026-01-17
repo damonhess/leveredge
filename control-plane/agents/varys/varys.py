@@ -22,6 +22,7 @@ app = FastAPI(title="VARYS", description="Mission Guardian")
 HERMES_URL = os.getenv("HERMES_URL", "http://hermes:8014")
 CHIRON_URL = os.getenv("CHIRON_URL", "http://chiron:8010")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
+ARIA_THREADING_URL = os.getenv("ARIA_THREADING_URL", "http://localhost:8113")
 
 MISSION_DIR = "/opt/leveredge/mission"
 CALENDAR_PATH = "/opt/leveredge/MASTER-LAUNCH-CALENDAR.md"
@@ -119,12 +120,38 @@ async def scan_drift(days: int = 1):
     except Exception as e:
         return {"error": str(e)}
 
+async def get_aria_health():
+    """Get ARIA system health status."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{ARIA_THREADING_URL}/health/full")
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "status": data.get("status", "unknown"),
+                    "active_memories": data.get("checks", {}).get("memory_stats", {}).get("active_memories", 0),
+                    "unhealthy": data.get("unhealthy_components", [])
+                }
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+    return {"status": "unknown"}
+
 @app.post("/daily-brief")
 async def generate_daily_brief():
     """Generate and send daily brief via HERMES."""
     days_info = await days_to_launch()
     focus_info = await todays_focus()
     drift_info = await scan_drift(days=1)
+    aria_health = await get_aria_health()
+
+    # Format ARIA health status
+    aria_status_icon = "✅" if aria_health.get("status") == "healthy" else "⚠️" if aria_health.get("status") == "degraded" else "❌"
+    aria_section = f"""
+🤖 **ARIA SYSTEM**
+{aria_status_icon} Status: {aria_health.get('status', 'unknown').upper()}
+📚 Active Memories: {aria_health.get('active_memories', 0)}
+{"⚠️ Issues: " + ", ".join(aria_health.get('unhealthy', [])) if aria_health.get('unhealthy') else ""}
+"""
 
     brief = f"""
 🌅 **DAILY BRIEF** - {datetime.now().strftime("%A, %B %d, %Y")}
@@ -139,7 +166,7 @@ Status: {days_info['urgency']}
 Commits: {drift_info.get('total_commits', 0)}
 Drift flags: {drift_info.get('drift_flags', 0)}
 Status: {drift_info.get('status', 'UNKNOWN')}
-
+{aria_section}
 {"⚠️ **DRIFT DETECTED** - Review commits for scope creep" if drift_info.get('drift_flags', 0) > 0 else "✅ On track"}
 
 ---

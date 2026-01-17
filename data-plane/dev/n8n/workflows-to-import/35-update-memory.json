@@ -1,0 +1,89 @@
+{
+  "id": "update-memory-tool-001",
+  "name": "35 - Update Memory",
+  "active": true,
+  "versionId": "c2d34e56-7890-4bcd-ef01-234567890abc",
+  "nodes": [
+    {
+      "id": "trigger",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "position": [100, 300],
+      "parameters": {},
+      "typeVersion": 1
+    },
+    {
+      "id": "extract",
+      "name": "Extract Input",
+      "type": "n8n-nodes-base.set",
+      "position": [320, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "memory_id", "name": "memory_id", "type": "string", "value": "={{ $json.memory_id }}"},
+            {"id": "new_content", "name": "new_content", "type": "string", "value": "={{ $json.new_content }}"},
+            {"id": "reason", "name": "reason", "type": "string", "value": "={{ $json.reason || 'User correction' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    },
+    {
+      "id": "update",
+      "name": "Update Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [540, 300],
+      "parameters": {
+        "url": "http://host.docker.internal:8113/memory/update",
+        "method": "POST",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "damon"}
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ memory_id: $json.memory_id, new_content: $json.new_content, reason: $json.reason }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "typeVersion": 4.2
+    },
+    {
+      "id": "response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "position": [760, 300],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {"id": "updated", "name": "updated", "type": "boolean", "value": "={{ $json.updated !== false }}"},
+            {"id": "memory_id", "name": "memory_id", "type": "string", "value": "={{ $('Extract Input').first().json.memory_id }}"},
+            {"id": "message", "name": "message", "type": "string", "value": "={{ $json.updated !== false ? 'Memory updated successfully' : 'Failed to update memory' }}"}
+          ]
+        }
+      },
+      "typeVersion": 3.3
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [[{"node": "Extract Input", "type": "main", "index": 0}]]
+    },
+    "Extract Input": {
+      "main": [[{"node": "Update Memory", "type": "main", "index": 0}]]
+    },
+    "Update Memory": {
+      "main": [[{"node": "Format Response", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": []
+}
