@@ -87,7 +87,9 @@ Multi-agent AI automation infrastructure with control plane / data plane separat
 │   │   ├── hermes/
 │   │   ├── argus/
 │   │   ├── aloy/
-│   │   └── athena/
+│   │   ├── athena/
+│   │   ├── convener/              # Council meeting facilitator
+│   │   └── scribe/                # Council meeting secretary
 │   ├── workflows/                 # n8n workflow exports
 │   └── event-bus/                 # SQLite message bus
 ├── data-plane/
@@ -175,6 +177,12 @@ Multi-agent AI automation infrastructure with control plane / data plane separat
 | HEPHAESTUS-SERVER | 8207 | Server admin, DevOps guidance (LLM) | ✅ Built |
 | ATLAS-INFRA | 8208 | Cloud architecture, scaling (LLM) | ✅ Built |
 | IRIS | 8209 | World events, news, trends (LLM) | ✅ Built |
+
+### Tier 1: Council Fleet - THE CONCLAVE (8300-8301)
+| Agent | Port | Purpose | Status |
+|-------|------|---------|--------|
+| CONVENER | 8300 | Council meeting facilitator, multi-agent orchestration | ✅ Built |
+| SCRIBE | 8301 | Council meeting secretary, transcription, summaries | ✅ Built |
 
 ### Tier 1: Dashboards & Monitoring
 | Dashboard | Port | Purpose | Status |

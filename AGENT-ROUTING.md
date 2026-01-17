@@ -54,6 +54,8 @@
 | **Manipulation detection** | SHIELD-SWORD (8067) | Influence patterns |
 | **Agent status** | Fleet Dashboard (8060) | Health monitoring |
 | **Cost tracking** | Cost Dashboard (8061) | LLM usage/costs |
+| **Council meetings** | CONVENER (8300) | Multi-agent collaborative discussions |
+| **Meeting transcription** | SCRIBE (8301) | Notes, summaries, action items |
 
 ---
 
@@ -614,6 +616,94 @@ curl -X POST http://localhost:8018/compare \
 - Cost analysis and trends
 - Budget alerts
 - Per-agent cost breakdown
+
+---
+
+## COUNCIL FLEET - THE CONCLAVE (Multi-Agent Collaboration)
+
+### CONVENER (Council Facilitator) - Port 8300
+**Use for:**
+- Convening multi-agent council meetings
+- Facilitating collaborative discussions between agents
+- Managing turn-based agent conversations
+- Collecting decisions and action items
+- Topic-based agent selection
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /health | GET | Health check |
+| /council/convene | POST | Create new council meeting |
+| /council/{id}/start | POST | Start meeting with opening context |
+| /council/{id}/turn | POST | Request next agent turn |
+| /council/{id}/inject | POST | Inject directive/guidance |
+| /council/{id}/decide | POST | Request formal decision |
+| /council/{id}/action | POST | Assign action to agent |
+| /council/{id}/adjourn | POST | End meeting, generate summary |
+| /council/{id}/status | GET | Get meeting status |
+
+**Auto-Selection:** CONVENER automatically selects relevant agents based on meeting topic keywords.
+
+**Trigger Example:**
+```bash
+# Create a council meeting
+curl -X POST http://localhost:8300/council/convene \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "Market strategy for Q2 launch", "requested_agents": ["CHIRON", "SCHOLAR"]}'
+
+# Start the meeting
+curl -X POST http://localhost:8300/council/{meeting_id}/start \
+  -H "Content-Type: application/json" \
+  -d '{"opening_context": "We need to finalize our Q2 launch strategy"}'
+
+# Request a turn
+curl -X POST http://localhost:8300/council/{meeting_id}/turn
+
+# Make a decision
+curl -X POST http://localhost:8300/council/{meeting_id}/decide \
+  -H "Content-Type: application/json" \
+  -d '{"decision_prompt": "What should our primary marketing focus be?"}'
+
+# Adjourn meeting
+curl -X POST http://localhost:8300/council/{meeting_id}/adjourn
+```
+
+---
+
+### SCRIBE (Council Secretary) - Port 8301
+**Use for:**
+- Recording council meeting transcripts
+- Generating meeting summaries
+- Extracting action items from discussions
+- Searching meeting history
+- Formatting meeting notes
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /health | GET | Health check |
+| /scribe/record | POST | Record a meeting entry |
+| /scribe/summarize/{id} | POST | Generate meeting summary |
+| /scribe/notes/{id} | GET | Get formatted meeting notes |
+| /scribe/actions/{id} | GET | Extract action items |
+| /scribe/search | POST | Search meeting history |
+
+**Trigger Example:**
+```bash
+# Generate meeting summary
+curl -X POST http://localhost:8301/scribe/summarize/{meeting_id}
+
+# Get meeting notes
+curl http://localhost:8301/scribe/notes/{meeting_id}
+
+# Get action items
+curl http://localhost:8301/scribe/actions/{meeting_id}
+
+# Search meetings
+curl -X POST http://localhost:8301/scribe/search \
+  -H "Content-Type: application/json" \
+  -d '{"query": "marketing strategy"}'
+```
 
 ---
 

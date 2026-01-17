@@ -142,6 +142,12 @@
 | ATLAS-INFRA | 8208 | Infrastructure advisor (LLM) |
 | IRIS | 8209 | World events (LLM) |
 
+### Council Fleet - THE CONCLAVE (8300-8301)
+| Agent | Port | Purpose |
+|-------|------|---------|
+| CONVENER | 8300 | Council meeting facilitator |
+| SCRIBE | 8301 | Meeting secretary (LLM) |
+
 ### Dashboards
 | Dashboard | Port | Purpose |
 |-----------|------|---------|
