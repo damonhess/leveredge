@@ -21,6 +21,7 @@ from uuid import uuid4
 from pathlib import Path
 from dataclasses import dataclass, field
 from enum import Enum
+from collections import defaultdict
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -33,6 +34,13 @@ import jinja2
 REGISTRY_PATH = Path(os.getenv("REGISTRY_PATH", "/opt/leveredge/config/agent-registry.yaml"))
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
 SENTINEL_URL = os.getenv("SENTINEL_URL", "http://sentinel:8019")
+HERMES_URL = os.getenv("HERMES_URL", "http://hermes:8014")
+UNIFIED_MEMORY_URL = os.getenv("UNIFIED_MEMORY_URL", "http://unified-memory:8021")
+
+# Parallel execution limits
+DEFAULT_CONCURRENCY = int(os.getenv("DEFAULT_CONCURRENCY", "5"))
+MAX_CONCURRENCY = int(os.getenv("MAX_CONCURRENCY", "10"))
+MIN_CONCURRENCY = 1
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # REGISTRY LOADER
@@ -118,6 +126,201 @@ class ExecutionStatus(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     PARTIAL = "partial"
+
+
+class BatchStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    PARTIAL = "partial"  # Some succeeded, some failed
+    FAILED = "failed"    # All failed
+    CANCELLED = "cancelled"
+
+
+class TaskStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BATCH STORAGE (In-Memory)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class BatchTask:
+    """A single task within a batch."""
+    task_id: str
+    chain: str
+    input: Dict[str, Any]
+    status: TaskStatus = TaskStatus.PENDING
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    cost: float = 0.0
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    @property
+    def duration_ms(self) -> Optional[int]:
+        if self.started_at and self.completed_at:
+            return int((self.completed_at - self.started_at).total_seconds() * 1000)
+        return None
+
+    def to_dict(self) -> dict:
+        return {
+            "task_id": self.task_id,
+            "chain": self.chain,
+            "input": self.input,
+            "status": self.status.value,
+            "result": self.result,
+            "error": self.error,
+            "cost": round(self.cost, 6),
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "duration_ms": self.duration_ms
+        }
+
+
+@dataclass
+class Batch:
+    """A batch of parallel tasks."""
+    batch_id: str
+    tasks: List[BatchTask]
+    concurrency: int
+    callback_url: Optional[str] = None
+    source: str = "api"
+    status: BatchStatus = BatchStatus.PENDING
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    total_cost: float = 0.0
+
+    @property
+    def total_tasks(self) -> int:
+        return len(self.tasks)
+
+    @property
+    def completed_count(self) -> int:
+        return len([t for t in self.tasks if t.status == TaskStatus.COMPLETED])
+
+    @property
+    def failed_count(self) -> int:
+        return len([t for t in self.tasks if t.status == TaskStatus.FAILED])
+
+    @property
+    def pending_count(self) -> int:
+        return len([t for t in self.tasks if t.status == TaskStatus.PENDING])
+
+    @property
+    def running_count(self) -> int:
+        return len([t for t in self.tasks if t.status == TaskStatus.RUNNING])
+
+    @property
+    def progress_percent(self) -> float:
+        finished = self.completed_count + self.failed_count
+        return (finished / self.total_tasks * 100) if self.total_tasks > 0 else 0
+
+    @property
+    def duration_ms(self) -> Optional[int]:
+        if self.started_at:
+            end = self.completed_at or datetime.utcnow()
+            return int((end - self.started_at).total_seconds() * 1000)
+        return None
+
+    def to_status_dict(self) -> dict:
+        """Lightweight status dict for progress checks."""
+        return {
+            "batch_id": self.batch_id,
+            "status": self.status.value,
+            "total_tasks": self.total_tasks,
+            "completed": self.completed_count,
+            "failed": self.failed_count,
+            "pending": self.pending_count,
+            "running": self.running_count,
+            "progress_percent": round(self.progress_percent, 1),
+            "total_cost": round(self.total_cost, 6),
+            "created_at": self.created_at.isoformat(),
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "duration_ms": self.duration_ms
+        }
+
+    def to_results_dict(self) -> dict:
+        """Full results dict including all task outputs."""
+        results = []
+        errors = []
+
+        for task in self.tasks:
+            if task.status == TaskStatus.COMPLETED:
+                results.append({
+                    "task_id": task.task_id,
+                    "chain": task.chain,
+                    "input": task.input,
+                    "result": task.result,
+                    "cost": task.cost,
+                    "duration_ms": task.duration_ms
+                })
+            elif task.status == TaskStatus.FAILED:
+                errors.append({
+                    "task_id": task.task_id,
+                    "chain": task.chain,
+                    "input": task.input,
+                    "error": task.error,
+                    "duration_ms": task.duration_ms
+                })
+
+        return {
+            **self.to_status_dict(),
+            "results": results,
+            "errors": errors,
+            "tasks": [t.to_dict() for t in self.tasks]
+        }
+
+
+class BatchStore:
+    """In-memory store for batch executions."""
+
+    def __init__(self, max_batches: int = 100):
+        self._batches: Dict[str, Batch] = {}
+        self._max_batches = max_batches
+        self._lock = asyncio.Lock()
+
+    async def create(self, batch: Batch) -> None:
+        async with self._lock:
+            # Clean up old batches if at limit
+            if len(self._batches) >= self._max_batches:
+                oldest_id = min(
+                    self._batches.keys(),
+                    key=lambda k: self._batches[k].created_at
+                )
+                del self._batches[oldest_id]
+
+            self._batches[batch.batch_id] = batch
+
+    async def get(self, batch_id: str) -> Optional[Batch]:
+        return self._batches.get(batch_id)
+
+    async def update(self, batch: Batch) -> None:
+        async with self._lock:
+            self._batches[batch.batch_id] = batch
+
+    async def list_active(self) -> List[Batch]:
+        return [
+            b for b in self._batches.values()
+            if b.status in (BatchStatus.PENDING, BatchStatus.RUNNING)
+        ]
+
+    async def list_all(self, limit: int = 20) -> List[Batch]:
+        batches = sorted(
+            self._batches.values(),
+            key=lambda b: b.created_at,
+            reverse=True
+        )
+        return batches[:limit]
+
+
+batch_store = BatchStore()
 
 
 @dataclass
@@ -544,6 +747,8 @@ class Executor:
 
 
 executor = Executor()
+batch_executor = None  # Initialized in startup
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # API MODELS
@@ -578,14 +783,234 @@ class QuickRequest(BaseModel):
     source: str = "api"
     context: Dict[str, Any] = {}
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PARALLEL EXECUTION MODELS
+# ─────────────────────────────────────────────────────────────────────────────
+
+class BatchTaskInput(BaseModel):
+    """A single task within a batch request."""
+    chain: str
+    input: Dict[str, Any]
+    task_id: Optional[str] = None  # Auto-generated if not provided
+
+
+class ParallelExecutionRequest(BaseModel):
+    """Request for parallel batch execution."""
+    tasks: List[BatchTaskInput]
+    concurrency: int = Field(default=DEFAULT_CONCURRENCY, ge=MIN_CONCURRENCY, le=MAX_CONCURRENCY)
+    callback_url: Optional[str] = None
+    source: str = "api"
+    batch_id: Optional[str] = None  # Auto-generated if not provided
+
+
+class ParallelExecutionResponse(BaseModel):
+    """Response for parallel batch execution."""
+    batch_id: str
+    status: str
+    total_tasks: int
+    concurrency: int
+    message: str
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BATCH EXECUTOR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class BatchExecutor:
+    """Executes batches of tasks with concurrency control."""
+
+    def __init__(self, executor: "Executor"):
+        self.executor = executor
+        self.client = httpx.AsyncClient(timeout=180.0)
+
+    async def execute_batch(self, batch: Batch) -> None:
+        """Execute all tasks in a batch with concurrency control."""
+        batch.status = BatchStatus.RUNNING
+        batch.started_at = datetime.utcnow()
+        await batch_store.update(batch)
+
+        # Emit batch started event
+        await self.executor.log_event("batch.started", {
+            "batch_id": batch.batch_id,
+            "total_tasks": batch.total_tasks,
+            "concurrency": batch.concurrency
+        })
+
+        # Create semaphore for concurrency control
+        semaphore = asyncio.Semaphore(batch.concurrency)
+
+        async def execute_with_semaphore(task: BatchTask) -> None:
+            async with semaphore:
+                await self._execute_single_task(batch, task)
+
+        # Execute all tasks with concurrency limit
+        await asyncio.gather(
+            *[execute_with_semaphore(task) for task in batch.tasks],
+            return_exceptions=True
+        )
+
+        # Determine final status
+        batch.total_cost = sum(t.cost for t in batch.tasks)
+        batch.completed_at = datetime.utcnow()
+
+        if batch.failed_count == 0:
+            batch.status = BatchStatus.COMPLETED
+        elif batch.completed_count == 0:
+            batch.status = BatchStatus.FAILED
+        else:
+            batch.status = BatchStatus.PARTIAL
+
+        await batch_store.update(batch)
+
+        # Emit batch completed event
+        await self.executor.log_event("batch.completed", {
+            "batch_id": batch.batch_id,
+            "status": batch.status.value,
+            "completed": batch.completed_count,
+            "failed": batch.failed_count,
+            "total_cost": batch.total_cost,
+            "duration_ms": batch.duration_ms
+        })
+
+        # Store results in Unified Memory
+        await self._store_in_unified_memory(batch)
+
+        # Notify HERMES on completion
+        await self._notify_completion(batch)
+
+        # Call webhook callback if provided
+        if batch.callback_url:
+            await self._call_callback(batch)
+
+    async def _execute_single_task(self, batch: Batch, task: BatchTask) -> None:
+        """Execute a single task within the batch."""
+        task.status = TaskStatus.RUNNING
+        task.started_at = datetime.utcnow()
+        await batch_store.update(batch)
+
+        # Emit task started event
+        await self.executor.log_event("task.started", {
+            "batch_id": batch.batch_id,
+            "task_id": task.task_id,
+            "chain": task.chain
+        })
+
+        try:
+            # Get chain definition
+            chain_def = registry.get_chain(task.chain)
+            if not chain_def:
+                raise ValueError(f"Chain '{task.chain}' not found")
+
+            # Create execution context
+            context = ExecutionContext(
+                intent_id=task.task_id,
+                source=batch.source
+            )
+
+            # Execute the chain
+            result = await self.executor.execute_chain(chain_def, task.input, context)
+
+            # Mark task complete
+            task.status = TaskStatus.COMPLETED
+            task.result = result
+            task.cost = context.total_cost
+            task.completed_at = datetime.utcnow()
+
+            # Emit task completed event
+            await self.executor.log_event("task.completed", {
+                "batch_id": batch.batch_id,
+                "task_id": task.task_id,
+                "chain": task.chain,
+                "cost": task.cost,
+                "duration_ms": task.duration_ms
+            })
+
+        except Exception as e:
+            task.status = TaskStatus.FAILED
+            task.error = str(e)
+            task.completed_at = datetime.utcnow()
+
+            # Emit task failed event
+            await self.executor.log_event("task.failed", {
+                "batch_id": batch.batch_id,
+                "task_id": task.task_id,
+                "chain": task.chain,
+                "error": str(e)
+            })
+
+        await batch_store.update(batch)
+
+    async def _store_in_unified_memory(self, batch: Batch) -> None:
+        """Store batch results in Unified Memory."""
+        try:
+            await self.client.post(
+                f"{UNIFIED_MEMORY_URL}/store",
+                json={
+                    "type": "batch_result",
+                    "batch_id": batch.batch_id,
+                    "status": batch.status.value,
+                    "results": batch.to_results_dict(),
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+                timeout=5.0
+            )
+        except Exception:
+            pass  # Non-critical, don't fail the batch
+
+    async def _notify_completion(self, batch: Batch) -> None:
+        """Notify HERMES of batch completion."""
+        try:
+            status_emoji = {
+                BatchStatus.COMPLETED: "✅",
+                BatchStatus.PARTIAL: "⚠️",
+                BatchStatus.FAILED: "❌"
+            }.get(batch.status, "📊")
+
+            message = (
+                f"{status_emoji} Batch {batch.batch_id[:8]} complete\n"
+                f"Status: {batch.status.value}\n"
+                f"Tasks: {batch.completed_count}/{batch.total_tasks} succeeded\n"
+                f"Cost: ${batch.total_cost:.4f}\n"
+                f"Duration: {batch.duration_ms/1000:.1f}s"
+            )
+
+            await self.client.post(
+                f"{HERMES_URL}/notify",
+                json={
+                    "channel": "event_bus",
+                    "message": message,
+                    "priority": "high" if batch.failed_count > 0 else "normal"
+                },
+                timeout=5.0
+            )
+        except Exception:
+            pass  # Non-critical
+
+    async def _call_callback(self, batch: Batch) -> None:
+        """Call the webhook callback URL."""
+        try:
+            await self.client.post(
+                batch.callback_url,
+                json=batch.to_results_dict(),
+                timeout=30.0
+            )
+        except Exception as e:
+            await self.executor.log_event("batch.callback_failed", {
+                "batch_id": batch.batch_id,
+                "callback_url": batch.callback_url,
+                "error": str(e)
+            })
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # FASTAPI APPLICATION
 # ═══════════════════════════════════════════════════════════════════════════════
 
 app = FastAPI(
     title="ATLAS Orchestration Engine",
-    description="Programmatic orchestration for complex chains and parallel execution",
-    version="2.0.1"
+    description="Programmatic orchestration for complex chains and parallel batch execution",
+    version="2.1.0"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -595,11 +1020,14 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """Health check."""
+    active_batches = await batch_store.list_active()
     return {
         "status": "healthy",
         "agent": "ATLAS",
         "implementation": "fastapi",
-        "version": "2.0.1",
+        "version": "2.1.0",
+        "capabilities": ["chains", "parallel_batch"],
+        "active_batches": len(active_batches),
         "registry_loaded": registry._loaded_at.isoformat() if registry._loaded_at else None,
         "timestamp": datetime.utcnow().isoformat()
     }
@@ -714,6 +1142,139 @@ async def execute_intent(intent: Intent, background_tasks: BackgroundTasks):
         return context.to_dict()
 
 # ─────────────────────────────────────────────────────────────────────────────
+# PARALLEL BATCH EXECUTION
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.post("/execute-parallel", response_model=ParallelExecutionResponse)
+async def execute_parallel(
+    request: ParallelExecutionRequest,
+    background_tasks: BackgroundTasks
+):
+    """
+    Execute multiple chains in parallel with concurrency control.
+
+    Returns immediately with batch_id for tracking. Use /batch/{batch_id}/status
+    to check progress and /batch/{batch_id}/results to get outputs.
+
+    Events emitted:
+    - batch.started: When batch begins execution
+    - task.started: When each task begins
+    - task.completed: When each task succeeds
+    - task.failed: When each task fails
+    - batch.completed: When batch finishes
+
+    Example request:
+    ```json
+    {
+        "tasks": [
+            {"chain": "research-and-plan", "input": {"topic": "AI agents"}},
+            {"chain": "research-and-plan", "input": {"topic": "MCP servers"}}
+        ],
+        "concurrency": 5
+    }
+    ```
+    """
+    global batch_executor
+
+    # Validate chains exist
+    for task_input in request.tasks:
+        if not registry.get_chain(task_input.chain):
+            raise HTTPException(404, f"Chain '{task_input.chain}' not found")
+
+    # Create batch
+    batch_id = request.batch_id or str(uuid4())
+    tasks = [
+        BatchTask(
+            task_id=t.task_id or f"{batch_id[:8]}-{i}",
+            chain=t.chain,
+            input=t.input
+        )
+        for i, t in enumerate(request.tasks)
+    ]
+
+    batch = Batch(
+        batch_id=batch_id,
+        tasks=tasks,
+        concurrency=min(request.concurrency, MAX_CONCURRENCY),
+        callback_url=request.callback_url,
+        source=request.source
+    )
+
+    await batch_store.create(batch)
+
+    # Execute in background
+    background_tasks.add_task(batch_executor.execute_batch, batch)
+
+    return ParallelExecutionResponse(
+        batch_id=batch_id,
+        status="accepted",
+        total_tasks=len(tasks),
+        concurrency=batch.concurrency,
+        message=f"Batch queued for execution. Track at /batch/{batch_id}/status"
+    )
+
+
+@app.get("/batch/{batch_id}/status")
+async def get_batch_status(batch_id: str):
+    """
+    Get status of a parallel batch execution.
+
+    Returns progress including:
+    - Overall batch status
+    - Task counts (completed, failed, pending, running)
+    - Progress percentage
+    - Total cost so far
+    - Duration
+
+    Poll this endpoint to track progress of long-running batches.
+    """
+    batch = await batch_store.get(batch_id)
+    if not batch:
+        raise HTTPException(404, f"Batch '{batch_id}' not found")
+
+    return batch.to_status_dict()
+
+
+@app.get("/batch/{batch_id}/results")
+async def get_batch_results(batch_id: str):
+    """
+    Get full results of a parallel batch execution.
+
+    Returns:
+    - Status information
+    - Array of successful results with outputs
+    - Array of failures with error messages
+    - All task details
+
+    Best called after batch reaches completed/partial/failed status.
+    """
+    batch = await batch_store.get(batch_id)
+    if not batch:
+        raise HTTPException(404, f"Batch '{batch_id}' not found")
+
+    return batch.to_results_dict()
+
+
+@app.get("/batches")
+async def list_batches(limit: int = 20, active_only: bool = False):
+    """
+    List batch executions.
+
+    - active_only=true: Only running/pending batches
+    - active_only=false: All recent batches
+    """
+    if active_only:
+        batches = await batch_store.list_active()
+    else:
+        batches = await batch_store.list_all(limit=limit)
+
+    return {
+        "batches": [b.to_status_dict() for b in batches],
+        "count": len(batches)
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # QUICK ENDPOINTS
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -789,9 +1350,14 @@ async def reload_registry():
 @app.on_event("startup")
 async def startup():
     """Initialize on startup."""
+    global batch_executor
+
     registry.load()
+    batch_executor = BatchExecutor(executor)
+
     await executor.log_event("agent_started", {
         "agent": "ATLAS",
         "implementation": "fastapi",
-        "version": "2.0.1"
+        "version": "2.1.0",
+        "capabilities": ["chains", "parallel_batch"]
     })

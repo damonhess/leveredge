@@ -7,8 +7,8 @@
 # ║  ATHENA can auto-generate n8n workflows from this.                            ║
 # ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-version: "2.0"
-updated: "2026-01-17T15:00:00Z"
+version: "2.1"
+updated: "2026-01-17T20:00:00Z"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # GLOBAL CONFIGURATION
@@ -40,6 +40,125 @@ config:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 agents:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ATLAS - Orchestration Engine
+  # ─────────────────────────────────────────────────────────────────────────────
+  atlas:
+    name: ATLAS
+    version: "2.1"
+    description: "Orchestration engine for complex chains and parallel batch execution"
+    category: infrastructure
+    llm_powered: false
+
+    connection:
+      url: http://atlas:8007
+      health_endpoint: /health
+      timeout_ms: 300000  # Long timeout for batch operations
+
+    capabilities:
+      - chain_execution
+      - parallel_batch
+      - agent_coordination
+      - cost_tracking
+
+    actions:
+
+      execute:
+        endpoint: /execute
+        method: POST
+        description: "Execute a single chain or intent"
+        timeout_ms: 180000
+        params:
+          - name: chain_name
+            type: string
+            required: false
+            description: "Name of pre-defined chain"
+          - name: steps
+            type: array
+            required: false
+            description: "Ad-hoc chain steps"
+          - name: input
+            type: object
+            required: true
+        returns:
+          type: object
+          fields: [intent_id, status, step_results, total_cost]
+
+      execute-parallel:
+        endpoint: /execute-parallel
+        method: POST
+        description: "Execute multiple chains in parallel with concurrency control"
+        timeout_ms: 300000
+        params:
+          - name: tasks
+            type: array
+            required: true
+            description: "Array of {chain, input} objects"
+          - name: concurrency
+            type: integer
+            required: false
+            default: 5
+          - name: callback_url
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [batch_id, status, total_tasks, concurrency, message]
+
+      batch-status:
+        endpoint: /batch/{batch_id}/status
+        method: GET
+        description: "Get progress of parallel batch execution"
+        timeout_ms: 10000
+        params:
+          - name: batch_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [batch_id, status, completed, failed, pending, running, progress_percent, total_cost]
+
+      batch-results:
+        endpoint: /batch/{batch_id}/results
+        method: GET
+        description: "Get full results of parallel batch execution"
+        timeout_ms: 30000
+        params:
+          - name: batch_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [batch_id, status, results, errors, tasks]
+
+      list-chains:
+        endpoint: /chains
+        method: GET
+        description: "List available chains"
+        timeout_ms: 5000
+        params: []
+        returns:
+          type: object
+          fields: [chains, count]
+
+      list-batches:
+        endpoint: /batches
+        method: GET
+        description: "List recent batch executions"
+        timeout_ms: 5000
+        params:
+          - name: limit
+            type: integer
+            required: false
+            default: 20
+          - name: active_only
+            type: boolean
+            required: false
+            default: false
+        returns:
+          type: object
+          fields: [batches, count]
 
   # ─────────────────────────────────────────────────────────────────────────────
   # SCHOLAR - Market Research & Intelligence (LLM-Powered)
@@ -1044,21 +1163,22 @@ agents:
   # ─────────────────────────────────────────────────────────────────────────────
   hephaestus:
     name: HEPHAESTUS
-    version: "1.0"
-    description: "File operations, commands, and deployment"
+    version: "1.1"
+    description: "File operations, commands, deployment, and orchestration"
     category: infrastructure
     llm_powered: false
-    
+
     connection:
       url: http://hephaestus:8011
       health_endpoint: /health
       timeout_ms: 30000
-      
+
     capabilities:
       - file_operations
       - command_execution
       - deployment
       - git_operations
+      - parallel_orchestration
       
     actions:
       
@@ -1137,6 +1257,53 @@ agents:
         returns:
           type: object
           fields: [committed, hash, files]
+
+      orchestrate-parallel:
+        endpoint: /tools/orchestrate/parallel
+        method: POST
+        description: "Execute multiple chains in parallel via ATLAS"
+        timeout_ms: 300000
+        params:
+          - name: tasks
+            type: array
+            required: true
+            description: "Array of {chain, input} objects"
+          - name: concurrency
+            type: integer
+            required: false
+            default: 5
+          - name: callback_url
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [batch_id, status, total_tasks, concurrency, message]
+
+      orchestrate-batch-status:
+        endpoint: /tools/orchestrate/batch/{batch_id}/status
+        method: GET
+        description: "Get status of parallel batch execution"
+        timeout_ms: 10000
+        params:
+          - name: batch_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [batch_id, status, completed, failed, pending, running, progress_percent]
+
+      orchestrate-batch-results:
+        endpoint: /tools/orchestrate/batch/{batch_id}/results
+        method: GET
+        description: "Get full results of parallel batch execution"
+        timeout_ms: 30000
+        params:
+          - name: batch_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [batch_id, status, results, errors, tasks]
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # CHAIN DEFINITIONS

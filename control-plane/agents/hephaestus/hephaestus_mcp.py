@@ -18,7 +18,7 @@ import httpx
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-app = FastAPI(title="HEPHAESTUS", description="Builder MCP Server", version="1.0.0")
+app = FastAPI(title="HEPHAESTUS", description="Builder MCP Server with Orchestration", version="1.1.0")
 
 # Configuration
 N8N_URLS = {
@@ -28,6 +28,7 @@ N8N_URLS = {
 }
 N8N_API_KEY = os.getenv("N8N_API_KEY", "")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
+ATLAS_URL = os.getenv("ATLAS_URL", "http://atlas:8007")
 
 # Permission patterns
 TIER_0_FORBIDDEN = [
@@ -102,6 +103,13 @@ class AgentCall(BaseModel):
     agent: str
     action: str
     payload: dict = {}
+
+
+class ParallelOrchestration(BaseModel):
+    """Request for parallel orchestration via ATLAS."""
+    tasks: List[dict]  # List of {"chain": "...", "input": {...}}
+    concurrency: int = 5
+    callback_url: Optional[str] = None
 
 
 class GitCommit(BaseModel):
@@ -753,6 +761,89 @@ async def list_agents():
     return {"agents": results}
 
 
+# ============ ORCHESTRATION TOOLS ============
+
+@app.post("/tools/orchestrate/parallel")
+async def orchestrate_parallel(req: ParallelOrchestration):
+    """
+    Execute multiple chains in parallel via ATLAS.
+
+    This is a convenience wrapper around ATLAS /execute-parallel.
+    Returns immediately with batch_id for tracking.
+
+    Example:
+    ```json
+    {
+        "tasks": [
+            {"chain": "research-and-plan", "input": {"topic": "AI agents"}},
+            {"chain": "research-and-plan", "input": {"topic": "MCP servers"}}
+        ],
+        "concurrency": 5
+    }
+    ```
+    """
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.post(
+                f"{ATLAS_URL}/execute-parallel",
+                json={
+                    "tasks": req.tasks,
+                    "concurrency": req.concurrency,
+                    "callback_url": req.callback_url,
+                    "source": "hephaestus"
+                },
+                timeout=30.0
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            await log_event("orchestrate_parallel", "atlas", {"batch_id": result.get("batch_id"), "tasks": len(req.tasks)})
+            return result
+        except httpx.TimeoutException:
+            await log_event("orchestrate_parallel_timeout", "atlas", {}, "failed")
+            raise HTTPException(status_code=504, detail="ATLAS timeout")
+        except Exception as e:
+            await log_event("orchestrate_parallel_error", "atlas", {"error": str(e)}, "failed")
+            raise HTTPException(status_code=502, detail=f"ATLAS error: {str(e)}")
+
+
+@app.get("/tools/orchestrate/batch/{batch_id}/status")
+async def get_batch_status(batch_id: str):
+    """Get status of a parallel batch execution from ATLAS."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(
+                f"{ATLAS_URL}/batch/{batch_id}/status",
+                timeout=10.0
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise HTTPException(status_code=404, detail=f"Batch '{batch_id}' not found")
+            raise HTTPException(status_code=e.response.status_code, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ATLAS error: {str(e)}")
+
+
+@app.get("/tools/orchestrate/batch/{batch_id}/results")
+async def get_batch_results(batch_id: str):
+    """Get full results of a parallel batch execution from ATLAS."""
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(
+                f"{ATLAS_URL}/batch/{batch_id}/results",
+                timeout=30.0
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                raise HTTPException(status_code=404, detail=f"Batch '{batch_id}' not found")
+            raise HTTPException(status_code=e.response.status_code, detail=str(e))
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"ATLAS error: {str(e)}")
+
+
 # ============ HEALTH ============
 
 @app.get("/health")
@@ -770,15 +861,16 @@ async def health():
 async def root():
     return {
         "name": "HEPHAESTUS",
-        "description": "Builder MCP Server - Dumb Executor",
-        "version": "1.0.0",
+        "description": "Builder MCP Server with Orchestration",
+        "version": "1.1.0",
         "endpoints": {
             "health": "/health",
             "workflows": "/tools/workflow/*",
             "files": "/tools/file/*",
             "commands": "/tools/command/*",
             "git": "/tools/git/*",
-            "agents": "/tools/agent/*"
+            "agents": "/tools/agent/*",
+            "orchestrate": "/tools/orchestrate/*"
         }
     }
 
