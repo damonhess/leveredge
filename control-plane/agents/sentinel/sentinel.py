@@ -226,9 +226,9 @@ class Router:
     
     def determine_complexity(self, intent: dict) -> str:
         """Determine complexity of an intent."""
-        
+
         # Check for parallel steps
-        steps = intent.get("steps", [])
+        steps = intent.get("steps") or []
         for step in steps:
             if step.get("type") == "parallel":
                 return "complex"

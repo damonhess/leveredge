@@ -20,6 +20,104 @@
 
 *Last consolidated: January 17, 2026 12:45 AM*
 
+### 2026-01-17 00:10 - [ARIA → OLYMPUS Integration]
+**Status:** Deployed and verified in DEV
+**Scope:** DEV ARIA workflow (aX8d9zWniCYaIDwc)
+
+**Added Nodes:**
+- `Pre-Router` - Code node that detects chain/agent patterns
+- `Route Switch` - Routes to SENTINEL or AI Agent
+- `SENTINEL Orchestrate` - HTTP Request to SENTINEL at 8019
+- `Format Orchestration Response` - Formats multi-agent results
+
+**Workflow Path:**
+```
+Webhook → Extract Input → Fetch Portfolio → SHIELD
+    ↓
+Pre-Router (pattern detection)
+    ↓
+Route Switch
+    ├── SENTINEL path: SENTINEL Orchestrate → Format Orchestration Response → Format Response
+    └── ARIA path: AI Agent → SWORD → Format Response
+    ↓
+Respond to Webhook
+```
+
+**Pattern Detection:**
+- Chain patterns: "research X then plan Y" → research-and-plan chain
+- CHIRON patterns: "hype me", "sprint plan", "pricing" → single CHIRON call
+- SCHOLAR patterns: "research", "competitors", "market size" → single SCHOLAR call
+- Default: ARIA handles normally
+
+**Critical n8n Lessons:**
+
+1. **activeVersionId vs versionId:**
+   - `workflow_entity.versionId` = current draft version
+   - `workflow_entity.activeVersionId` = version running in production
+   - Direct SQL updates must update BOTH AND the workflow_history entry
+   - n8n loads from activeVersionId, not versionId
+
+2. **Switch v3 node format:**
+   ```javascript
+   {
+     "rules": {
+       "values": [
+         {
+           "conditions": {
+             "options": {"caseSensitive": true, "typeValidation": "loose"},
+             "combinator": "and",
+             "conditions": [{"leftValue": "...", "rightValue": "...", "operator": {...}}]
+           },
+           "renameOutput": true,
+           "outputKey": "SENTINEL"
+         }
+       ]
+     },
+     "options": {"fallbackOutput": "extra"}
+   }
+   ```
+   NOT: `rules.rules` (causes "Could not find property option" error)
+
+3. **Merge node limitations:**
+   - `chooseBranch` mode waits for BOTH inputs
+   - For conditional paths, connect directly to shared node
+   - Use $json for incoming data, not $('NodeName') references
+
+4. **$json vs $('NodeName'):**
+   - Use `$json` when data comes from different paths
+   - `$('NodeName')` fails if that node didn't execute in current path
+
+**SENTINEL Fix:**
+```python
+# Before (fails when steps is None)
+steps = intent.get("steps", [])
+
+# After (handles None explicitly)
+steps = intent.get("steps") or []
+```
+
+**Test Commands:**
+```bash
+# Test SENTINEL path (hype)
+curl -X POST http://localhost:5680/webhook/assistant -H "Content-Type: application/json" -d '{"message": "hype me up"}'
+
+# Test chain pattern
+curl -X POST http://localhost:5680/webhook/assistant -H "Content-Type: application/json" -d '{"message": "research compliance automation then make me a plan"}'
+
+# Test ARIA path (default)
+curl -X POST http://localhost:5680/webhook/assistant -H "Content-Type: application/json" -d '{"message": "what time is it?"}'
+```
+
+**Success Criteria Met:**
+- ✅ Pre-Router correctly detects chain patterns
+- ✅ Pre-Router correctly detects single agent patterns
+- ✅ Switch routes to SENTINEL vs ARIA correctly
+- ✅ SENTINEL HTTP request succeeds
+- ✅ Response formatter handles single agent results
+- ✅ Response formatter handles chain results (2 steps)
+- ✅ Default messages still handled by ARIA
+- ✅ Cost and timing displayed in footer
+
 ### 2026-01-17 00:35 - [OLYMPUS Unified Orchestration System]
 **Status:** Deployed and verified
 **Scope:** ATLAS (8007), SENTINEL (8019), Agent Registry
