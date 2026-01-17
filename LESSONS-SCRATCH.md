@@ -932,3 +932,42 @@ python3 -c "import asyncio, asyncpg; asyncio.run(asyncpg.connect('postgresql://p
 
 **Testing Note:** When testing parallel execution, ensure agents (SCHOLAR, CHIRON) are on same Docker network as ATLAS. Different networks = HTTP timeouts.
 
+
+### 2026-01-17 09:50 - [AEGIS V2 Implementation]
+**Context:** Built AEGIS V2 - Enterprise Credential Management System
+**Scope:** Complete rewrite from SQLite V1 to PostgreSQL V2
+
+**Key Decisions:**
+1. **Database:** Moved from SQLite to PostgreSQL (DEV: 127.0.0.1:54323)
+2. **Encryption:** AES-256 via Fernet with PBKDF2 key derivation
+3. **Versioning:** Full version history for rollback support
+4. **Background Tasks:** asyncio for health checks, rotation, expiry alerts
+
+**Technical Notes:**
+- asyncpg requires URL-encoded passwords (+ becomes %2B, / becomes %2F)
+- Service file needs %% for % in systemd Environment variables
+- Background tasks start via lifespan context manager
+
+**Files Created:**
+- aegis_v2.py (1555 lines) - main application
+- install_v2.sh - installation helper script
+- 6 database tables in DEV postgres
+
+**Database Schema:**
+- aegis_credentials - core registry with encryption
+- aegis_credential_versions - version history
+- aegis_audit_log - access logging
+- aegis_rotation_history - rotation tracking
+- aegis_health_checks - health results
+- aegis_templates - credential templates
+
+**Installation:**
+```bash
+sudo bash /opt/leveredge/control-plane/agents/aegis/install_v2.sh
+```
+
+**Verification Endpoints:**
+- GET /health - basic health
+- GET /health/dashboard - traffic light status
+- GET /credentials - list all (no values exposed)
+- POST /credentials/{name}/test - health check
