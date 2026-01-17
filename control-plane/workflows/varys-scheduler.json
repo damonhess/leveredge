@@ -1,0 +1,96 @@
+{
+  "name": "VARYS Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "daily-trigger",
+      "name": "Daily Brief Trigger (6 AM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://varys:8020/daily-brief",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-daily-brief",
+      "name": "Call Daily Brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 200]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * 0"
+            }
+          ]
+        }
+      },
+      "id": "weekly-trigger",
+      "name": "Weekly Review Trigger (Sunday 8 PM)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://varys:8020/weekly-review",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "call-weekly-review",
+      "name": "Call Weekly Review",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 400]
+    }
+  ],
+  "connections": {
+    "Daily Brief Trigger (6 AM)": {
+      "main": [
+        [
+          {
+            "node": "Call Daily Brief",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly Review Trigger (Sunday 8 PM)": {
+      "main": [
+        [
+          {
+            "node": "Call Weekly Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  }
+}

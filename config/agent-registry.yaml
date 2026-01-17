@@ -892,6 +892,111 @@ agents:
           fields: [content, path, format]
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # VARYS - Mission Guardian
+  # ─────────────────────────────────────────────────────────────────────────────
+  varys:
+    name: VARYS
+    version: "1.0"
+    description: "Mission Guardian - accountability, drift detection, strategic alignment"
+    category: infrastructure
+    llm_powered: false
+
+    connection:
+      url: http://varys:8020
+      health_endpoint: /health
+      timeout_ms: 30000
+
+    capabilities:
+      - accountability
+      - drift_detection
+      - mission_alignment
+      - daily_briefs
+      - weekly_reviews
+
+    actions:
+
+      daily-brief:
+        endpoint: /daily-brief
+        method: POST
+        description: "Generate and send daily accountability brief"
+        timeout_ms: 30000
+        params: []
+        returns:
+          type: object
+          fields: [status, brief]
+
+      weekly-review:
+        endpoint: /weekly-review
+        method: POST
+        description: "Generate comprehensive weekly review"
+        timeout_ms: 120000
+        params: []
+        returns:
+          type: object
+          fields: [status, review]
+
+      days-to-launch:
+        endpoint: /days-to-launch
+        method: GET
+        description: "Get days remaining until launch"
+        timeout_ms: 5000
+        params: []
+        returns:
+          type: object
+          fields: [launch_date, days_remaining, weeks_remaining, urgency]
+
+      todays-focus:
+        endpoint: /todays-focus
+        method: GET
+        description: "Get today's focus from calendar"
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: object
+          fields: [date, day_of_week, focus, days_to_launch]
+
+      scan-drift:
+        endpoint: /scan-drift
+        method: GET
+        description: "Scan for scope creep in recent commits"
+        timeout_ms: 30000
+        params:
+          - name: days
+            type: integer
+            required: false
+            default: 1
+        returns:
+          type: object
+          fields: [period_days, total_commits, drift_flags, drift_details, status]
+
+      validate-decision:
+        endpoint: /validate-decision
+        method: POST
+        description: "Validate a decision against mission alignment"
+        timeout_ms: 15000
+        params:
+          - name: description
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [decision, alignment, red_flags, recommendation]
+
+      mission:
+        endpoint: /mission/{document}
+        method: GET
+        description: "Retrieve sacred mission documents"
+        timeout_ms: 5000
+        params:
+          - name: document
+            type: string
+            required: true
+            enum: [MISSION, LAUNCH-DATE, REVENUE-GOAL, BOUNDARIES, PORTFOLIO-TARGET]
+        returns:
+          type: object
+          fields: [document, content]
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # HEPHAESTUS - Builder & Deployer
   # ─────────────────────────────────────────────────────────────────────────────
   hephaestus:
