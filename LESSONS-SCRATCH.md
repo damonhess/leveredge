@@ -914,3 +914,21 @@ python3 -c "import asyncio, asyncpg; asyncio.run(asyncpg.connect('postgresql://p
 - /opt/leveredge/shared/scripts/promote-schema.sh - Compare and promote schemas DEV→PROD
 
 **Prevention:** Always use isolated environments from the start. Never share database containers between environments.
+
+### 2026-01-17 08:15 - [ATLAS Parallel Execution]
+**Context:** Built parallel batch execution for ATLAS
+**Discovery:** 
+- Semaphore-based concurrency control works well for limiting parallel API calls
+- In-memory batch storage is sufficient for tracking (100 batch limit with LRU eviction)
+- Event Bus integration enables ARIA awareness of batch progress
+- Different Docker networks can block agent-to-agent communication
+
+**Implementation Notes:**
+- BatchTask dataclass tracks individual task status/results
+- Batch dataclass aggregates stats (completed_count, failed_count, progress_percent)
+- BatchExecutor uses asyncio.Semaphore for concurrency limiting
+- BackgroundTasks for non-blocking batch execution
+- Optional webhook callback for completion notification
+
+**Testing Note:** When testing parallel execution, ensure agents (SCHOLAR, CHIRON) are on same Docker network as ATLAS. Different networks = HTTP timeouts.
+
