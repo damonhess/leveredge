@@ -741,3 +741,62 @@ docker run -d --name chiron --network control-plane-net -p 8017:8017 \
 - Event Bus integration for task lifecycle events
 - Delete_at column enables scheduled deletion
 
+
+### 2026-01-17 06:45 - [aria-threading Database Connectivity Fix]
+**Symptom:** `socket.gaierror: [Errno -3] Temporary failure in name resolution`
+**Cause:** aria-threading running on host tried to connect to `supabase-db` hostname (Docker internal DNS). Host system can't resolve Docker container hostnames.
+
+**Solution:** Option B - Expose PostgreSQL port to localhost only
+1. Added `ports: ["127.0.0.1:54322:5432"]` to supabase-db service in docker-compose.yml
+2. Updated aria-threading .env, run.sh, and systemd service to use `127.0.0.1:54322`
+3. Password must be URL-encoded in connection string (+ → %2B, / → %2F)
+
+**Why This Approach:**
+- Simple and production-reliable
+- Secure: only localhost can access (127.0.0.1 binding)
+- Compatible with systemd service model
+- No need to containerize Python service
+- Standard pattern for host-to-container DB access
+
+**Key Files Changed:**
+- `/opt/leveredge/data-plane/prod/supabase/docker-compose.yml` - Added ports section to db service
+- `/home/damon/environments/dev/aria-threading/.env` - Updated DATABASE_URL
+- `/home/damon/environments/dev/aria-threading/run.sh` - Updated default DATABASE_URL
+- `/home/damon/environments/dev/aria-threading/aria-threading.service` - Updated systemd env (note: %% escaping for systemd)
+
+**URL Encoding Gotcha:** asyncpg parses DSN as URL, so special characters in password need URL encoding. Raw password fails with cryptic port parsing errors.
+
+**Verification Commands:**
+```bash
+# Check port binding
+ss -tlnp | grep 54322
+docker ps --format "table {{.Names}}\t{{.Ports}}" | grep supabase-db
+
+# Test connection
+python3 -c "import asyncio, asyncpg; asyncio.run(asyncpg.connect('postgresql://postgres:i%2BNKWrdGrBsHu2n%2FLGzNMY84Avry2RhNOY2QYksldLtX7GEuxdyASrpv3n0IRinS@127.0.0.1:54322/postgres_dev'))"
+```
+
+### 2026-01-17 05:30 - [ARIA Unified Threading]
+**Status:** Database schema deployed to DEV Supabase
+**Scope:** Unified conversation stream with semantic retrieval
+
+**Key Design Decisions:**
+1. **Extend, don't replace**: Existing aria_conversations/aria_messages tables extended with chunk_id, sequence_num, threading_settings
+2. **Unified stream via session_id**: Uses 'unified-{user_id}' session pattern for ONE stream per user
+3. **Chunk embeddings separate table**: aria_chunk_embeddings keeps vector storage efficient and allows cascade deletes
+4. **Column naming in RETURNS TABLE**: PostgreSQL function returns can conflict with column names - use aliases like `conv_id` instead of `conversation_id`
+
+**Function Gotchas:**
+- Return type NUMERIC vs DOUBLE PRECISION for EXTRACT() results
+- Column name ambiguity in PL/pgSQL: Use table aliases (m.conversation_id, c.conversation_id)
+- BIGINT vs INT: COUNT(*) returns BIGINT, need explicit cast
+
+**Database Connectivity:**
+- Supabase DB in Docker: Connect via container network (supabase-db:5432), not localhost
+- No external port exposed - use docker exec for CLI testing
+- Python service needs to run on same Docker network or expose port
+
+**Service Architecture:**
+- Port 8113 for aria-threading API
+- Follows aria-reminders pattern (FastAPI + asyncpg)
+- Tools endpoint format matches n8n HTTP Request node expectations

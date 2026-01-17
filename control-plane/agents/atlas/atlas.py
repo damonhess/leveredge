@@ -336,6 +336,11 @@ class Executor:
         # Build request body
         params = step.get("params", {}).copy()
         
+        # FIX: Resolve templates in params values (e.g., {{input.topic}})
+        for key, value in list(params.items()):
+            if isinstance(value, str) and "{{" in value:
+                params[key] = template_engine.resolve(value, context, input_data)
+        
         # Resolve input template if present
         if "input_template" in step:
             resolved = template_engine.resolve(step["input_template"], context, input_data)
@@ -580,7 +585,7 @@ class QuickRequest(BaseModel):
 app = FastAPI(
     title="ATLAS Orchestration Engine",
     description="Programmatic orchestration for complex chains and parallel execution",
-    version="2.0.0"
+    version="2.0.1"
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -594,7 +599,7 @@ async def health():
         "status": "healthy",
         "agent": "ATLAS",
         "implementation": "fastapi",
-        "version": "2.0.0",
+        "version": "2.0.1",
         "registry_loaded": registry._loaded_at.isoformat() if registry._loaded_at else None,
         "timestamp": datetime.utcnow().isoformat()
     }
@@ -788,6 +793,5 @@ async def startup():
     await executor.log_event("agent_started", {
         "agent": "ATLAS",
         "implementation": "fastapi",
-        "version": "2.0.0"
+        "version": "2.0.1"
     })
-

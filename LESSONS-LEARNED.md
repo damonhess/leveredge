@@ -1,7 +1,37 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (1:45 AM)*
+*Last Updated: January 17, 2026 (3:30 AM)*
+
+---
+
+## CRITICAL: OPERATIONS RUNBOOK
+
+**See `/opt/leveredge/OPS-RUNBOOK.md` for:**
+- How to restart each agent
+- Health check commands
+- Log locations
+- Troubleshooting guide
+- Full system restart procedure
+
+### Key Discovery (Jan 17, 2026)
+**Control plane agents run as raw uvicorn processes, NOT Docker or systemd.**
+
+```bash
+# Example: ATLAS runs like this
+/usr/local/bin/python3.11 /usr/local/bin/uvicorn atlas:app --host 0.0.0.0 --port 8007
+
+# To restart:
+sudo pkill -f "uvicorn atlas:app" && cd /opt/leveredge/control-plane/agents/atlas && sudo nohup /usr/local/bin/python3.11 -m uvicorn atlas:app --host 0.0.0.0 --port 8007 > /tmp/atlas.log 2>&1 &
+```
+
+**There is NO:**
+- `docker-compose.yml` for agents
+- `systemd` service files
+- Auto-restart on crash
+- Auto-start on boot
+
+**TODO:** Convert all agents to systemd services (see OPS-RUNBOOK.md for template)
 
 ---
 
@@ -94,6 +124,8 @@ New communication methods (Telegram, voice, etc.) are **additional portals** to 
 | n8n 2.2.x requires `activeVersionId` to match `versionId` | Webhooks return 404 despite workflow existing | Set activeVersionId when updating workflow_entity |
 | Caddy reverse proxy uses container names | 502 errors after container rename | Update Caddyfile and reload when container names change |
 | Docker network `stack_net` required for cross-compose communication | New containers can't reach Supabase | Add `stack_net` as external network in docker-compose |
+| **Agents run as raw uvicorn, not Docker/systemd** | "Unit not found" when trying to restart | Use `pkill` + `nohup uvicorn` pattern (see OPS-RUNBOOK.md) |
+| **ATLAS template params not resolving** | `{{input.topic}}` passed literally | Fixed: resolve templates in params before making requests |
 
 ### MCP Server Mapping (CRITICAL)
 
@@ -111,6 +143,7 @@ New communication methods (Telegram, voice, etc.) are **additional portals** to 
 - AI Agent nodes take 30-90 seconds (normal for LLM)
 - Log to Event Bus BEFORE routing for audit trail
 - Keep system prompt focused, not verbose
+- **Template bug (fixed):** Params like `{{input.topic}}` weren't being resolved - now fixed in v2.0.1
 
 #### SENTINEL
 - Routes between n8n ATLAS and FastAPI ATLAS
@@ -357,7 +390,7 @@ Before context clears:
 - Over-verifying instead of moving fast
 - Forgetting to update LESSONS-SCRATCH after debugging
 
-### January 17, 2026 (OLYMPUS Session)
+### January 17, 2026 (OLYMPUS + Coaching Session)
 **Accomplished:**
 1. OLYMPUS unified orchestration system designed and deployed
 2. Agent Registry (YAML single source of truth)
@@ -366,11 +399,16 @@ Before context clears:
 5. 7 pre-built chains defined
 6. ARIA → OLYMPUS integration
 7. Pre-Router fixed to preserve ARIA's persona
-8. HEPHAESTUS → OLYMPUS bridge spec created
+8. ARIA Coaching TIER 1 (4 tools) built
+9. ARIA Coaching TIER 2 (5 tools) built
+10. ATLAS template bug fixed (v2.0.1)
+11. Unified Threading spec created
+12. **OPS-RUNBOOK.md created** - operational documentation
 
-**Key Decision:**
-- ARIA persona is SUPREME - routing cannot degrade it
-- Minimal Pre-Router: explicit calls only route out
+**Key Discoveries:**
+- Agents run as raw uvicorn processes (no docker, no systemd)
+- `docker-compose` → `docker compose` (no hyphen in newer Docker)
+- ATLAS params weren't resolving templates - fixed
 
 ---
 
@@ -383,6 +421,8 @@ Before context clears:
 | ~~ARGUS Prometheus access~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done |
 | ~~OLYMPUS orchestration system~~ | ~~High~~ | ~~2 hours~~ | ✅ Done |
 | ~~ARIA → OLYMPUS integration~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
+| ~~OPS-RUNBOOK.md~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
+| **Convert agents to systemd services** | High | 2 hours | ⬜ Template in OPS-RUNBOOK |
 | HEPHAESTUS → OLYMPUS bridge | High | 30 min | ⬜ Spec ready |
 | DEV supabase-storage-dev fix | Medium | 30 min | ⬜ |
 | DEV supabase-studio-dev fix | Low | 30 min | ⬜ |
@@ -399,6 +439,8 @@ Before context clears:
 | /opt/leveredge/MASTER-LAUNCH-CALENDAR.md | Launch timeline and milestones |
 | /opt/leveredge/LESSONS-LEARNED.md | This file |
 | /opt/leveredge/LESSONS-SCRATCH.md | Quick debug capture (consolidate here) |
+| /opt/leveredge/OPS-RUNBOOK.md | **Operational procedures - restart, logs, troubleshooting** |
+| /opt/leveredge/ARCHITECTURE.md | System design overview |
 | /opt/leveredge/FUTURE-VISION-AND-EXPLORATION.md | Architecture decisions |
 | /opt/leveredge/config/agent-registry.yaml | OLYMPUS single source of truth |
 | /opt/leveredge/data-plane/prod/n8n/ | Production n8n |

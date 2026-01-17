@@ -399,6 +399,10 @@ services:
     container_name: supabase-db
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
+    # Expose PostgreSQL on localhost only for host services (aria-threading, etc.)
+    # Port 54322 is used to avoid conflicts with any local PostgreSQL instances
+    ports:
+      - "127.0.0.1:54322:5432"
     volumes:
       - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
       # Must be superuser to create event trigger
