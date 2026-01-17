@@ -150,6 +150,17 @@ class ActionRequest(BaseModel):
     assigned_to: str
     due_date: Optional[str] = None
 
+class RunConfig(BaseModel):
+    """Configuration for auto-running meetings"""
+    max_turns: int = 12  # Default max turns before auto-pause
+    pause_for_input_every: int = 4  # Pause for human input every N turns
+    auto_decide: bool = False  # Auto-synthesize decision at end
+    auto_adjourn: bool = False  # Auto-adjourn after decision
+
+class DelegateRequest(BaseModel):
+    """Request to delegate a task to domain supervisor"""
+    task: str
+
 # =============================================================================
 # DATABASE HELPERS
 # =============================================================================
@@ -1035,6 +1046,285 @@ async def list_recent_meetings():
     except Exception as e:
         print(f"List recent failed: {e}")
     return {"recent_meetings": []}
+
+
+# =============================================================================
+# AUTO-RUN ENDPOINTS
+# =============================================================================
+
+@app.post("/council/{meeting_id}/run")
+async def run_meeting(meeting_id: str, config: RunConfig = None):
+    """
+    Auto-run meeting with configurable stops.
+    Returns transcript of all turns taken.
+    """
+    if config is None:
+        config = RunConfig()
+
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] != "active":
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not active")
+
+    turns_taken = []
+    turn_count = 0
+
+    while turn_count < config.max_turns:
+        # Take a turn using the existing turn endpoint logic
+        result = await meeting_turn(meeting_id)
+        turns_taken.append({
+            "turn": turn_count + 1,
+            "speaker": result.get("speaker"),
+            "response": result.get("response"),
+            "directive": result.get("directive")
+        })
+        turn_count += 1
+
+        # Pause for input checkpoint
+        if config.pause_for_input_every > 0 and turn_count % config.pause_for_input_every == 0:
+            return {
+                "status": "paused_for_input",
+                "turns_completed": turn_count,
+                "transcript": turns_taken,
+                "message": f"Paused after {turn_count} turns. Call /inject to add input, then /run to continue."
+            }
+
+    # Auto-decide if configured
+    decision = None
+    if config.auto_decide:
+        decision_result = await make_decision(meeting_id)
+        decision = decision_result.get("decision")
+
+    # Auto-adjourn if configured
+    summary = None
+    if config.auto_adjourn:
+        adjourn_result = await adjourn_meeting(meeting_id)
+        summary = adjourn_result.get("closing_statement")
+
+    return {
+        "status": "completed" if config.auto_adjourn else "paused",
+        "turns_completed": turn_count,
+        "transcript": turns_taken,
+        "decision": decision,
+        "summary": summary
+    }
+
+
+@app.post("/council/{meeting_id}/run-full")
+async def run_full_meeting(meeting_id: str, max_turns: int = 16):
+    """
+    Run entire meeting to completion.
+    Each agent speaks once per round, up to max_turns total.
+    Returns full transcript.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] != "active":
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not active")
+
+    transcript = []
+
+    for turn_num in range(max_turns):
+        result = await meeting_turn(meeting_id)
+
+        transcript.append({
+            "turn": turn_num + 1,
+            "speaker": result.get("speaker", "UNKNOWN"),
+            "response": result.get("response", ""),
+            "directive": result.get("directive")
+        })
+
+    # Auto-synthesize decision
+    decision_result = await make_decision(meeting_id)
+    decision = decision_result.get("decision")
+
+    return {
+        "meeting_id": meeting_id,
+        "turns": len(transcript),
+        "transcript": transcript,
+        "decision": decision
+    }
+
+
+# =============================================================================
+# DOMAIN SUPERVISOR ENDPOINTS
+# =============================================================================
+
+@app.get("/domains")
+async def list_domains():
+    """List all domains with their supervisors"""
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.get(
+                f"{SUPABASE_URL}/rest/v1/domain_supervisors",
+                params={"select": "domain,supervisor_agent,theme,description,ui_colors"},
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                },
+                timeout=10.0
+            )
+            if resp.status_code == 200:
+                return {"domains": resp.json()}
+    except Exception as e:
+        print(f"List domains failed: {e}")
+    return {"domains": []}
+
+
+@app.get("/domains/{domain}")
+async def get_domain(domain: str):
+    """Get domain details including supervisor"""
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.get(
+                f"{SUPABASE_URL}/rest/v1/domain_supervisors",
+                params={"domain": f"eq.{domain.upper()}"},
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                },
+                timeout=10.0
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                if data:
+                    return data[0]
+    except Exception as e:
+        print(f"Get domain failed: {e}")
+    raise HTTPException(status_code=404, detail=f"Domain {domain} not found")
+
+
+@app.post("/domains/{domain}/convene")
+async def convene_domain_council(domain: str, req: ConveneRequest):
+    """Convene a council for a specific domain with its supervisor as facilitator"""
+    # Get domain info
+    domain_data = await get_domain(domain)
+    supervisor = domain_data["supervisor_agent"]
+
+    # Get all agents in this domain
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.get(
+                f"{SUPABASE_URL}/rest/v1/council_agent_profiles",
+                params={
+                    "domain": f"eq.{domain.upper()}",
+                    "select": "agent_name"
+                },
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                },
+                timeout=10.0
+            )
+            if resp.status_code == 200:
+                domain_agents = resp.json()
+                participants = [a["agent_name"] for a in domain_agents]
+            else:
+                participants = []
+    except Exception:
+        participants = []
+
+    # Ensure supervisor is included
+    if supervisor not in participants:
+        participants.insert(0, supervisor)
+
+    # Create modified request with domain context
+    domain_title = f"[{domain.upper()}] {req.title}"
+    domain_topic = f"Domain: {domain.upper()} (Supervisor: {supervisor})\n{req.topic}"
+
+    # Create meeting
+    meeting_data = {
+        "title": domain_title,
+        "topic": domain_topic,
+        "agenda": req.agenda,
+        "council_members": participants,
+        "convener": supervisor,  # Domain supervisor convenes
+        "scribe": "ATHENA",
+        "status": "scheduled"
+    }
+
+    meeting = await db_insert("council_meetings", meeting_data)
+    if not meeting:
+        raise HTTPException(status_code=500, detail="Failed to create meeting")
+
+    await publish_event("meeting.created", {
+        "meeting_id": meeting["id"],
+        "domain": domain.upper(),
+        "supervisor": supervisor,
+        "topic": req.topic,
+        "members": participants
+    })
+
+    return {
+        "meeting_id": meeting["id"],
+        "domain": domain.upper(),
+        "supervisor": supervisor,
+        "title": domain_title,
+        "topic": req.topic,
+        "council_members": participants,
+        "agenda": req.agenda,
+        "status": "scheduled",
+        "message": f"Domain council convened. {supervisor} will facilitate. Call /council/{meeting['id']}/start to begin."
+    }
+
+
+@app.post("/council/{meeting_id}/delegate")
+async def delegate_to_supervisor(meeting_id: str, req: DelegateRequest):
+    """Delegate a task to the domain supervisor for execution"""
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    # Extract domain from title if present (format: [DOMAIN] Title)
+    domain = None
+    title = meeting.get("title", "")
+    if title.startswith("[") and "]" in title:
+        domain = title.split("]")[0][1:]
+
+    if not domain:
+        raise HTTPException(status_code=400, detail="Meeting not associated with a domain")
+
+    # Get supervisor
+    domain_data = await get_domain(domain)
+    supervisor = domain_data["supervisor_agent"]
+
+    # Create action item for supervisor
+    action_data = {
+        "meeting_id": meeting_id,
+        "action": req.task,
+        "assigned_to": supervisor,
+        "status": "pending"
+    }
+
+    action = await db_insert("council_actions", action_data)
+
+    # Record to transcript
+    await record_to_transcript(
+        meeting_id,
+        "ATLAS",
+        f"DELEGATED TO {supervisor}: {req.task}",
+        message_type="action_item"
+    )
+
+    # Notify via Event Bus
+    await publish_event("action.delegated", {
+        "meeting_id": meeting_id,
+        "domain": domain,
+        "supervisor": supervisor,
+        "task": req.task
+    })
+
+    return {
+        "status": "delegated",
+        "action_id": action["id"] if action else None,
+        "domain": domain,
+        "supervisor": supervisor,
+        "task": req.task
+    }
 
 
 if __name__ == "__main__":
