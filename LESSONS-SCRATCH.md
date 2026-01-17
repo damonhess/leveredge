@@ -118,6 +118,23 @@ curl -X POST http://localhost:5680/webhook/assistant -H "Content-Type: applicati
 - ✅ Default messages still handled by ARIA
 - ✅ Cost and timing displayed in footer
 
+**UPDATE: Pre-Router made less aggressive (2026-01-17 00:20)**
+
+Original design routed too much to SENTINEL, bypassing ARIA's own capabilities.
+
+**Now routes to SENTINEL only for:**
+- Explicit agent requests: "ask CHIRON", "hey SCHOLAR"
+- Multi-step chains: "research X then plan Y"
+- Deep research needing web search/citations
+
+**ARIA handles herself:**
+- Motivation, hype (her HYPE mode)
+- Fear/anxiety (her COACH mode + CBT tool)
+- General strategy, pricing discussions
+- Everything conversational
+
+This preserves ARIA's personality and relationship while using agents for their specialized capabilities.
+
 ### 2026-01-17 00:35 - [OLYMPUS Unified Orchestration System]
 **Status:** Deployed and verified
 **Scope:** ATLAS (8007), SENTINEL (8019), Agent Registry
