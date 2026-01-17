@@ -933,6 +933,63 @@ python3 -c "import asyncio, asyncpg; asyncio.run(asyncpg.connect('postgresql://p
 **Testing Note:** When testing parallel execution, ensure agents (SCHOLAR, CHIRON) are on same Docker network as ATLAS. Different networks = HTTP timeouts.
 
 
+### 2026-01-17 11:30 - [Fleet Update and PROD Promotion]
+**Context:** Updated ARIA to know about 35+ agents across all categories and promoted to PROD
+
+**Actions Completed:**
+1. ✅ Updated ARIA system prompt with comprehensive AGENT FLEET section
+   - Core Infrastructure (ATLAS, SENTINEL, HERMES, CHRONOS, HADES, AEGIS, ARGUS, ALOY, ATHENA, HEPHAESTUS, EVENT BUS)
+   - Research (SCHOLAR 8018, CHIRON 8017, SENTINEL 8019)
+   - Creative Fleet (MUSE 8030, CALLIOPE 8031, THALIA 8032, ERATO 8033, CLIO 8034)
+   - Security Fleet (CERBERUS 8020, PORT-MANAGER 8021)
+   - Personal Fleet (GYM-COACH 8110*, NUTRITIONIST 8101, MEAL-PLANNER 8102, ACADEMIC-GUIDE 8103, EROS 8104)
+   - Business Fleet (HERACLES 8200, LIBRARIAN 8201, DAEDALUS 8202, THEMIS 8203, MENTOR 8204, PLUTUS 8205, PROCUREMENT 8206, HEPHAESTUS-SERVER 8207, ATLAS-INFRA 8208, IRIS 8209)
+
+2. ✅ Started Creative Fleet agents (8030-8034)
+   - THALIA required: pillow, python-pptx, python-docx, matplotlib
+   - Fixed typo: RgbColor → RGBColor
+
+3. ✅ Promoted ARIA to PROD via promote-to-prod.sh
+
+**Discoveries:**
+
+1. **Port Conflict: GYM-COACH**
+   - GYM-COACH should be 8100 but supabase-kong-dev occupies that port
+   - Docker maps internal 8100 → external 8110
+   - **Action needed:** Update agent-registry.yaml and docs
+
+2. **n8n Workflow Update API**
+   - PUT /workflows requires exactly: name, nodes, connections, settings
+   - Extra fields cause 400 error
+
+3. **ARIA Workflow Execution Error**
+   - "Get User Preferences" node failing with Supabase query
+   - Likely credential or permission issue
+   - Both DEV and PROD affected
+
+4. **Creative Fleet Running Manually**
+   - Started via nohup/uvicorn (not Docker or systemd)
+   - Logs in /tmp/{agent}.log
+   - Need proper service files for persistence
+
+**Health Summary:**
+| Fleet | Status | Notes |
+|-------|--------|-------|
+| Core Infrastructure | ✅ All healthy | 12 agents |
+| Research | ✅ All healthy | 3 agents |
+| Creative | ✅ All healthy | 5 agents on 8030-8034 |
+| Security | ✅ All healthy | 2 agents |
+| Personal | ⚠️ 4/5 healthy | GYM-COACH on 8110 not 8100 |
+| Business | ✅ All healthy | 10 agents |
+
+**Next Steps:**
+1. Fix ARIA's Supabase credential in n8n
+2. Update GYM-COACH port in agent-registry.yaml
+3. Create systemd services for Creative Fleet
+4. Set ANTHROPIC_API_KEY for LLM agents
+
+---
+
 ### 2026-01-17 09:50 - [AEGIS V2 Implementation]
 **Context:** Built AEGIS V2 - Enterprise Credential Management System
 **Scope:** Complete rewrite from SQLite V1 to PostgreSQL V2
