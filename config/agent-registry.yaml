@@ -1842,6 +1842,896 @@ agents:
           type: object
           fields: [results, verified, unverified]
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SECURITY FLEET AGENTS
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  cerberus:
+    name: CERBERUS
+    version: "1.0"
+    description: "Security Gateway - Authentication, authorization, rate limiting"
+    category: security
+    llm_powered: false
+
+    connection:
+      url: http://cerberus:8020
+      health_endpoint: /health
+      timeout_ms: 10000
+
+    capabilities:
+      - authentication
+      - authorization
+      - rate_limiting
+      - security_policy
+
+    actions:
+
+      authenticate:
+        endpoint: /authenticate
+        method: POST
+        description: "Authenticate user or service"
+        timeout_ms: 5000
+        params:
+          - name: credentials
+            type: object
+            required: true
+        returns:
+          type: object
+          fields: [authenticated, token, expires]
+
+      authorize:
+        endpoint: /authorize
+        method: POST
+        description: "Check authorization for action"
+        timeout_ms: 5000
+        params:
+          - name: token
+            type: string
+            required: true
+          - name: resource
+            type: string
+            required: true
+          - name: action
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [authorized, reason]
+
+  port-manager:
+    name: PORT-MANAGER
+    version: "1.0"
+    description: "Network Manager - Port allocation, service discovery"
+    category: security
+    llm_powered: false
+
+    connection:
+      url: http://port-manager:8021
+      health_endpoint: /health
+      timeout_ms: 10000
+
+    capabilities:
+      - port_allocation
+      - service_discovery
+      - network_health
+      - conflict_resolution
+
+    actions:
+
+      allocate:
+        endpoint: /allocate
+        method: POST
+        description: "Allocate a port for a service"
+        timeout_ms: 5000
+        params:
+          - name: service_name
+            type: string
+            required: true
+          - name: preferred_port
+            type: integer
+            required: false
+        returns:
+          type: object
+          fields: [port, service_name, status]
+
+      list-ports:
+        endpoint: /ports
+        method: GET
+        description: "List all allocated ports"
+        timeout_ms: 5000
+        params: []
+        returns:
+          type: array
+          items:
+            fields: [port, service_name, status]
+
+      check-conflicts:
+        endpoint: /conflicts
+        method: GET
+        description: "Check for port conflicts"
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: object
+          fields: [conflicts, recommendations]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PERSONAL FLEET AGENTS (Life Management)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  gym-coach:
+    name: GYM-COACH
+    version: "1.0"
+    description: "Fitness Coach - Workout planning, progress tracking"
+    category: personal
+    llm_powered: true
+    # NOTE: Uses port 8110 (not 8100) due to conflict with supabase-kong-dev
+
+    connection:
+      url: http://gym-coach:8110
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - workout_planning
+      - exercise_guidance
+      - progress_tracking
+      - fitness_goals
+
+    actions:
+
+      plan-workout:
+        endpoint: /plan
+        method: POST
+        description: "Create workout plan"
+        timeout_ms: 30000
+        params:
+          - name: goals
+            type: array
+            required: true
+          - name: equipment
+            type: array
+            required: false
+          - name: duration_minutes
+            type: integer
+            required: false
+        returns:
+          type: object
+          fields: [workout, exercises, duration, notes]
+
+      log-workout:
+        endpoint: /log
+        method: POST
+        description: "Log completed workout"
+        timeout_ms: 10000
+        params:
+          - name: exercises
+            type: array
+            required: true
+          - name: duration_minutes
+            type: integer
+            required: true
+        returns:
+          type: object
+          fields: [logged, stats]
+
+  nutritionist:
+    name: NUTRITIONIST
+    version: "1.0"
+    description: "Nutrition Advisor - Diet planning, macro tracking"
+    category: personal
+    llm_powered: true
+
+    connection:
+      url: http://nutritionist:8101
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - nutrition_planning
+      - macro_tracking
+      - diet_recommendations
+      - supplement_guidance
+
+    actions:
+
+      analyze-diet:
+        endpoint: /analyze
+        method: POST
+        description: "Analyze current diet"
+        timeout_ms: 30000
+        params:
+          - name: meals
+            type: array
+            required: true
+          - name: goals
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [analysis, macros, recommendations]
+
+      recommend-supplements:
+        endpoint: /supplements
+        method: POST
+        description: "Get supplement recommendations"
+        timeout_ms: 30000
+        params:
+          - name: goals
+            type: array
+            required: true
+          - name: current_diet
+            type: object
+            required: false
+        returns:
+          type: object
+          fields: [supplements, reasoning]
+
+  meal-planner:
+    name: MEAL-PLANNER
+    version: "1.0"
+    description: "Meal Planning - Weekly menus, grocery lists"
+    category: personal
+    llm_powered: true
+
+    connection:
+      url: http://meal-planner:8102
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - meal_planning
+      - recipe_suggestions
+      - grocery_lists
+      - calorie_tracking
+
+    actions:
+
+      plan-week:
+        endpoint: /plan-week
+        method: POST
+        description: "Create weekly meal plan"
+        timeout_ms: 60000
+        params:
+          - name: preferences
+            type: object
+            required: false
+          - name: dietary_restrictions
+            type: array
+            required: false
+          - name: calorie_target
+            type: integer
+            required: false
+        returns:
+          type: object
+          fields: [meals, grocery_list, nutrition_summary]
+
+      suggest-recipe:
+        endpoint: /suggest
+        method: POST
+        description: "Suggest recipe based on ingredients"
+        timeout_ms: 30000
+        params:
+          - name: ingredients
+            type: array
+            required: true
+        returns:
+          type: object
+          fields: [recipes, instructions]
+
+  academic-guide:
+    name: ACADEMIC-GUIDE
+    version: "1.0"
+    description: "Education Coach - Learning paths, study optimization"
+    category: personal
+    llm_powered: true
+
+    connection:
+      url: http://academic-guide:8103
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - learning_paths
+      - study_planning
+      - skill_development
+      - course_recommendations
+
+    actions:
+
+      plan-learning:
+        endpoint: /plan
+        method: POST
+        description: "Create learning plan for skill/topic"
+        timeout_ms: 60000
+        params:
+          - name: skill
+            type: string
+            required: true
+          - name: current_level
+            type: string
+            required: false
+          - name: time_available
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [plan, resources, milestones]
+
+      recommend-courses:
+        endpoint: /courses
+        method: POST
+        description: "Recommend courses for goal"
+        timeout_ms: 30000
+        params:
+          - name: goal
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [courses, rationale]
+
+  eros:
+    name: EROS
+    version: "1.0"
+    description: "Relationship Coach - Dating advice, communication"
+    category: personal
+    llm_powered: true
+
+    connection:
+      url: http://eros:8104
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - dating_advice
+      - relationship_guidance
+      - communication_strategies
+      - social_skills
+
+    actions:
+
+      dating-advice:
+        endpoint: /advice
+        method: POST
+        description: "Get dating advice for situation"
+        timeout_ms: 45000
+        params:
+          - name: situation
+            type: string
+            required: true
+          - name: context
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [advice, strategies, do_nots]
+
+      improve-message:
+        endpoint: /message
+        method: POST
+        description: "Improve dating message/profile"
+        timeout_ms: 30000
+        params:
+          - name: original
+            type: string
+            required: true
+          - name: goal
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [improved, changes, reasoning]
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # BUSINESS FLEET AGENTS (Professional Services)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  heracles:
+    name: HERACLES
+    version: "1.0"
+    description: "Project Manager - Planning, tracking, sprints"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://heracles:8200
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - project_planning
+      - task_management
+      - sprint_management
+      - resource_allocation
+
+    actions:
+
+      plan-project:
+        endpoint: /plan
+        method: POST
+        description: "Create project plan"
+        timeout_ms: 60000
+        params:
+          - name: project
+            type: string
+            required: true
+          - name: deadline
+            type: string
+            required: false
+          - name: constraints
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [plan, phases, milestones, risks]
+
+      break-down-task:
+        endpoint: /break-down
+        method: POST
+        description: "Break large task into subtasks"
+        timeout_ms: 30000
+        params:
+          - name: task
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [subtasks, estimates, dependencies]
+
+  librarian:
+    name: LIBRARIAN
+    version: "1.0"
+    description: "Knowledge Manager - Document organization, search"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://librarian:8201
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - document_organization
+      - knowledge_management
+      - information_retrieval
+      - categorization
+
+    actions:
+
+      organize:
+        endpoint: /organize
+        method: POST
+        description: "Organize documents/knowledge"
+        timeout_ms: 60000
+        params:
+          - name: documents
+            type: array
+            required: true
+          - name: schema
+            type: object
+            required: false
+        returns:
+          type: object
+          fields: [organized, categories, suggestions]
+
+      search:
+        endpoint: /search
+        method: POST
+        description: "Search knowledge base"
+        timeout_ms: 30000
+        params:
+          - name: query
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [results, relevance_scores]
+
+  daedalus:
+    name: DAEDALUS
+    version: "1.0"
+    description: "Workflow Builder - Automation design, n8n workflows"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://daedalus:8202
+      health_endpoint: /health
+      timeout_ms: 120000
+
+    capabilities:
+      - workflow_design
+      - automation_planning
+      - integration_planning
+      - n8n_workflows
+
+    actions:
+
+      design-workflow:
+        endpoint: /design
+        method: POST
+        description: "Design automation workflow"
+        timeout_ms: 90000
+        params:
+          - name: process
+            type: string
+            required: true
+          - name: systems
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [workflow, nodes, connections, notes]
+
+      optimize-workflow:
+        endpoint: /optimize
+        method: POST
+        description: "Optimize existing workflow"
+        timeout_ms: 60000
+        params:
+          - name: workflow_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [improvements, savings]
+
+  themis:
+    name: THEMIS
+    version: "1.0"
+    description: "Legal Advisor - Contracts, compliance"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://themis:8203
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - contract_review
+      - compliance_guidance
+      - risk_assessment
+      - policy_recommendations
+
+    actions:
+
+      review-contract:
+        endpoint: /review
+        method: POST
+        description: "Review contract for issues"
+        timeout_ms: 60000
+        params:
+          - name: contract_text
+            type: string
+            required: true
+          - name: focus_areas
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [issues, risks, recommendations]
+
+      check-compliance:
+        endpoint: /compliance
+        method: POST
+        description: "Check compliance for situation"
+        timeout_ms: 45000
+        params:
+          - name: situation
+            type: string
+            required: true
+          - name: jurisdiction
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [compliant, issues, remediation]
+
+  mentor:
+    name: MENTOR
+    version: "1.0"
+    description: "Business Coach - Mentorship, leadership"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://mentor:8204
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - business_mentorship
+      - career_guidance
+      - leadership_development
+      - professional_growth
+
+    actions:
+
+      mentor-session:
+        endpoint: /session
+        method: POST
+        description: "Get mentorship advice"
+        timeout_ms: 60000
+        params:
+          - name: topic
+            type: string
+            required: true
+          - name: context
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [advice, frameworks, action_items]
+
+      career-path:
+        endpoint: /career
+        method: POST
+        description: "Plan career path"
+        timeout_ms: 45000
+        params:
+          - name: current_role
+            type: string
+            required: true
+          - name: goal_role
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [path, skills_needed, timeline]
+
+  plutus:
+    name: PLUTUS
+    version: "1.0"
+    description: "Financial Analyst - Budgets, ROI, analysis"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://plutus:8205
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - financial_analysis
+      - budget_planning
+      - investment_guidance
+      - roi_calculations
+
+    actions:
+
+      analyze-financials:
+        endpoint: /analyze
+        method: POST
+        description: "Analyze financial data"
+        timeout_ms: 60000
+        params:
+          - name: data
+            type: object
+            required: true
+          - name: focus
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [analysis, insights, recommendations]
+
+      calculate-roi:
+        endpoint: /roi
+        method: POST
+        description: "Calculate ROI for investment"
+        timeout_ms: 30000
+        params:
+          - name: investment
+            type: number
+            required: true
+          - name: returns
+            type: object
+            required: true
+        returns:
+          type: object
+          fields: [roi, payback_period, analysis]
+
+  procurement:
+    name: PROCUREMENT
+    version: "1.0"
+    description: "Procurement Expert - Vendors, costs"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://procurement:8206
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - vendor_evaluation
+      - purchase_recommendations
+      - contract_negotiation
+      - cost_optimization
+
+    actions:
+
+      evaluate-vendor:
+        endpoint: /evaluate
+        method: POST
+        description: "Evaluate vendor options"
+        timeout_ms: 60000
+        params:
+          - name: vendors
+            type: array
+            required: true
+          - name: criteria
+            type: array
+            required: false
+        returns:
+          type: object
+          fields: [evaluation, ranking, recommendation]
+
+      negotiate-tips:
+        endpoint: /negotiate
+        method: POST
+        description: "Get negotiation strategies"
+        timeout_ms: 30000
+        params:
+          - name: context
+            type: string
+            required: true
+          - name: target_price
+            type: number
+            required: false
+        returns:
+          type: object
+          fields: [strategies, talking_points]
+
+  hephaestus-server:
+    name: HEPHAESTUS-SERVER
+    version: "1.0"
+    description: "Server Admin - Infrastructure management"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://hephaestus-server:8207
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - server_management
+      - infrastructure_recommendations
+      - devops_practices
+      - system_administration
+
+    actions:
+
+      diagnose:
+        endpoint: /diagnose
+        method: POST
+        description: "Diagnose server issue"
+        timeout_ms: 60000
+        params:
+          - name: symptoms
+            type: string
+            required: true
+          - name: logs
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [diagnosis, solutions, prevention]
+
+      recommend-setup:
+        endpoint: /recommend
+        method: POST
+        description: "Recommend server setup"
+        timeout_ms: 45000
+        params:
+          - name: requirements
+            type: object
+            required: true
+        returns:
+          type: object
+          fields: [setup, specs, cost_estimate]
+
+  atlas-infra:
+    name: ATLAS-INFRA
+    version: "1.0"
+    description: "Infrastructure Advisor - Cloud architecture, scaling"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://atlas-infra:8208
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - cloud_architecture
+      - infrastructure_planning
+      - scaling_recommendations
+      - cost_optimization
+
+    actions:
+
+      design-architecture:
+        endpoint: /design
+        method: POST
+        description: "Design cloud architecture"
+        timeout_ms: 90000
+        params:
+          - name: requirements
+            type: object
+            required: true
+          - name: constraints
+            type: object
+            required: false
+        returns:
+          type: object
+          fields: [architecture, components, diagram]
+
+      optimize-costs:
+        endpoint: /optimize
+        method: POST
+        description: "Optimize infrastructure costs"
+        timeout_ms: 60000
+        params:
+          - name: current_setup
+            type: object
+            required: true
+        returns:
+          type: object
+          fields: [recommendations, savings, tradeoffs]
+
+  iris:
+    name: IRIS
+    version: "1.0"
+    description: "World Events Reporter - News, trends"
+    category: business
+    llm_powered: true
+
+    connection:
+      url: http://iris:8209
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - news_reporting
+      - trend_analysis
+      - market_updates
+      - competitive_intelligence
+
+    actions:
+
+      get-news:
+        endpoint: /news
+        method: POST
+        description: "Get relevant news"
+        timeout_ms: 45000
+        params:
+          - name: topics
+            type: array
+            required: true
+          - name: timeframe
+            type: string
+            required: false
+        returns:
+          type: object
+          fields: [news, summaries, sources]
+
+      analyze-trends:
+        endpoint: /trends
+        method: POST
+        description: "Analyze industry trends"
+        timeout_ms: 60000
+        params:
+          - name: industry
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [trends, implications, opportunities]
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # CHAIN DEFINITIONS
 # ═══════════════════════════════════════════════════════════════════════════════

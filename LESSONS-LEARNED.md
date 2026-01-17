@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (3:30 AM)*
+*Last Updated: January 17, 2026 (12:00 PM)*
 
 ---
 
@@ -410,6 +410,33 @@ Before context clears:
 - `docker-compose` → `docker compose` (no hyphen in newer Docker)
 - ATLAS params weren't resolving templates - fixed
 
+### January 17, 2026 (Fleet Expansion + PROD Promotion)
+**Accomplished:**
+1. Updated ARIA to know about 35+ agents across all categories
+2. Started Creative Fleet agents (MUSE 8030, CALLIOPE 8031, THALIA 8032, ERATO 8033, CLIO 8034)
+3. Built Security Fleet (CERBERUS 8020, PORT-MANAGER 8021)
+4. Built Personal Fleet (GYM-COACH 8110, NUTRITIONIST 8101, MEAL-PLANNER 8102, ACADEMIC-GUIDE 8103, EROS 8104)
+5. Built Business Fleet (HERACLES 8200, LIBRARIAN 8201, DAEDALUS 8202, THEMIS 8203, MENTOR 8204, PLUTUS 8205, PROCUREMENT 8206, HEPHAESTUS-SERVER 8207, ATLAS-INFRA 8208, IRIS 8209)
+6. AEGIS V2 deployed with PostgreSQL backend and AES-256 encryption
+7. Promoted ARIA to PROD
+
+**Key Discoveries:**
+- **GYM-COACH port conflict:** Port 8100 occupied by supabase-kong-dev → uses 8110 instead
+- **n8n PUT /workflows API:** Requires exactly 4 fields: name, nodes, connections, settings (extra fields cause 400)
+- **THALIA import fix:** `RgbColor` → `RGBColor` in pptx.dml.color
+- **Creative Fleet dependencies:** pillow, python-pptx, python-docx, matplotlib
+- **ARIA Supabase issue:** "Get User Preferences" node failing (credential or RPC function issue - needs fix)
+
+**Fleet Health Summary:**
+| Fleet | Status | Agents |
+|-------|--------|--------|
+| Core Infrastructure | All healthy | 12 agents (8007-8099) |
+| Research | All healthy | SCHOLAR 8018, CHIRON 8017, SENTINEL 8019 |
+| Creative | All healthy | 5 agents (8030-8034) |
+| Security | All healthy | CERBERUS 8020, PORT-MANAGER 8021 |
+| Personal | 4/5 healthy | GYM-COACH on 8110 (not 8100) |
+| Business | All healthy | 10 agents (8200-8209) |
+
 ---
 
 ## Technical Debt Tracker (Updated)
@@ -422,11 +449,16 @@ Before context clears:
 | ~~OLYMPUS orchestration system~~ | ~~High~~ | ~~2 hours~~ | ✅ Done |
 | ~~ARIA → OLYMPUS integration~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
 | ~~OPS-RUNBOOK.md~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
+| ~~Fleet Expansion (35+ agents)~~ | ~~High~~ | ~~4 hours~~ | ✅ Done |
+| ~~ARIA PROD promotion~~ | ~~High~~ | ~~30 min~~ | ✅ Done |
+| ~~AEGIS V2 PostgreSQL migration~~ | ~~High~~ | ~~2 hours~~ | ✅ Done |
 | **Convert agents to systemd services** | High | 2 hours | ⬜ Template in OPS-RUNBOOK |
-| HEPHAESTUS → OLYMPUS bridge | High | 30 min | ⬜ Spec ready |
+| **Fix ARIA Supabase credential** | High | 30 min | ⬜ Get User Preferences node failing |
+| **Create systemd for Creative Fleet** | Medium | 30 min | ⬜ Currently started via nohup |
+| **Set ANTHROPIC_API_KEY for LLM agents** | Medium | 15 min | ⬜ LLM calls will fail without it |
+| HEPHAESTUS → OLYMPUS bridge | Medium | 30 min | ⬜ Spec ready |
 | DEV supabase-storage-dev fix | Medium | 30 min | ⬜ |
 | DEV supabase-studio-dev fix | Low | 30 min | ⬜ |
-| promote-to-prod.sh API keys | Medium | 15 min | ⬜ |
 | Cloudflare Access for control plane | Low | 2 hours | ⬜ |
 | Push to GitHub remote | Low | 5 min | ⬜ |
 

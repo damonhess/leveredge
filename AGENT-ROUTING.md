@@ -25,6 +25,28 @@
 | Update knowledge base | GSD → aria_knowledge + Event Bus | Notify ARIA |
 | Emergency restore | GAIA | Manual trigger only |
 | Workflow orchestration | ATLAS | Via control n8n |
+| **Creative content projects** | MUSE (8030) | Orchestrates creative fleet |
+| **Writing/copy** | CALLIOPE (8031) | Articles, scripts, social |
+| **Design/presentations** | THALIA (8032) | Slides, charts, landing pages |
+| **Media production** | ERATO (8033) | Images, video, voiceover |
+| **Content review/QA** | CLIO (8034) | Brand compliance, fact-check |
+| **Security gateway** | CERBERUS (8020) | Auth, rate limiting |
+| **Port management** | PORT-MANAGER (8021) | Port allocation, conflicts |
+| **Fitness guidance** | GYM-COACH (8110) | Workouts, progress |
+| **Nutrition advice** | NUTRITIONIST (8101) | Diet, macros |
+| **Meal planning** | MEAL-PLANNER (8102) | Recipes, grocery lists |
+| **Learning paths** | ACADEMIC-GUIDE (8103) | Study planning |
+| **Relationship advice** | EROS (8104) | Dating, communication |
+| **Project management** | HERACLES (8200) | Tasks, sprints |
+| **Knowledge management** | LIBRARIAN (8201) | Document organization |
+| **Workflow building** | DAEDALUS (8202) | Automation design |
+| **Legal guidance** | THEMIS (8203) | Contracts, compliance |
+| **Business mentorship** | MENTOR (8204) | Career, leadership |
+| **Financial analysis** | PLUTUS (8205) | Budgets, ROI |
+| **Procurement** | PROCUREMENT (8206) | Vendors, costs |
+| **Server admin** | HEPHAESTUS-SERVER (8207) | Infrastructure |
+| **Cloud architecture** | ATLAS-INFRA (8208) | Scaling, costs |
+| **Current events** | IRIS (8209) | News, trends |
 
 ---
 
@@ -389,6 +411,223 @@ curl -X POST http://localhost:8018/compare \
 - Request routing
 
 **Access:** Via control.n8n.leveredgeai.com
+
+---
+
+## CREATIVE FLEET (Content Production)
+
+### MUSE (Creative Director) - Port 8030
+**Use for:**
+- Project coordination and task decomposition
+- Storyboarding and workflow management
+- Orchestrating other creative agents
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /projects/create | POST | Create new creative project |
+| /projects/{id} | GET | Get project status |
+| /storyboard | POST | Create video storyboard |
+| /fleet | GET | List creative fleet capabilities |
+
+### CALLIOPE (Writer) - Port 8031
+**Use for:**
+- Long-form content (articles, case studies, reports)
+- Short-form copy (headlines, taglines, CTAs)
+- Video scripts and slide decks
+- Social media posts
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /write | POST | Generate content by type |
+| /script/video | POST | Generate video script with scenes |
+| /rewrite | POST | Revise content based on feedback |
+
+### THALIA (Designer) - Port 8032
+**Use for:**
+- Presentation design (PowerPoint)
+- Chart/graph generation
+- Thumbnail creation
+- Landing page design (Tailwind CSS)
+- UI component generation
+- Wireframe creation
+- Website templates
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /design/presentation | POST | Create branded presentation |
+| /design/chart | POST | Generate chart/graph |
+| /design/thumbnail | POST | Create thumbnail |
+| /design/landing-page | POST | Generate landing page HTML |
+| /design/ui-component | POST | Generate UI component |
+| /design/wireframe | POST | Generate wireframe mockup |
+| /design/website-template | POST | Generate multi-page website |
+
+### ERATO (Media Producer) - Port 8033
+**Use for:**
+- AI image generation (DALL-E 3)
+- Video production pipeline
+- Voice synthesis (ElevenLabs)
+- Stock footage/photo sourcing
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /generate/image | POST | Generate AI image |
+| /generate/video | POST | Full video production |
+| /generate/voiceover | POST | Generate voiceover |
+| /source/stock | POST | Find stock assets |
+
+### CLIO (Reviewer) - Port 8034
+**Use for:**
+- Brand compliance checking
+- Quality assurance
+- Fact-checking via SCHOLAR
+- Video quality review
+- Accessibility checks
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /review | POST | Review any content type |
+| /review/video | POST | Review video quality |
+| /review/text | POST | Review text for grammar/tone |
+| /fact-check | POST | Verify facts via SCHOLAR |
+
+---
+
+## SECURITY FLEET
+
+### CERBERUS (Security Gateway) - Port 8020
+**Use for:**
+- Authentication and authorization
+- Rate limiting and abuse prevention
+- Security policy enforcement
+- Access control decisions
+
+### PORT-MANAGER (Network Manager) - Port 8021
+**Use for:**
+- Port allocation and tracking
+- Service discovery
+- Network health monitoring
+- Port conflict resolution
+
+---
+
+## PERSONAL FLEET (Life Management)
+
+### GYM-COACH (Fitness) - Port 8110
+**Note:** Runs on 8110 (not 8100) due to port conflict with supabase-kong-dev.
+
+**Use for:**
+- Workout planning and tracking
+- Exercise form guidance
+- Fitness goal setting
+- Progress monitoring
+
+### NUTRITIONIST (Nutrition) - Port 8101
+**Use for:**
+- Nutrition advice and planning
+- Macro/micro tracking
+- Diet recommendations
+- Supplement guidance
+
+### MEAL-PLANNER (Meal Planning) - Port 8102
+**Use for:**
+- Weekly meal planning
+- Recipe suggestions
+- Grocery list generation
+- Calorie/nutrition balancing
+
+### ACADEMIC-GUIDE (Education) - Port 8103
+**Use for:**
+- Learning path recommendations
+- Study planning and optimization
+- Skill development guidance
+- Course recommendations
+
+### EROS (Relationships) - Port 8104
+**Use for:**
+- Dating advice and coaching
+- Relationship guidance
+- Communication strategies
+- Social skill development
+
+---
+
+## BUSINESS FLEET (Professional Services)
+
+### HERACLES (Project Manager) - Port 8200
+**Use for:**
+- Project planning and tracking
+- Task breakdown and estimation
+- Sprint management
+- Resource allocation
+
+### LIBRARIAN (Knowledge Manager) - Port 8201
+**Use for:**
+- Document organization
+- Knowledge base management
+- Information retrieval
+- Content categorization
+
+### DAEDALUS (Workflow Builder) - Port 8202
+**Use for:**
+- Workflow design and automation
+- Process optimization
+- Integration planning
+- N8n workflow creation
+
+### THEMIS (Legal Advisor) - Port 8203
+**Use for:**
+- Contract review and analysis
+- Legal compliance guidance
+- Risk assessment
+- Policy recommendations
+
+### MENTOR (Business Coach) - Port 8204
+**Use for:**
+- Business mentorship
+- Career guidance
+- Leadership development
+- Professional growth planning
+
+### PLUTUS (Financial Analyst) - Port 8205
+**Use for:**
+- Financial analysis
+- Budget planning
+- Investment guidance
+- ROI calculations
+
+### PROCUREMENT (Procurement Expert) - Port 8206
+**Use for:**
+- Vendor evaluation
+- Purchase recommendations
+- Contract negotiation support
+- Cost optimization
+
+### HEPHAESTUS-SERVER (Server Admin) - Port 8207
+**Use for:**
+- Server management guidance
+- Infrastructure recommendations
+- DevOps best practices
+- System administration tasks
+
+### ATLAS-INFRA (Infrastructure Advisor) - Port 8208
+**Use for:**
+- Cloud architecture guidance
+- Infrastructure planning
+- Scaling recommendations
+- Cost optimization
+
+### IRIS (World Events Reporter) - Port 8209
+**Use for:**
+- News and current events
+- Industry trend analysis
+- Market updates
+- Competitive intelligence
 
 ---
 
