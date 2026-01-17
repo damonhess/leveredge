@@ -6,6 +6,69 @@
 
 ---
 
+## SUPABASE ARCHITECTURE (Isolated DEV/PROD)
+
+### Overview
+DEV and PROD Supabase run on **completely isolated postgres containers**:
+
+| Environment | Container | Port | Database | Path |
+|-------------|-----------|------|----------|------|
+| **PROD** | supabase-db-prod | 54322 | postgres | /opt/leveredge/data-plane/prod/supabase/ |
+| **DEV** | supabase-db-dev | 54323 | postgres | /opt/leveredge/data-plane/dev/supabase/ |
+
+### Connection Strings
+```bash
+# PROD
+postgresql://postgres:PASSWORD@127.0.0.1:54322/postgres
+
+# DEV
+postgresql://postgres:PASSWORD@127.0.0.1:54323/postgres
+```
+
+### Services Connected to DEV Postgres (54323)
+- aria-threading (systemd service)
+- DEV n8n (Supabase Postgres DEV credential)
+- DEV Supabase services (supabase-*-dev containers)
+
+### Services Connected to PROD Postgres (54322)
+- PROD n8n (Supabase Postgres server credential)
+- PROD Supabase services (supabase-* containers)
+
+### Schema Management
+```bash
+# Compare DEV and PROD schemas
+/opt/leveredge/shared/scripts/promote-schema.sh
+
+# Promote specific table from DEV to PROD
+/opt/leveredge/shared/scripts/promote-schema.sh aria_new_table
+```
+
+### Restart Commands
+```bash
+# PROD Supabase (all services including postgres)
+cd /opt/leveredge/data-plane/prod/supabase && docker compose down && docker compose up -d
+
+# DEV Supabase (all services including postgres)
+cd /opt/leveredge/data-plane/dev/supabase && docker compose down && docker compose up -d
+
+# Just restart postgres containers
+docker restart supabase-db-prod
+docker restart supabase-db-dev
+```
+
+### Backup Commands
+```bash
+# PROD backup
+docker exec supabase-db-prod pg_dump -U postgres -d postgres -F c -f /tmp/backup.dump
+docker cp supabase-db-prod:/tmp/backup.dump ./prod_backup_$(date +%Y%m%d).dump
+
+# DEV backup
+docker exec supabase-db-dev pg_dump -U postgres -d postgres -F c -f /tmp/backup.dump
+docker cp supabase-db-dev:/tmp/backup.dump ./dev_backup_$(date +%Y%m%d).dump
+```
+
+---
+
 ## QUICK REFERENCE - RESTART COMMANDS
 
 ### Control Plane Agents (FastAPI/Uvicorn)

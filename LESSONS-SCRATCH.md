@@ -888,3 +888,29 @@ python3 -c "import asyncio, asyncpg; asyncio.run(asyncpg.connect('postgresql://p
 
 **Pattern:** When validating integrations, check that database tables actually exist - the workflows reference tables that may not have been created yet.
 
+
+### 2026-01-17 08:15 - Supabase Isolation Migration
+**Context:** DEV and PROD Supabase shared a single postgres container (supabase-db) with two databases (postgres, postgres_dev). This was fragile.
+
+**Solution:** Created fully isolated environments:
+- PROD: supabase-db-prod (port 54322) with postgres database
+- DEV: supabase-db-dev (port 54323) with postgres database
+
+**Key Steps:**
+1. Backup both databases before migration
+2. Update PROD docker-compose to rename db container to supabase-db-prod
+3. Create new DEV docker-compose with its own db container (supabase-db-dev)
+4. PROD uses existing volume (data preserved), DEV uses new volume (data restored from backup)
+5. Update aria-threading systemd to use DEV postgres (54323)
+6. Sync schemas between environments using pg_dump
+
+**Gotchas:**
+- Supabase storage-api migration can fail if old functions exist (storage.foldername) - drop with CASCADE
+- Realtime DB_ENC_KEY must be exactly 16 bytes for AES-128
+- postgres-meta container healthcheck needs node (no curl/wget available)
+- n8n credentials are encrypted - update via UI, not database
+
+**New Tools:**
+- /opt/leveredge/shared/scripts/promote-schema.sh - Compare and promote schemas DEV→PROD
+
+**Prevention:** Always use isolated environments from the start. Never share database containers between environments.

@@ -1,10 +1,54 @@
-version: '3.8'
-
-# Dev Supabase Stack
+# DEV Supabase Stack - Fully Isolated
+# Dedicated postgres (supabase-db-dev) on port 54323
 # All containers suffixed with -dev
-# Uses postgres_dev database on shared supabase-db
+
+name: supabase-dev
 
 services:
+  # DEV PostgreSQL - Isolated container with dedicated volume
+  db:
+    container_name: supabase-db-dev
+    image: supabase/postgres:15.8.1.085
+    restart: unless-stopped
+    # Expose PostgreSQL on localhost only
+    # Port 54323 is DEV - PROD uses 54322
+    ports:
+      - "127.0.0.1:54323:5432"
+    volumes:
+      - ./volumes/db/realtime.sql:/docker-entrypoint-initdb.d/migrations/99-realtime.sql:Z
+      - ./volumes/db/webhooks.sql:/docker-entrypoint-initdb.d/init-scripts/98-webhooks.sql:Z
+      - ./volumes/db/roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:Z
+      - ./volumes/db/jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:Z
+      - ./volumes/db/data:/var/lib/postgresql/data:Z
+      - ./volumes/db/_supabase.sql:/docker-entrypoint-initdb.d/migrations/97-_supabase.sql:Z
+      - ./volumes/db/logs.sql:/docker-entrypoint-initdb.d/migrations/99-logs.sql:Z
+      - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
+      - db-config-dev:/etc/postgresql-custom
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: ${POSTGRES_PORT}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXP: ${JWT_EXPIRY:-3600}
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal
+    networks:
+      - supabase-dev
+      - stack_net
+
   supabase-kong-dev:
     container_name: supabase-kong-dev
     image: kong:2.8.1
@@ -27,19 +71,31 @@ services:
       - supabase-dev
       - stack_net
     depends_on:
-      - supabase-auth-dev
-      - supabase-rest-dev
+      db:
+        condition: service_healthy
+      supabase-auth-dev:
+        condition: service_started
+      supabase-rest-dev:
+        condition: service_started
 
   supabase-auth-dev:
     container_name: supabase-auth-dev
-    image: supabase/gotrue:v2.132.3
+    image: supabase/gotrue:v2.183.0
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       GOTRUE_API_HOST: 0.0.0.0
       GOTRUE_API_PORT: 9999
       API_EXTERNAL_URL: ${API_EXTERNAL_URL}
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD_ENCODED}@supabase-db:5432/${POSTGRES_DB}?search_path=auth
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD_ENCODED}@supabase-db-dev:5432/${POSTGRES_DB}
       GOTRUE_SITE_URL: ${GOTRUE_SITE_URL}
       GOTRUE_URI_ALLOW_LIST: "*"
       GOTRUE_DISABLE_SIGNUP: ${GOTRUE_DISABLE_SIGNUP:-false}
@@ -50,44 +106,60 @@ services:
       GOTRUE_JWT_SECRET: ${JWT_SECRET}
       GOTRUE_EXTERNAL_EMAIL_ENABLED: ${GOTRUE_EXTERNAL_EMAIL_ENABLED:-false}
       GOTRUE_MAILER_AUTOCONFIRM: ${GOTRUE_MAILER_AUTOCONFIRM:-true}
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: ${ENABLE_ANONYMOUS_USERS:-false}
     networks:
       - supabase-dev
       - stack_net
 
   supabase-rest-dev:
     container_name: supabase-rest-dev
-    image: postgrest/postgrest:v12.0.1
+    image: postgrest/postgrest:v13.0.7
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
-      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD_ENCODED}@supabase-db:5432/${POSTGRES_DB}
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_PASSWORD_ENCODED}@supabase-db-dev:5432/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: public,storage,graphql_public
       PGRST_DB_ANON_ROLE: anon
       PGRST_JWT_SECRET: ${JWT_SECRET}
       PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET}
+      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY:-3600}
+    command: ["postgrest"]
     networks:
       - supabase-dev
       - stack_net
 
   supabase-realtime-dev:
-    container_name: supabase-realtime-dev
-    image: supabase/realtime:v2.25.50
+    container_name: realtime-dev.supabase-realtime-dev
+    image: supabase/realtime:v2.65.3
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sSfL", "--head", "-o", "/dev/null", "-H", "Authorization: Bearer ${ANON_KEY}", "http://localhost:4000/api/tenants/realtime-dev/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
     environment:
       PORT: 4000
-      DB_HOST: supabase-db
+      DB_HOST: supabase-db-dev
       DB_PORT: 5432
-      DB_USER: postgres
+      DB_USER: supabase_admin
       DB_PASSWORD: ${POSTGRES_PASSWORD}
       DB_NAME: ${POSTGRES_DB}
       DB_AFTER_CONNECT_QUERY: 'SET search_path TO _realtime'
-      DB_ENC_KEY: supabaserealtime_dev
+      DB_ENC_KEY: supabaserealtime
       API_JWT_SECRET: ${JWT_SECRET}
-      FLY_ALLOC_ID: fly123dev
-      FLY_APP_NAME: realtime-dev
-      SECRET_KEY_BASE: ${JWT_SECRET}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-${JWT_SECRET}}
       ERL_AFLAGS: -proto_dist inet_tcp
-      ENABLE_TAILSCALE: "false"
       DNS_NODES: "''"
+      RLIMIT_NOFILE: "10000"
+      APP_NAME: realtime
+      SEED_SELF_HOST: true
+      RUN_JANITOR: true
     networks:
       - supabase-dev
       - stack_net
@@ -96,12 +168,22 @@ services:
     container_name: supabase-storage-dev
     image: supabase/storage-api:v1.32.0
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://storage:5000/status"]
+      timeout: 5s
+      interval: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+      supabase-rest-dev:
+        condition: service_started
     environment:
       ANON_KEY: ${ANON_KEY}
       SERVICE_KEY: ${SERVICE_ROLE_KEY}
       POSTGREST_URL: http://supabase-rest-dev:3000
       PGRST_JWT_SECRET: ${JWT_SECRET}
-      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD_ENCODED}@supabase-db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgres://supabase_storage_admin:${POSTGRES_PASSWORD_ENCODED}@supabase-db-dev:5432/${POSTGRES_DB}
       FILE_SIZE_LIMIT: 52428800
       STORAGE_BACKEND: file
       FILE_STORAGE_BACKEND_PATH: /var/lib/storage
@@ -117,15 +199,24 @@ services:
 
   supabase-meta-dev:
     container_name: supabase-meta-dev
-    image: supabase/postgres-meta:v0.75.0
+    image: supabase/postgres-meta:v0.93.1
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8080/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1) })"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       PG_META_PORT: 8080
-      PG_META_DB_HOST: supabase-db
+      PG_META_DB_HOST: supabase-db-dev
       PG_META_DB_PORT: 5432
       PG_META_DB_NAME: ${POSTGRES_DB}
-      PG_META_DB_USER: postgres
+      PG_META_DB_USER: supabase_admin
       PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      CRYPTO_KEY: ${PG_META_CRYPTO_KEY:-change-me-dev}
     networks:
       - supabase-dev
       - stack_net
@@ -134,19 +225,67 @@ services:
     container_name: supabase-studio-dev
     image: supabase/studio:2025.11.26-sha-8f096b5
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://studio:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})"]
+      timeout: 10s
+      interval: 5s
+      retries: 3
     ports:
       - "${STUDIO_PORT:-3100}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      supabase-meta-dev:
+        condition: service_healthy
     environment:
       HOSTNAME: "::"
       STUDIO_PG_META_URL: http://supabase-meta-dev:8080
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_HOST: supabase-db-dev
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD_ENCODED}
+      PG_META_CRYPTO_KEY: ${PG_META_CRYPTO_KEY:-change-me-dev}
       DEFAULT_ORGANIZATION_NAME: "ARIA Dev"
       DEFAULT_PROJECT_NAME: "Development"
       SUPABASE_URL: http://supabase-kong-dev:8000
       SUPABASE_PUBLIC_URL: ${API_EXTERNAL_URL}
       SUPABASE_ANON_KEY: ${ANON_KEY}
       SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY}
+      AUTH_JWT_SECRET: ${JWT_SECRET}
       NEXT_PUBLIC_ENABLE_LOGS: "false"
+      NEXT_ANALYTICS_BACKEND_PROVIDER: postgres
+    networks:
+      - supabase-dev
+      - stack_net
+
+  # DEV Analytics (optional, for logs)
+  supabase-analytics-dev:
+    container_name: supabase-analytics-dev
+    image: supabase/logflare:1.26.13
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "http://localhost:4000/health"]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LOGFLARE_NODE_HOST: 127.0.0.1
+      DB_USERNAME: supabase_admin
+      DB_DATABASE: _supabase
+      DB_HOSTNAME: supabase-db-dev
+      DB_PORT: 5432
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_SCHEMA: _analytics
+      LOGFLARE_PUBLIC_ACCESS_TOKEN: ${LOGFLARE_PUBLIC_ACCESS_TOKEN:-dev-logflare-key-public}
+      LOGFLARE_PRIVATE_ACCESS_TOKEN: ${LOGFLARE_PRIVATE_ACCESS_TOKEN:-dev-logflare-key-private}
+      LOGFLARE_SINGLE_TENANT: true
+      LOGFLARE_SUPABASE_MODE: true
+      POSTGRES_BACKEND_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD_ENCODED}@supabase-db-dev:5432/_supabase
+      POSTGRES_BACKEND_SCHEMA: _analytics
+      LOGFLARE_FEATURE_FLAG_OVERRIDE: multibackend=true
     networks:
       - supabase-dev
       - stack_net
@@ -159,3 +298,4 @@ networks:
 
 volumes:
   supabase-storage-dev:
+  db-config-dev:

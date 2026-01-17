@@ -4,8 +4,11 @@
 #   Stop:               docker compose down
 #   Destroy:            docker compose -f docker-compose.yml -f ./dev/docker-compose.dev.yml down -v --remove-orphans
 #   Reset everything:  ./reset.sh
+#
+# PRODUCTION Supabase Stack - Isolated postgres (supabase-db-prod)
+# Port 54322 exposed on localhost for external connections
 
-name: supabase
+name: supabase-prod
 
 services:
 
@@ -394,13 +397,13 @@ services:
       # GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID}
       # GOOGLE_PROJECT_NUMBER: ${GOOGLE_PROJECT_NUMBER}
 
-  # Comment out everything below this point if you are using an external Postgres database
+  # PRODUCTION PostgreSQL - Isolated container with dedicated volume
   db:
-    container_name: supabase-db
+    container_name: supabase-db-prod
     image: supabase/postgres:15.8.1.085
     restart: unless-stopped
-    # Expose PostgreSQL on localhost only for host services (aria-threading, etc.)
-    # Port 54322 is used to avoid conflicts with any local PostgreSQL instances
+    # Expose PostgreSQL on localhost only for host services
+    # Port 54322 is PROD - DEV uses 54323
     ports:
       - "127.0.0.1:54322:5432"
     volumes:
@@ -420,7 +423,7 @@ services:
       # Changes required for Pooler support
       - ./volumes/db/pooler.sql:/docker-entrypoint-initdb.d/migrations/99-pooler.sql:Z
       # Use named volume to persist pgsodium decryption key between restarts
-      - db-config:/etc/postgresql-custom
+      - db-config-prod:/etc/postgresql-custom
     healthcheck:
       test:
         [
@@ -506,7 +509,7 @@ services:
       ]
 
 volumes:
-  db-config:
+  db-config-prod:
 
 networks:
   default:
