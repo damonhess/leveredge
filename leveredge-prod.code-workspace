@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "PROD Data Plane",
+      "path": "data-plane/prod"
+    }
+  ],
+  "settings": {
+    "terminal.integrated.env.linux": {
+      "LEVEREDGE_ENV": "prod"
+    },
+    "window.title": "LeverEdge PROD - ${activeEditorShort}",
+    "workbench.colorCustomizations": {
+      "titleBar.activeBackground": "#8B0000",
+      "titleBar.activeForeground": "#FFFFFF"
+    }
+  }
+}

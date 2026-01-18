@@ -1,0 +1,30 @@
+{
+  "folders": [
+    {
+      "name": "DEV Data Plane",
+      "path": "data-plane/dev"
+    },
+    {
+      "name": "Control Plane",
+      "path": "control-plane"
+    },
+    {
+      "name": "Shared",
+      "path": "shared"
+    },
+    {
+      "name": "Docs",
+      "path": "docs"
+    },
+    {
+      "name": "Specs",
+      "path": "specs"
+    }
+  ],
+  "settings": {
+    "terminal.integrated.env.linux": {
+      "LEVEREDGE_ENV": "dev"
+    },
+    "window.title": "LeverEdge DEV - ${activeEditorShort}"
+  }
+}
