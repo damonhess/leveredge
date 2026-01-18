@@ -1,0 +1,23 @@
+[Unit]
+Description=LeverEdge Command Center
+After=network.target
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/ui/command-center
+ExecStart=/usr/bin/node /opt/leveredge/ui/command-center/.next/standalone/server.js
+Restart=on-failure
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=command-center
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOSTNAME=0.0.0.0
+Environment=NEXT_PUBLIC_CONVENER_URL=http://localhost:8300
+Environment=NEXT_PUBLIC_ATLAS_URL=http://localhost:8007
+
+[Install]
+WantedBy=multi-user.target

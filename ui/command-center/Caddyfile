@@ -1,0 +1,23 @@
+# LeverEdge Command Center - Caddy Configuration
+# Deploy to command.leveredgeai.com
+
+command.leveredgeai.com {
+    reverse_proxy localhost:3000
+
+    # Compression
+    encode gzip
+
+    # Headers
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+
+    # Logging
+    log {
+        output file /var/log/caddy/command-center.log
+        format json
+    }
+}
