@@ -6,6 +6,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY aria_chat.py .
+COPY prompts/ ./prompts/
 
 EXPOSE 8113
 

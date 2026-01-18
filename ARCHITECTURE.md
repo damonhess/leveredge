@@ -1,468 +1,427 @@
 # LEVEREDGE ARCHITECTURE
 
-*Last Updated: January 17, 2026*
-
----
+*Last Updated: January 18, 2026 (Evening - ARIA V4)*
 
 ## System Overview
 
-Multi-agent AI automation infrastructure with control plane / data plane separation.
+Multi-agent AI automation infrastructure with control plane / data plane separation, self-healing capabilities, and themed domain organization.
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           LEVEREDGE INFRASTRUCTURE                          │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        CONTROL PLANE                                 │   │
-│  │                   control.n8n.leveredgeai.com                        │   │
-│  │                                                                      │   │
-│  │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  │   │
-│  │   │  ATLAS  │  │HEPHAEST │  │  AEGIS  │  │ CHRONOS │  │  HADES  │  │   │
-│  │   │  n8n    │  │  8011   │  │  8012   │  │  8010   │  │  8008   │  │   │
-│  │   │ Router  │  │   MCP   │  │  Vault  │  │ Backup  │  │Rollback │  │   │
-│  │   └─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘  │   │
-│  │                                                                      │   │
-│  │   ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐               │   │
-│  │   │ HERMES  │  │  ARGUS  │  │  ALOY   │  │ ATHENA  │               │   │
-│  │   │  8014   │  │  8016   │  │  8015   │  │  8013   │               │   │
-│  │   │ Notify  │  │ Monitor │  │  Audit  │  │  Docs   │               │   │
-│  │   └─────────┘  └─────────┘  └─────────┘  └─────────┘               │   │
-│  │                                                                      │   │
-│  │                     ┌─────────────────┐                             │   │
-│  │                     │    EVENT BUS    │                             │   │
-│  │                     │      8099       │                             │   │
-│  │                     └─────────────────┘                             │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         DATA PLANE                                   │   │
-│  │                                                                      │   │
-│  │   ┌─────────────────────────┐    ┌─────────────────────────┐       │   │
-│  │   │          PROD           │    │           DEV            │       │   │
-│  │   │                         │    │                          │       │   │
-│  │   │  n8n (5678)             │    │  n8n (5680)              │       │   │
-│  │   │  n8n.leveredgeai.com    │    │  dev.n8n.leveredgeai.com │       │   │
-│  │   │                         │    │                          │       │   │
-│  │   │  Supabase               │    │  Supabase DEV            │       │   │
-│  │   │  api.leveredgeai.com    │    │  (shares DB container)   │       │   │
-│  │   │  studio.leveredgeai.com │    │                          │       │   │
-│  │   │                         │    │                          │       │   │
-│  │   │  ARIA                   │    │  ARIA DEV                │       │   │
-│  │   │  aria.leveredgeai.com   │    │  dev-aria.leveredgeai.com│       │   │
-│  │   └─────────────────────────┘    └─────────────────────────┘       │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                         TIER 0: GENESIS                              │   │
-│  │                                                                      │   │
-│  │   ┌─────────┐                                                       │   │
-│  │   │  GAIA   │  Emergency bootstrap - can rebuild everything         │   │
-│  │   │  8000   │  /opt/leveredge/gaia/                                 │   │
-│  │   └─────────┘                                                       │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+**Health Score:** 85%+
+**Agents:** 40+
+**Database Tables:** 53+
 
 ---
 
 ## Directory Structure
 
 ```
-/opt/leveredge/
-├── gaia/                          # Tier 0 - Emergency restore
-│   ├── gaia.py
-│   └── restore.sh
-├── control-plane/
-│   ├── n8n/                       # control.n8n.leveredgeai.com (5679)
-│   │   ├── docker-compose.yml
-│   │   └── .env
-│   ├── agents/                    # FastAPI backends
-│   │   ├── atlas/
-│   │   ├── hephaestus/
-│   │   ├── aegis/
-│   │   ├── chronos/
-│   │   ├── hades/
-│   │   ├── hermes/
-│   │   ├── argus/
-│   │   ├── aloy/
-│   │   ├── athena/
-│   │   ├── convener/              # Council meeting facilitator
-│   │   └── scribe/                # Council meeting secretary
-│   ├── workflows/                 # n8n workflow exports
-│   └── event-bus/                 # SQLite message bus
+/opt/leveredge/                        # System root
+├── gaia/                              # Tier 0 - Emergency restore
+├── control-plane/                     # The brain
+│   ├── n8n/                           # control.n8n.leveredgeai.com
+│   ├── agents/                        # FastAPI backends
+│   │   ├── atlas/                     # Orchestrator
+│   │   ├── sentinel/                  # Gatekeeper
+│   │   ├── panoptes/                  # Integrity guardian
+│   │   ├── asclepius/                 # Healing agent
+│   │   └── [other agents]/
+│   ├── workflows/                     # n8n workflow exports
+│   └── event-bus/                     # Agent communication (8099)
 ├── data-plane/
 │   ├── prod/
-│   │   ├── n8n/                   # n8n.leveredgeai.com (5678)
-│   │   └── supabase/              # api.leveredgeai.com
+│   │   ├── n8n/                       # n8n.leveredgeai.com
+│   │   ├── supabase/                  # Production database
+│   │   ├── aria-frontend/             # aria.leveredgeai.com
+│   │   └── command-center/            # command.leveredgeai.com
 │   └── dev/
-│       ├── n8n/                   # dev.n8n.leveredgeai.com (5680)
-│       └── supabase/              # dev.supabase.leveredgeai.com
+│       ├── n8n/                       # dev.n8n.leveredgeai.com
+│       ├── supabase/                  # Development database
+│       ├── aria-frontend/             # dev.aria.leveredgeai.com
+│       └── command-center/            # dev.command.leveredgeai.com
 ├── shared/
-│   ├── scripts/                   # CLI tools (promote-to-prod.sh, etc.)
-│   └── backups/                   # CHRONOS destination
-└── monitoring/                    # Prometheus + Grafana
+│   ├── scripts/                       # CLI tools
+│   │   ├── promote-to-prod.sh
+│   │   ├── add-win.sh
+│   │   └── promote-aria.sh
+│   ├── backups/                       # CHRONOS destination
+│   ├── credentials/                   # AEGIS store (encrypted)
+│   └── systemd/                       # Service files
+├── config/
+│   └── agent-registry.yaml            # Master agent definitions (AUTHORITATIVE)
+├── specs/
+│   └── gsd-*.md                       # Build specifications
+├── monitoring/                        # Prometheus + Grafana
+└── archive/                           # Old versions
+    └── docs/                          # Superseded documentation
 ```
 
 ---
 
-## Agent Registry
+## Agent Registry by Domain
 
-### Tier 0: Genesis
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| GAIA | 8000 | Emergency bootstrap/rebuild | ✅ Ready |
+### GAIA (Genesis) - Tier 0
+| Agent | Port | Purpose |
+|-------|------|---------|
+| GAIA | 8000 | Emergency bootstrap/rebuild |
 
-### Tier 1: Control Plane - Core Infrastructure
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| ATLAS | 8007 | Orchestration engine, chain execution | ✅ Active |
-| HADES | 8008 | Rollback/recovery system | ✅ Active |
-| CHRONOS | 8010 | Backup manager, scheduled snapshots | ✅ Active |
-| HEPHAESTUS | 8011 | Builder/deployer, MCP server | ✅ Active |
-| AEGIS | 8012 | Credential vault, secret management | ✅ Active |
-| ATHENA | 8013 | Documentation generation | ✅ Active |
-| HERMES | 8014 | Notifications (Telegram, Event Bus) | ✅ Active |
-| ALOY | 8015 | Audit log analysis, anomaly detection | ✅ Active |
-| ARGUS | 8016 | Monitoring, Prometheus integration | ✅ Active |
-| CHIRON | 8017 | Business strategy, ADHD planning (LLM) | ✅ Active |
-| SCHOLAR | 8018 | Market research, web search (LLM) | ✅ Active |
-| SENTINEL | 8019 | Smart routing, health monitoring | ✅ Active |
-| Event Bus | 8099 | Inter-agent communication | ✅ Active |
+### THE KEEP (Infrastructure) - Tier 1
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| AEGIS | 8012 | Running | Credential vault |
+| CHRONOS | 8010 | Running | Backup manager |
+| HADES | 8008 | Running | Rollback/recovery |
+| HERMES | 8014 | Running | Notifications |
+| ARGUS | 8016 | Running | Monitoring/costs |
+| ALOY | 8015 | Running | Audit/anomaly |
+| ATHENA | 8013 | Running | Documentation |
 
-### Tier 1: Control Plane - New Infrastructure Agents
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| FILE-PROCESSOR | 8050 | PDF, image, audio processing | ✅ Built |
-| VOICE | 8051 | Voice interface (Whisper + TTS) | ✅ Built |
-| MEMORY-V2 | 8066 | Unified cross-conversation memory | ✅ Built |
-| SHIELD-SWORD | 8067 | Manipulation detection/influence | ✅ Built |
-| GATEWAY | 8070 | API gateway, rate limiting | ✅ Built |
+### PANTHEON (Orchestration) - Tier 1
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| ATLAS | 8007 | Running | Master orchestrator |
+| SENTINEL | 8019 | Running | Gatekeeper/routing |
+| HEPHAESTUS | 8011 | Running | Builder/deployer + MCP |
+| EVENT-BUS | 8099 | Running | Agent communication |
 
-### Tier 1: Security Fleet (8020-8021)
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| CERBERUS | 8020 | Security gateway, auth, rate limiting | ✅ Built |
-| PORT-MANAGER | 8021 | Port allocation, conflict resolution | ✅ Built |
+### SENTINELS (Security) - Tier 1
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| PANOPTES | 8023 | Running | Integrity guardian |
+| ASCLEPIUS | 8024 | Running | Auto-healing |
+| CERBERUS | 8025 | Defined | Security gateway |
 
-### Tier 1: Creative Fleet (8030-8034)
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| MUSE | 8030 | Creative director, project orchestration | ✅ Built |
-| CALLIOPE | 8031 | Writer - articles, scripts, copy (LLM) | ✅ Built |
-| THALIA | 8032 | Designer - presentations, UI, landing pages | ✅ Built |
-| ERATO | 8033 | Media producer - images, video, voiceover | ✅ Built |
-| CLIO | 8034 | Reviewer - QA, fact-check, brand compliance (LLM) | ✅ Built |
+### ARIA SANCTUM (Personal/Project Core) - Tier 1
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| ARIA-THREADING | 8113 | Running | Context/memory management (systemd) |
+| ARIA-CHAT | 8114 | Running | Chat API with V4 personality (Docker) |
+| ARIA-OMNISCIENCE | 8112 | Defined | Event ingestion for awareness |
+| VARYS | 8020 | Running | LeverEdge mission guardian |
 
-### Tier 1: Personal Fleet (8100-8110)
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| NUTRITIONIST | 8101 | Nutrition advice, diet planning (LLM) | ✅ Built |
-| MEAL-PLANNER | 8102 | Recipes, grocery lists, meal prep (LLM) | ✅ Built |
-| ACADEMIC-GUIDE | 8103 | Learning paths, study optimization (LLM) | ✅ Built |
-| EROS | 8104 | Relationship advice, dating coaching (LLM) | ✅ Built |
-| GYM-COACH | 8110 | Workout programming, fitness tracking (LLM) | ✅ Built |
+**ARIA Architecture Note:**
+- `aria-threading.service` (8113): Handles context retrieval, memory chunking, semantic search
+- `aria-chat-dev` container (8114): Chat endpoint with full personality prompt (V4)
+- Frontend at `dev.aria.leveredgeai.com` routes `/api/*` to port 8114
+- Personality prompt protected: `/opt/leveredge/backups/aria-prompts/ARIA_V4_GOLDEN_MASTER.md`
 
-### Tier 1: Business Fleet (8200-8209)
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| HERACLES | 8200 | Project management, task breakdown (LLM) | ✅ Built |
-| LIBRARIAN | 8201 | Knowledge management, document org (LLM) | ✅ Built |
-| DAEDALUS | 8202 | Workflow builder, n8n automation (LLM) | ✅ Built |
-| THEMIS | 8203 | Legal advisor, contracts, compliance (LLM) | ✅ Built |
-| MENTOR | 8204 | Business coach, leadership dev (LLM) | ✅ Built |
-| PLUTUS | 8205 | Financial analyst, budgets, ROI (LLM) | ✅ Built |
-| PROCUREMENT | 8206 | Vendor evaluation, cost optimization (LLM) | ✅ Built |
-| HEPHAESTUS-SERVER | 8207 | Server admin, DevOps guidance (LLM) | ✅ Built |
-| ATLAS-INFRA | 8208 | Cloud architecture, scaling (LLM) | ✅ Built |
-| IRIS | 8209 | World events, news, trends (LLM) | ✅ Built |
+### CHANCERY (Business) - Tier 2
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| SCHOLAR | 8018 | Running | Research/analysis |
+| CHIRON | 8017 | Running | Business coaching |
+| CONSUL | 8021 | Defined | External project management |
+| PLUTUS | 8205 | Defined | Financial analysis |
 
-### Tier 1: Council Fleet - THE CONCLAVE (8300-8301)
-| Agent | Port | Purpose | Status |
-|-------|------|---------|--------|
-| CONVENER | 8300 | Council meeting facilitator, multi-agent orchestration | ✅ Built |
-| SCRIBE | 8301 | Council meeting secretary, transcription, summaries | ✅ Built |
+### ALCHEMY (Creative) - Tier 3
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| MUSE | 8030 | Defined | Creative director |
+| QUILL | 8031 | Defined | Writer |
+| STAGE | 8032 | Defined | Designer |
+| REEL | 8033 | Defined | Media producer |
+| CRITIC | 8034 | Defined | QA reviewer |
 
-### Tier 1: Dashboards & Monitoring
-| Dashboard | Port | Purpose | Status |
-|-----------|------|---------|--------|
-| Fleet Dashboard | 8060 | Agent status, health monitoring | ✅ Built |
-| Cost Dashboard | 8061 | LLM usage tracking, cost analysis | ✅ Built |
-| Log Aggregation | 8062 | Centralized logging | ✅ Built |
-| Uptime Monitor | 8063 | Service availability checks | ✅ Built |
-| SSL Monitor | 8064 | Certificate expiration tracking | ✅ Built |
-
-### Tier 2: Data Plane
-| Component | Port | Purpose | Status |
-|-----------|------|---------|--------|
-| ARIA | 5678 | Personal AI assistant | ✅ V3.2 Active |
-| PROD n8n | 5678 | Production workflows | ✅ Active |
-| DEV n8n | 5680 | Development/testing | ✅ Active |
-| PROD Supabase | 54322 | Production database | ✅ Active |
-| DEV Supabase | 54323 | Development database (isolated) | ✅ Active |
+### THE SHIRE (Personal) - Tier 4
+| Agent | Port | Status | Purpose |
+|-------|------|--------|---------|
+| ARAGORN | 8110 | Defined | Fitness coach |
+| BOMBADIL | 8101 | Defined | Nutritionist |
+| SAMWISE | 8102 | Defined | Meal planner |
+| GANDALF | 8103 | Defined | Learning guide |
+| ARWEN | 8104 | Defined | Relationship coach |
 
 ---
 
-## Agent Architecture Pattern
-
-All control plane agents follow the same pattern:
+## Self-Healing Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    AGENT PATTERN                             │
-│                                                              │
-│   n8n Workflow (Visual)          FastAPI Backend            │
-│   ┌─────────────────────┐       ┌─────────────────────┐    │
-│   │  Webhook endpoint   │──────▶│  /health            │    │
-│   │  AI Agent routing   │       │  /action endpoints  │    │
-│   │  Tool calls         │       │  Business logic     │    │
-│   │  Event Bus logging  │       │  External APIs      │    │
-│   └─────────────────────┘       └─────────────────────┘    │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+                    +------------------+
+                    |    PANOPTES      |
+                    |  (Scan Daily)    |
+                    +--------+---------+
+                             |
+                             v
+                    +------------------+
+                    |  Issues Found?   |
+                    +--------+---------+
+                             |
+              +--------------+--------------+
+              v                              v
+        +-----------+                 +-----------+
+        |    No     |                 |    Yes    |
+        |  (Done)   |                 |           |
+        +-----------+                 +-----+-----+
+                                            |
+                                            v
+                                   +------------------+
+                                   |   ASCLEPIUS      |
+                                   |  (Auto-Heal)     |
+                                   +--------+---------+
+                                            |
+                              +-------------+-------------+
+                              v                           v
+                        +-----------+              +-----------+
+                        | Healable  |              |  Manual   |
+                        |(auto-fix) |              | Required  |
+                        +-----------+              +-----+-----+
+                                                         |
+                                                         v
+                                                  +-----------+
+                                                  |  HERMES   |
+                                                  | (Alert)   |
+                                                  +-----------+
 ```
 
-**n8n workflow handles:**
-- Webhook ingestion
-- AI-powered request interpretation
-- Tool selection and orchestration
-- Event Bus logging
-
-**FastAPI backend handles:**
-- Actual execution logic
-- External API calls
-- Database operations
-- Health checks
+### Cron Schedule
+- **6:00 AM** - PANOPTES full scan
+- **6:30 AM** - ASCLEPIUS auto-heal
+- **Weekly** - Backup cleanup (keep 7 days)
 
 ---
 
-## Network Architecture
+## Database Schema (53+ Tables)
 
-### Docker Networks
-| Network | Purpose | Services |
-|---------|---------|----------|
-| `control-plane-net` | Control plane internal | All agents, control n8n |
-| `data-plane-net` | PROD internal | prod-n8n, prod-n8n-postgres |
-| `data-plane-dev-net` | DEV internal | dev-n8n, dev-n8n-postgres |
-| `stack_net` | Shared services | Caddy, Supabase, cross-plane communication |
-
-### External Domains
-| Domain | Target | Purpose |
-|--------|--------|---------|
-| control.n8n.leveredgeai.com | Control n8n (5679) | Agent management |
-| n8n.leveredgeai.com | PROD n8n (5678) | Production workflows |
-| dev.n8n.leveredgeai.com | DEV n8n (5680) | Development |
-| aria.leveredgeai.com | ARIA frontend | Personal assistant |
-| api.leveredgeai.com | Supabase Kong | REST API |
-| studio.leveredgeai.com | Supabase Studio | Database UI |
-| grafana.leveredgeai.com | Grafana | Monitoring dashboards |
-
----
-
-## Key Design Decisions
-
-### Option A: Dumb Executors (Current)
-- Agents execute commands without LLM reasoning
-- Claude Web/Code provides the intelligence
-- Zero API cost for agent operations
-- Human always in the loop
-
-### Option B: Autonomous Agents (Future)
-- Agents have LLM reasoning capability
-- Can interpret vague requests
-- Requires cost monitoring
-- Tiered approval system via HERMES
-
-### Communication
-- All agents log to Event Bus (audit trail)
-- HERMES handles human notifications
-- AEGIS manages credentials (builders never see values)
-
-### Development Workflow (MANDATORY)
-```
-DEV → Test → PROD
+### Core Agent Tables
+```sql
+agents                    -- Agent registry (name, port, domain, status)
+agent_health              -- Health checks per agent
+agent_activity            -- Action logs
+agent_conversations       -- Chat sessions with agents
+agent_messages            -- Individual messages
 ```
 
-| Change Type | Flow | Exception |
-|-------------|------|-----------|
-| Workflows | DEV n8n (5680) → test → PROD n8n (5678) | Never |
-| Code | DEV → test → PROD | Never |
-| Schema changes | DEV Supabase → test → PROD Supabase | Never |
-| Real user data | PROD directly | Only with explicit approval |
+### Per-Agent Tables
+```sql
+-- AEGIS
+aegis_credentials         -- API keys, tokens, passwords
+aegis_audit_log           -- Access tracking
+aegis_personal_vault      -- Personal passwords
 
-**Steps:**
-1. Build/edit in DEV n8n or DEV environment
-2. Test thoroughly
-3. Run `promote-to-prod.sh` to deploy workflows
-4. CHRONOS creates backup before deployment
-5. HADES ready for rollback if needed
+-- CHRONOS
+chronos_backups           -- Backup records
+chronos_schedules         -- Backup schedules
 
-**Full rules:** See `/home/damon/.claude/EXECUTION_RULES.md`
+-- HADES
+hades_deployments         -- Deployment history
+hades_rollbacks           -- Rollback events
 
----
+-- PANOPTES
+panoptes_scans            -- Scan results
+panoptes_issues           -- Detected issues
 
-## MCP Server Mapping
+-- ASCLEPIUS
+asclepius_healing_plans   -- Healing plans
+asclepius_healing_history -- Healing actions
+asclepius_strategies      -- Healing strategies
 
-| MCP Server | Target | Port | Use For |
-|------------|--------|------|---------|
-| **n8n-control** | Control plane | 5679 | Agent workflows |
-| n8n-troubleshooter | PROD data plane | 5678 | ARIA, client workflows |
-| n8n-troubleshooter-dev | DEV data plane | 5680 | Development |
+-- HERMES
+hermes_channels           -- Notification channels
+hermes_notification_rules -- Alert rules
+hermes_message_log        -- Message history
 
-**CRITICAL:** Always specify which MCP when creating workflows.
+-- ARGUS
+argus_metrics             -- System metrics
+argus_cost_tracking       -- API costs
+argus_alerts              -- Active alerts
 
----
+-- ALOY
+aloy_audit_events         -- Audit trail
+aloy_anomalies            -- Detected anomalies
+aloy_compliance_checks    -- Compliance status
 
-## Execution Flow
+-- ATLAS
+atlas_chain_executions    -- Chain runs
+atlas_batch_executions    -- Batch operations
 
+-- SCHOLAR
+scholar_research_projects -- Research history
+
+-- CHIRON
+chiron_commitments        -- Accountability
+chiron_weekly_reviews     -- Reviews
+chiron_sprint_plans       -- Sprint plans
+
+-- VARYS
+varys_mission_documents   -- Sacred documents
+varys_drift_flags         -- Scope creep alerts
+varys_daily_briefs        -- Daily accountability
 ```
-User Request
-     │
-     ▼
-┌─────────────┐
-│ Claude Web  │  ◄── Command center via HEPHAESTUS MCP
-│  (Brain)    │
-└─────────────┘
-     │
-     │ 1. Write spec
-     │ 2. CHRONOS backup
-     │ 3. Dispatch to GSD
-     ▼
-┌─────────────┐
-│ Claude Code │  ◄── Builder with fresh context
-│  + GSD      │
-└─────────────┘
-     │
-     │ Execute spec
-     ▼
-┌─────────────┐
-│ HEPHAESTUS  │  ◄── File ops, commands
-│   Agents    │  ◄── CHRONOS, HADES, etc.
-└─────────────┘
-     │
-     │ Verify
-     ▼
-┌─────────────┐
-│ Claude Web  │  ◄── Confirm success
-│  (Verify)   │
-└─────────────┘
+
+### Pipeline & Council Tables (NEW)
+```sql
+-- Pipelines
+pipeline_definitions      -- Pipeline templates
+pipeline_executions       -- Pipeline runs
+pipeline_stage_logs       -- Per-stage execution
+
+-- Council
+council_decisions         -- Decision records
+council_decision_impacts  -- Impact tracking
+
+-- Agent Skills (ALOY)
+agent_skills              -- Skill inventory
+agent_skill_gaps          -- Gap tracking
+agent_audits              -- Agent audits
+
+-- CONSUL PM
+consul_pm_connections     -- External PM connections
+consul_projects           -- Project tracking
+consul_project_sync       -- Sync state
 ```
 
 ---
 
-## OLYMPUS Orchestration System
+## Web Domains
 
-The OLYMPUS orchestration system enables multi-agent chains for complex tasks.
+### Production
+| Domain | Service |
+|--------|---------|
+| command.leveredgeai.com | Master Control Center |
+| aria.leveredgeai.com | ARIA Frontend |
+| n8n.leveredgeai.com | Production n8n |
+| studio.leveredgeai.com | Supabase Studio |
+| grafana.leveredgeai.com | Grafana dashboards |
+| api.leveredgeai.com | Supabase API (Kong) |
 
-### Architecture
+### Development
+| Domain | Service |
+|--------|---------|
+| dev.command.leveredgeai.com | DEV Control Center |
+| dev.aria.leveredgeai.com | DEV ARIA Frontend |
+| dev.n8n.leveredgeai.com | DEV n8n |
+| dev.studio.leveredgeai.com | DEV Supabase Studio |
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                      OLYMPUS ORCHESTRATION                          │
-│                                                                     │
-│   ┌─────────────┐                                                  │
-│   │  HEPHAESTUS │  MCP Server - Entry point for Claude Web         │
-│   │    (MCP)    │  Tools: call_agent, orchestrate, list_chains     │
-│   └──────┬──────┘                                                  │
-│          │ orchestrate                                              │
-│          ▼                                                          │
-│   ┌─────────────┐     ┌─────────────┐                              │
-│   │  SENTINEL   │────▶│    ATLAS    │  Chain execution engine      │
-│   │  (Router)   │     │  (Executor) │  Reads agent-registry.yaml   │
-│   └─────────────┘     └──────┬──────┘                              │
-│          │                    │                                     │
-│          │                    │ Execute steps                       │
-│          ▼                    ▼                                     │
-│   ┌─────────────────────────────────────────────────────────┐      │
-│   │              AGENT POOL                                  │      │
-│   │                                                          │      │
-│   │  Business (LLM)         Infrastructure (Executors)      │      │
-│   │  ┌─────────┐            ┌─────────┐  ┌─────────┐       │      │
-│   │  │ SCHOLAR │            │ CHRONOS │  │  HADES  │       │      │
-│   │  │  8018   │            │  8010   │  │  8008   │       │      │
-│   │  └─────────┘            └─────────┘  └─────────┘       │      │
-│   │  ┌─────────┐            ┌─────────┐  ┌─────────┐       │      │
-│   │  │ CHIRON  │            │  AEGIS  │  │ HERMES  │       │      │
-│   │  │  8017   │            │  8012   │  │  8014   │       │      │
-│   │  └─────────┘            └─────────┘  └─────────┘       │      │
-│   └─────────────────────────────────────────────────────────┘      │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
-```
+### Control Plane
+| Domain | Service |
+|--------|---------|
+| control.n8n.leveredgeai.com | Control plane n8n |
 
-### Available Chains
+---
 
-| Chain | Description | Agents |
-|-------|-------------|--------|
-| `research-and-plan` | Research a topic, create action plan | SCHOLAR → CHIRON |
-| `validate-and-decide` | Validate assumption, decide next steps | SCHOLAR → CHIRON |
-| `comprehensive-market-analysis` | Parallel research, strategic synthesis | SCHOLAR (parallel) → CHIRON |
-| `niche-evaluation` | Compare niches, recommend best | SCHOLAR → CHIRON |
-| `weekly-planning` | Review week, research blockers, plan sprint | CHIRON → SCHOLAR → CHIRON |
-| `fear-to-action` | Analyze fear, find evidence, create plan | CHIRON → SCHOLAR → CHIRON |
-| `safe-deployment` | Backup, deploy, verify, rollback if needed | CHRONOS → HERMES → ARGUS → HADES |
+## Communication Patterns
 
-### SCHOLAR Actions
-
-| Action | Endpoint | Purpose |
-|--------|----------|---------|
-| `deep-research` | /deep-research | Comprehensive multi-source research with web search |
-| `competitors` | /competitors | Competitive analysis for a niche |
-| `market-size` | /market-size | TAM/SAM/SOM market sizing |
-| `pain-discovery` | /pain-discovery | Discover and quantify pain points |
-| `validate-assumption` | /validate-assumption | Test business assumption with evidence |
-| `niche` | /niche | Analyze niche viability |
-| `compare` | /compare | Compare multiple niches |
-| `lead` | /lead | Research specific company as lead |
-| `icp` | /icp | Develop Ideal Customer Profile |
-
-### CHIRON Actions
-
-| Action | Endpoint | Purpose |
-|--------|----------|---------|
-| `sprint-plan` | /sprint-plan | ADHD-optimized sprint planning |
-| `break-down` | /break-down | Break large task into small steps |
-| `prioritize` | /prioritize | Order tasks by impact/urgency |
-| `chat` | /chat | General strategic conversation |
-| `decide` | /decide | Decision framework analysis |
-| `fear-check` | /fear-check | Rapid fear analysis and reframe |
-| `weekly-review` | /weekly-review | Structured weekly accountability |
-| `pricing-help` | /pricing-help | Value-based pricing strategy |
-| `hype` | /hype | Evidence-based motivation boost |
-
-### Usage via HEPHAESTUS MCP
-
-**Single Agent Call:**
+### Event Bus (Port 8099)
+All agents publish events to centralized bus:
 ```json
 {
-  "agent": "scholar",
-  "action": "deep-research",
-  "payload": {"question": "Water utility compliance market size"}
+  "event": "backup.completed",
+  "source": "chronos",
+  "timestamp": "2026-01-18T06:00:00Z",
+  "data": { "backup_id": "...", "size": "2.4GB" }
 }
 ```
 
-**Chain Execution:**
-```json
-{
-  "chain_name": "research-and-plan",
-  "input": {"topic": "Cold outreach strategy for water utilities"}
-}
+### Agent-to-Agent Direct
+For low-latency operations, agents can call each other directly:
+```
+ATLAS -> POST http://localhost:8018/research -> SCHOLAR
 ```
 
-### Configuration
-
-All agent and chain definitions are in `/opt/leveredge/config/agent-registry.yaml`.
+### MCP (Model Context Protocol)
+HEPHAESTUS exposes tools via MCP for Claude:
+- list_directory, read_file, create_file
+- run_command, git_commit
+- list_workflows, call_agent
+- orchestrate (chain execution)
 
 ---
 
-## File Reference
+## Key Architectural Decisions
 
-| File | Purpose |
-|------|---------|
-| ARCHITECTURE.md | This file - system design |
-| MASTER-LAUNCH-CALENDAR.md | Launch timeline, milestones |
-| LESSONS-LEARNED.md | Technical knowledge base |
-| LESSONS-SCRATCH.md | Quick debug capture |
-| /opt/leveredge/config/agent-registry.yaml | Agent and chain definitions |
-| /home/damon/.claude/EXECUTION_RULES.md | Claude Code rules |
+| Decision | Rationale |
+|----------|-----------|
+| Event Bus for coordination | Loose coupling, event sourcing |
+| AEGIS applies credentials | Builders never see secret values |
+| localhost URLs for systemd agents | Avoid Docker networking issues |
+| DEV-first deployment | Never push directly to prod |
+| Themed domains | Memorable, organized, expandable |
+| Self-healing by default | Reduce manual intervention |
+| Per-agent database tables | Separation of concerns |
+| Native n8n nodes over Code | Better debugging, maintenance |
+| Single source of truth docs | No dated duplicates, use git |
+
+---
+
+## Deployment Workflow
+
+```
+1. Build in Bolt.new
+          |
+          v
+2. Push to GitHub
+          |
+          v
+3. Pull to DEV server
+   cd /opt/leveredge/data-plane/dev/[service]
+   git pull origin main
+          |
+          v
+4. Build
+   npm install && npm run build
+          |
+          v
+5. Test on dev.*.leveredgeai.com
+          |
+          v
+6. Promote to PROD
+   ./promote-to-prod.sh [service]
+          |
+          v
+7. Restart Caddy
+   docker compose restart caddy
+```
+
+---
+
+## Build Phases
+
+| Phase | Components | Status |
+|-------|------------|--------|
+| 0 | GAIA + Event Bus | Complete |
+| 1 | Control plane n8n + ATLAS | Complete |
+| 2 | HEPHAESTUS + AEGIS + SENTINEL | Complete |
+| 3 | CHRONOS + HADES | Complete |
+| 4 | ARGUS + ALOY + HERMES + ATHENA | Complete |
+| 5 | PANOPTES + ASCLEPIUS (self-healing) | Complete |
+| 6 | Database schema (42 tables) | Complete |
+| 6.5 | Pipeline/ARIA tables (11 tables) | Complete |
+| 7 | Agent page UIs | In Progress |
+| 8 | Backend API wiring | Next |
+| 9 | Business agents (SCHOLAR, CHIRON, VARYS) | Running, UIs next |
+| 10 | Creative agents | Post-launch |
+| 11 | Personal agents | Post-launch |
+
+---
+
+## Quick Commands
+
+```bash
+# Check system health
+curl http://localhost:8023/status | python3 -m json.tool
+
+# Auto-heal issues
+curl -X POST http://localhost:8024/emergency/auto
+
+# List all agents
+cat /opt/leveredge/config/agent-registry.yaml | grep "name:"
+
+# Check agent status
+sudo systemctl status leveredge-{event-bus,atlas,panoptes,asclepius}
+
+# Deploy frontend update
+cd /opt/leveredge/data-plane/dev/aria-frontend
+git pull && npm install && npm run build
+cd /home/damon/stack && docker compose restart caddy
+```
+
+---
+
+## Authoritative Sources
+
+| What | Where |
+|------|-------|
+| Agent routing | /opt/leveredge/AGENT-ROUTING.md |
+| Agent definitions | /opt/leveredge/config/agent-registry.yaml |
+| Current status | /opt/leveredge/LOOSE-ENDS.md |
+| Documentation rules | /opt/leveredge/DOCUMENTATION-RULES.md |
+| Execution rules | /home/damon/.claude/EXECUTION_RULES.md |

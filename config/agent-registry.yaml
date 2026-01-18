@@ -690,6 +690,126 @@ agents:
           - matrix
           - today_focus
           - week_focus
+  consul:
+    name: CONSUL
+    version: '1.0'
+    description: External project manager - client projects, PM tool integration
+    category: business
+    llm_powered: true
+    connection:
+      url: http://consul:8021
+      health_endpoint: /health
+      timeout_ms: 60000
+    capabilities:
+    - project_management
+    - pm_integration
+    - resource_allocation
+    - deliverable_tracking
+    - methodology_support
+    actions:
+      list-projects:
+        endpoint: /projects
+        method: GET
+        description: List all managed projects
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: array
+          items:
+            fields:
+            - id
+            - name
+            - status
+            - pm_system
+      create-project:
+        endpoint: /projects/create
+        method: POST
+        description: Create new project
+        timeout_ms: 30000
+        params:
+        - name: name
+          type: string
+          required: true
+        - name: description
+          type: string
+          required: false
+        - name: project_type
+          type: string
+          required: true
+          enum:
+          - internal
+          - client
+          - research
+          - infrastructure
+        - name: methodology
+          type: string
+          required: false
+          default: agile
+          enum:
+          - waterfall
+          - agile
+          - kanban
+          - hybrid
+        returns:
+          type: object
+          fields:
+          - project_id
+          - name
+          - status
+      get-project:
+        endpoint: /projects/{id}
+        method: GET
+        description: Get project details
+        timeout_ms: 10000
+        params:
+        - name: id
+          type: string
+          required: true
+        returns:
+          type: object
+          fields:
+          - id
+          - name
+          - status
+          - tasks
+          - milestones
+      sync-project:
+        endpoint: /projects/{id}/sync
+        method: POST
+        description: Sync project with external PM system
+        timeout_ms: 60000
+        params:
+        - name: id
+          type: string
+          required: true
+        - name: direction
+          type: string
+          required: false
+          default: bidirectional
+          enum:
+          - push
+          - pull
+          - bidirectional
+        returns:
+          type: object
+          fields:
+          - sync_status
+          - changes
+          - conflicts
+      list-connections:
+        endpoint: /connections
+        method: GET
+        description: List PM system connections
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: array
+          items:
+            fields:
+            - pm_system
+            - connection_name
+            - is_active
+            - last_sync
   hermes:
     name: HERMES
     version: '1.0'
@@ -1495,14 +1615,14 @@ agents:
           fields:
           - scenes
           - total_duration
-  calliope:
-    name: CALLIOPE
+  quill:
+    name: QUILL
     version: '1.0'
     description: Elite Writer - Content, copy, scripts
     category: creative
     llm_powered: true
     connection:
-      url: http://calliope:8031
+      url: http://quill:8031
       health_endpoint: /health
       timeout_ms: 120000
     capabilities:
@@ -1589,14 +1709,14 @@ agents:
           fields:
           - revised_content
           - changes_made
-  thalia:
-    name: THALIA
+  stage:
+    name: STAGE
     version: '1.1'
     description: Designer - Presentations, charts, layouts, web/UI design
     category: creative
     llm_powered: false
     connection:
-      url: http://thalia:8032
+      url: http://stage:8032
       health_endpoint: /health
       timeout_ms: 60000
     capabilities:
@@ -1854,14 +1974,14 @@ agents:
           - pages
           - template_type
           - style
-  erato:
-    name: ERATO
+  reel:
+    name: REEL
     version: '1.0'
     description: Media Producer - Images, video, audio
     category: creative
     llm_powered: false
     connection:
-      url: http://erato:8033
+      url: http://reel:8033
       health_endpoint: /health
       timeout_ms: 300000
     capabilities:
@@ -1954,14 +2074,14 @@ agents:
           fields:
           - assets
           - source
-  clio:
-    name: CLIO
+  critic:
+    name: CRITIC
     version: '1.0'
     description: Reviewer - QA, brand compliance, fact-check
     category: creative
     llm_powered: true
     connection:
-      url: http://clio:8034
+      url: http://critic:8034
       health_endpoint: /health
       timeout_ms: 60000
     capabilities:
@@ -3609,6 +3729,15 @@ intent_patterns:
     - business strategy
     - adhd
     - overwhelmed
+    consul:
+    - project (status|update)
+    - client project
+    - external pm
+    - leantime
+    - sync project
+    - deliverable
+    - milestone
+    - resource allocation
     scholar:
     - research
     - competitor
@@ -3625,7 +3754,7 @@ intent_patterns:
     - creative project
     - content (for|about)
     - social (post|content)
-    calliope:
+    quill:
     - write (content|copy|article|report)
     - script (for|about)
     - rewrite
@@ -3633,17 +3762,17 @@ intent_patterns:
     - copywriting
     - blog post
     - case study
-    thalia:
+    stage:
     - format (presentation|document)
     - create (chart|graph)
     - design (thumbnail|layout)
     - brand (template|styling)
-    erato:
+    reel:
     - generate (image|video|avatar)
     - create (voiceover|audio)
     - find stock (footage|photos)
     - assemble video
-    clio:
+    critic:
     - review (content|video|document)
     - check (brand|quality|compliance)
     - fact.check

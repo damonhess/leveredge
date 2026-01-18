@@ -18,6 +18,7 @@ shared/credentials/
 
 # Backups (too large)
 shared/backups/
+backups/
 
 # Python
 __pycache__/

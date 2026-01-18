@@ -26,12 +26,12 @@
 | Emergency restore | GAIA | Manual trigger only |
 | Workflow orchestration | ATLAS | Via control n8n |
 | **Creative content projects** | MUSE (8030) | Orchestrates creative fleet |
-| **Writing/copy** | CALLIOPE (8031) | Articles, scripts, social |
-| **Design/presentations** | THALIA (8032) | Slides, charts, landing pages |
-| **Media production** | ERATO (8033) | Images, video, voiceover |
-| **Content review/QA** | CLIO (8034) | Brand compliance, fact-check |
-| **Security gateway** | CERBERUS (8020) | Auth, rate limiting |
-| **Port management** | PORT-MANAGER (8021) | Port allocation, conflicts |
+| **Writing/copy** | QUILL (8031) | Articles, scripts, social |
+| **Design/presentations** | STAGE (8032) | Slides, charts, landing pages |
+| **Media production** | REEL (8033) | Images, video, voiceover |
+| **Content review/QA** | CRITIC (8034) | Brand compliance, fact-check |
+| **Security gateway** | CERBERUS (8025) | Auth, rate limiting |
+| **External PM/Projects** | CONSUL (8021) | Client projects, methodology |
 | **Fitness guidance** | GYM-COACH (8110) | Workouts, progress |
 | **Nutrition advice** | NUTRITIONIST (8101) | Diet, macros |
 | **Meal planning** | MEAL-PLANNER (8102) | Recipes, grocery lists |
@@ -316,6 +316,32 @@ curl http://localhost:8017/framework/adhd
 
 ---
 
+### CONSUL (External Project Manager) - Port 8021
+**Use for:**
+- Client project management
+- External PM tool integration (Leantime, OpenProject)
+- Project methodology tracking
+- Resource allocation
+- Deliverable tracking
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /health | GET | Health check |
+| /projects | GET | List all projects |
+| /projects/create | POST | Create new project |
+| /projects/{id} | GET | Get project details |
+| /projects/{id}/sync | POST | Sync with external PM |
+| /connections | GET | List PM system connections |
+
+**Team Integration:**
+- Partners with VARYS (internal) for LeverEdge work
+- Partners with CHIRON for strategic decisions
+- Syncs with external PM tools (Leantime, OpenProject)
+- Reports to Council for major decisions
+
+---
+
 ### SCHOLAR V2 (Elite Market Research) - Port 8018
 **Use for:**
 - Deep market research with web search (live data)
@@ -423,13 +449,14 @@ curl -X POST http://localhost:8018/compare \
 
 ---
 
-## CREATIVE FLEET (Content Production)
+## ALCHEMY CREATIVE FLEET (Content Production)
 
 ### MUSE (Creative Director) - Port 8030
 **Use for:**
 - Project coordination and task decomposition
 - Storyboarding and workflow management
 - Orchestrating other creative agents
+- Creative brief definition
 
 **Endpoints:**
 | Endpoint | Method | Purpose |
@@ -439,7 +466,7 @@ curl -X POST http://localhost:8018/compare \
 | /storyboard | POST | Create video storyboard |
 | /fleet | GET | List creative fleet capabilities |
 
-### CALLIOPE (Writer) - Port 8031
+### QUILL (Writer) - Port 8031
 **Use for:**
 - Long-form content (articles, case studies, reports)
 - Short-form copy (headlines, taglines, CTAs)
@@ -453,7 +480,7 @@ curl -X POST http://localhost:8018/compare \
 | /script/video | POST | Generate video script with scenes |
 | /rewrite | POST | Revise content based on feedback |
 
-### THALIA (Designer) - Port 8032
+### STAGE (Designer) - Port 8032
 **Use for:**
 - Presentation design (PowerPoint)
 - Chart/graph generation
@@ -474,7 +501,7 @@ curl -X POST http://localhost:8018/compare \
 | /design/wireframe | POST | Generate wireframe mockup |
 | /design/website-template | POST | Generate multi-page website |
 
-### ERATO (Media Producer) - Port 8033
+### REEL (Media Producer) - Port 8033
 **Use for:**
 - AI image generation (DALL-E 3)
 - Video production pipeline
@@ -489,7 +516,7 @@ curl -X POST http://localhost:8018/compare \
 | /generate/voiceover | POST | Generate voiceover |
 | /source/stock | POST | Find stock assets |
 
-### CLIO (Reviewer) - Port 8034
+### CRITIC (Reviewer) - Port 8034
 **Use for:**
 - Brand compliance checking
 - Quality assurance
@@ -507,21 +534,28 @@ curl -X POST http://localhost:8018/compare \
 
 ---
 
-## SECURITY FLEET
+## SECURITY FLEET (SENTINELS)
 
-### CERBERUS (Security Gateway) - Port 8020
+### PANOPTES (Integrity Guardian) - Port 8023
+**Use for:**
+- System integrity monitoring
+- Configuration drift detection
+- File change detection
+- Security baseline enforcement
+
+### ASCLEPIUS (Auto-Healing) - Port 8024
+**Use for:**
+- Automatic service recovery
+- Health-based restarts
+- Self-healing workflows
+- Incident response automation
+
+### CERBERUS (Security Gateway) - Port 8025
 **Use for:**
 - Authentication and authorization
 - Rate limiting and abuse prevention
 - Security policy enforcement
 - Access control decisions
-
-### PORT-MANAGER (Network Manager) - Port 8021
-**Use for:**
-- Port allocation and tracking
-- Service discovery
-- Network health monitoring
-- Port conflict resolution
 
 ---
 

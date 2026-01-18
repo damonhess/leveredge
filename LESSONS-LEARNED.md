@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 18, 2026 (Command Center + AEGIS V2)*
+*Last Updated: January 18, 2026 (PostgreSQL Permissions + CORS Fixes)*
 
 ---
 
@@ -126,6 +126,10 @@ New communication methods (Telegram, voice, etc.) are **additional portals** to 
 | **Starlette `request._send` doesn't exist** | SSE endpoints crash with `TypeError: 'NoneType'` | Use raw ASGI pattern: `async def app(scope, receive, send)` |
 | **Caddy CORS doesn't intercept before reverse_proxy** | OPTIONS requests hit backend instead of 204 | Add CORS handling in application code for SSE endpoints |
 | **Docker containers need multiple networks** | Caddy can't reach agent on control-plane-net | Connect to both `stack_net` (Caddy) AND `control-plane-net` (agents) |
+| **PostgreSQL data file UID mismatch** | "Permission denied" errors in postgres logs | Data files owned by UID 1000, but postgres runs as UID 70 inside container. Fix: `docker exec <container> chown -R postgres:postgres /var/lib/postgresql/data` |
+| **Duplicate CORS headers = browser rejection** | Frontend gets "demo responses" despite API working | Both Caddy AND Python app adding CORS headers. Remove Caddy's headers when app handles CORS. |
+| **Test CORS with curl -i to see all headers** | CORS works in curl but fails in browser | `curl -i` shows headers - look for duplicate `access-control-allow-origin` |
+| **Caddy reload may not clear cached headers** | CORS fix applied but old headers persist | Full restart: `docker restart caddy` |
 
 ### MCP Server Mapping (CRITICAL)
 
@@ -534,7 +538,7 @@ Before context clears:
 | ~~Encryption module for AEGIS~~ | ~~High~~ | ~~30 min~~ | ✅ Done - Fernet AES-256 |
 | ~~n8n workflow templates for AEGIS~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done - 3 workflows |
 | ~~GitHub SSH verification~~ | ~~Low~~ | ~~5 min~~ | ✅ Done - damonhess-dev account |
-| **Fix ARIA Supabase credential** | High | 30 min | ⬜ Get User Preferences node failing |
+| ~~Fix ARIA Supabase credential~~ | ~~High~~ | ~~30 min~~ | ✅ Fixed - was CORS issue, not Supabase |
 | **Wire cost tracking into CHIRON/SCHOLAR** | High | 1 hour | ⬜ Library built, needs integration |
 | **Deploy new agents to production** | High | 2 hours | ⬜ 35 services designed, need deployment |
 | **Install agent dependencies** | Medium | 30 min | ⬜ pillow, pptx, etc. for Creative Fleet |
@@ -725,3 +729,48 @@ When designing V2 APIs, existing DB constraints limit valid values. CONVENER V2 
 - IN_SESSION → stored as "active"
 - ADJOURNED → stored as "completed"
 - **Prevention:** Check existing DB constraints first when designing V2 APIs
+
+### January 18, 2026 (Evening - Infrastructure Fixes)
+**Accomplished:**
+
+| Issue | Root Cause | Fix |
+|-------|------------|-----|
+| Control n8n web UI not loading | PostgreSQL "Permission denied" errors | Data files owned by UID 1000, postgres runs as UID 70. Fixed with `docker exec control-n8n-postgres chown -R postgres:postgres /var/lib/postgresql/data` |
+| ARIA frontend showing demo responses | Duplicate CORS headers in API response | Caddy AND Python app both adding `Access-Control-Allow-Origin`. Removed Caddy's CORS headers for `/api/*` route |
+
+**Key Diagnostic Pattern for "Frontend shows demo/fallback":**
+1. Test API directly: `curl -s https://endpoint/chat -X POST -H "Content-Type: application/json" -d '{"messages":[...]}'`
+2. If API works, check CORS: `curl -i -H "Origin: https://frontend-domain" ...`
+3. Look for duplicate headers: `access-control-allow-origin` appearing twice = invalid
+4. Test without proxy: `curl http://localhost:PORT/...` to isolate Caddy vs app
+
+**PostgreSQL Container Permission Pattern:**
+```bash
+# Diagnose
+docker logs <postgres-container> --tail 30  # Look for "Permission denied"
+docker exec <container> ls -la /var/lib/postgresql/data/  # Check ownership
+docker exec <container> id postgres  # Check postgres UID inside container
+
+# Fix (run from inside container as root)
+docker exec <container> chown -R postgres:postgres /var/lib/postgresql/data
+docker restart <container>
+```
+
+**CORS Debugging Pattern:**
+```bash
+# Test preflight
+curl -sI -X OPTIONS https://domain/api/endpoint -H "Origin: https://frontend" -H "Access-Control-Request-Method: POST"
+
+# Test actual request with headers visible
+curl -si https://domain/api/endpoint -X POST -H "Content-Type: application/json" -H "Origin: https://frontend" -d '{...}' | head -20
+
+# If duplicate Access-Control-Allow-Origin headers:
+# - Check Caddy config for header directives
+# - Check Python app for CORSMiddleware
+# - Only ONE should set CORS headers
+```
+
+**Prevention:**
+- When mounting postgres data volumes, ensure UID matches container's postgres user (typically 70 for alpine, 999 for debian)
+- When adding CORS to Caddy reverse_proxy, check if backend already handles CORS
+- Always test API changes with `curl -i` to see full headers

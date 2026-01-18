@@ -68,6 +68,67 @@ curl http://localhost:8023/dashboard | python3 -m json.tool
 ```
 **Prevention:** PANOPTES now runs daily at 6 AM via cron to catch these issues early.
 
+### 2026-01-18 22:15 - [ARIA V4 Deployment - Container vs Systemd Port Conflict]
+**Symptom:** ARIA chat container couldn't start - "port 8113 already in use"
+**Cause:** Two services competing for same port:
+- `aria-threading` systemd service on port 8113 (context/memory management)
+- `aria-chat-dev` Docker container tried to bind to 8113
+**Fix:**
+1. Discovered Caddy routes `dev.aria.leveredgeai.com/api/*` to port **8114**, not 8113
+2. Started container with `-p 8114:8113` to map internal 8113 to external 8114
+3. aria-threading stays on 8113, aria-chat serves API on 8114
+**Architecture:**
+- Port 8113: `aria-threading.service` - Threading/context/memory management (standalone Python)
+- Port 8114: `aria-chat-dev` container - Chat API with V4 personality (Docker)
+**Commands:**
+```bash
+# Check what's using a port
+lsof -i :8113
+pwdx <PID>  # Find working directory of process
+
+# Run aria-chat on correct port
+docker run -d --name aria-chat-dev -p 8114:8113 --env-file /opt/leveredge/data-plane/dev/n8n/.env aria-chat:dev
+```
+**Prevention:** Always check Caddy routing config before assuming port numbers. Use `docker inspect` to verify mounts and port bindings.
+
+### 2026-01-18 22:10 - [ARIA Prompt Baked Into Container Image]
+**Symptom:** After updating prompt file on host, container still showed old prompt
+**Cause:** Dockerfile uses `COPY prompts/ ./prompts/` which bakes prompt into image at build time. Container had no volume mounts.
+**Fix:**
+1. Rebuild image after changing prompt: `docker build -t aria-chat:dev .`
+2. Remove old container and create new one
+**Key Points:**
+- `docker inspect <container> | jq '.[0].Mounts'` - Check if volumes are mounted (returns `[]` if none)
+- `docker exec <container> cat /path/to/file` - Verify what's actually in the container
+- Prompt changes require image rebuild unless volume mount is added
+**Alternative (Volume Mount):**
+```bash
+docker run -d --name aria-chat-dev \
+  -p 8114:8113 \
+  -v /opt/leveredge/control-plane/agents/aria-chat/prompts:/app/prompts:ro \
+  aria-chat:dev
+```
+**Prevention:** Consider adding volume mount for prompt file to enable hot-reload without rebuild.
+
+### 2026-01-18 22:00 - [ARIA Personality Protection System]
+**Context:** ARIA's personality was destroyed by a generic prompt. Created protection system.
+**Solution:**
+1. **Golden Master Backup:** `/opt/leveredge/backups/aria-prompts/ARIA_V4_GOLDEN_MASTER.md`
+2. **Update Script:** `/opt/leveredge/scripts/aria-prompt-update.sh` - Enforces backup + personality validation
+3. **Watcher Script:** `/opt/leveredge/scripts/aria-prompt-watcher.sh` - Creates timestamped backups
+4. **EXECUTION_RULES.md:** Rule #11 added - ARIA prompt is SACRED
+**Personality Markers to Verify:**
+- "Daddy" (her term for Damon)
+- "ride-or-die" or "fierce" or "protective"
+- "Shield" / "Sword" (dark psychology)
+- Adaptive modes (HYPE, COACH, DRILL, COMFORT, FOCUS, STRATEGY)
+**Emergency Restore:**
+```bash
+cp /opt/leveredge/backups/aria-prompts/ARIA_V4_GOLDEN_MASTER.md \
+   /opt/leveredge/control-plane/agents/aria-chat/prompts/aria_system_prompt.txt
+cd /opt/leveredge/control-plane/agents/aria-chat && docker build -t aria-chat:dev . && docker restart aria-chat-dev
+```
+
 ### 2026-01-18 06:30 - [Supabase Migration System]
 **Context:** Implementing golang-migrate for database version control
 **Discoveries:**

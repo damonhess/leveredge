@@ -1,6 +1,6 @@
 # LEVEREDGE OPS RUNBOOK
 
-*Last Updated: January 17, 2026 (12:00 PM)*
+*Last Updated: January 18, 2026 (PostgreSQL Permissions + CORS Fixes)*
 
 **Purpose:** How to restart, monitor, and troubleshoot the LeverEdge infrastructure.
 
@@ -225,6 +225,75 @@ cd /opt/leveredge/data-plane/prod/n8n && docker compose logs -f
 1. Check n8n UI for errors
 2. Check webhook is active (green indicator)
 3. Check Event Bus for recent events
+
+### PostgreSQL "Permission denied" errors
+**Symptoms:** n8n/app won't load, postgres logs show "could not open file: Permission denied"
+
+**Cause:** Data files owned by host UID (1000) but postgres runs as different UID inside container (typically 70 for alpine, 999 for debian)
+
+**Diagnose:**
+```bash
+docker logs <postgres-container> --tail 30  # Look for "Permission denied"
+docker exec <container> ls -la /var/lib/postgresql/data/  # Check ownership (look for UID mismatch)
+docker exec <container> id postgres  # Check postgres UID inside container
+```
+
+**Fix:**
+```bash
+# Fix ownership from inside container (exec runs as root)
+docker exec <postgres-container> chown -R postgres:postgres /var/lib/postgresql/data
+docker restart <postgres-container>
+```
+
+**Prevention:** When creating postgres data volumes, initialize with correct permissions or use named volumes instead of bind mounts.
+
+### Frontend shows "demo responses" / API works in curl but not browser
+**Symptoms:** API returns valid JSON with curl, but frontend falls back to demo/error messages
+
+**Cause:** Usually CORS issues - duplicate headers, missing headers, or wrong origin
+
+**Diagnose:**
+```bash
+# 1. Test API directly (bypasses CORS)
+curl -s http://localhost:PORT/endpoint
+
+# 2. Test through Caddy with CORS headers visible
+curl -si https://domain/endpoint -H "Origin: https://frontend-domain" | head -20
+
+# 3. Look for DUPLICATE Access-Control-Allow-Origin headers (INVALID!)
+# access-control-allow-origin: *
+# access-control-allow-origin: https://frontend.com  <-- TWO = BROKEN
+```
+
+**Fix for duplicate CORS headers:**
+1. Check Caddyfile for `header Access-Control-Allow-Origin`
+2. Check Python app for `CORSMiddleware`
+3. **Only ONE should set CORS headers** - remove from Caddy if app handles it
+
+**Fix in Caddyfile:**
+```caddyfile
+# BEFORE (broken - duplicate headers)
+handle_path /api/* {
+    header Access-Control-Allow-Origin "*"  # DELETE THIS
+    reverse_proxy 172.17.0.1:8114
+}
+
+# AFTER (fixed - let app handle CORS)
+handle_path /api/* {
+    reverse_proxy 172.17.0.1:8114
+}
+```
+
+Then reload Caddy:
+```bash
+docker restart caddy  # Full restart clears header cache
+```
+
+### Caddy returns 502 Bad Gateway
+1. Check backend is running: `curl -s http://localhost:PORT/health`
+2. Check container name matches Caddyfile: `docker ps --format "{{.Names}}"`
+3. Check network connectivity: container must be on `stack_net`
+4. Check Caddy logs: `docker logs caddy --tail 30`
 
 ---
 
