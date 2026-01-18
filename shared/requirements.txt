@@ -1,0 +1,22 @@
+# LeverEdge Shared Requirements
+# Install with: pip install -r requirements.txt
+
+# Core web framework
+fastapi>=0.104.0
+uvicorn>=0.24.0
+
+# HTTP client
+httpx>=0.25.0
+
+# Data validation
+pydantic>=2.5.0
+
+# File handling
+python-multipart>=0.0.6
+aiofiles>=23.0.0
+
+# Database
+asyncpg>=0.29.0
+
+# Additional utilities
+python-dotenv>=1.0.0

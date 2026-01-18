@@ -1,0 +1,16 @@
+[Unit]
+Description=LeverEdge {{AGENT_NAME}} Agent
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/{{AGENT_DIR}}
+ExecStart=/usr/bin/python3 -m uvicorn {{MODULE}}:app --host 0.0.0.0 --port {{PORT}}
+Restart=always
+RestartSec=10
+Environment=PYTHONPATH=/opt/leveredge/shared/lib
+
+[Install]
+WantedBy=multi-user.target
