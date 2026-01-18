@@ -1,0 +1,14 @@
+active_patterns
+agent_cost_summary
+aria_chunks_overview
+aria_reminder_summary
+aria_unified_stream_overview
+conversations
+files
+launch_progress
+messages
+recent_decisions
+upcoming_tasks
+v_closure_stats
+v_daily_metrics
+v_popular_venues

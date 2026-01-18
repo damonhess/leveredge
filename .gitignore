@@ -36,5 +36,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
-# Database backups
+# Database backups (but not migrations)
 *.sql
+!migrations/*.sql

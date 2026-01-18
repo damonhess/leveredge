@@ -1,0 +1,9 @@
+[Unit]
+Description=Database Backup (PROD)
+
+[Service]
+Type=oneshot
+User=damon
+ExecStart=/opt/leveredge/shared/scripts/backup-database.sh prod full
+StandardOutput=append:/opt/leveredge/logs/db-backup.log
+StandardError=append:/opt/leveredge/logs/db-backup.log

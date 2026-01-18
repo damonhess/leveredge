@@ -1,0 +1,9 @@
+[Unit]
+Description=Database Health Check
+
+[Service]
+Type=oneshot
+User=damon
+ExecStart=/opt/leveredge/shared/scripts/db-health.sh
+StandardOutput=append:/opt/leveredge/logs/db-health.log
+StandardError=append:/opt/leveredge/logs/db-health.log
