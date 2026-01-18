@@ -1,6 +1,6 @@
 # LEVEREDGE LOOSE ENDS
 
-*Last Updated: January 17, 2026*
+*Last Updated: January 18, 2026*
 *Mode: JUGGERNAUT until May/June 2026*
 
 ---
@@ -8,8 +8,9 @@
 ## Current Status
 
 **Portfolio:** $58,500 - $117,000 (28 wins)
-**Days to Launch:** 43 (March 1, 2026)
+**Days to Launch:** 42 (March 1, 2026)
 **Agents Designed:** 40+ (All fleets specified)
+**Command Center:** Built and ready for deployment
 
 See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
@@ -19,9 +20,9 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 1 | Build CONCLAVE V2 | Smart facilitated councils - spec at `/opt/leveredge/specs/conclave-v2-smart-councils.md` |
-| 2 | Wire cost tracking into ARIA workflow | llm_usage tables built, need integration |
-| 3 | Convert agents to native n8n nodes | Currently Code nodes, need visibility |
+| 1 | Convert agents to native n8n nodes | Currently Code nodes, need visibility |
+| 2 | Deploy new agents to containers | 35 services designed, need deployment |
+| 3 | Test full fleet end-to-end | Integration testing |
 
 ---
 
@@ -29,10 +30,9 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 4 | Deploy new agents to containers | 35 services designed, need deployment |
-| 5 | Build Command Center UI | Garden Atrium theme, portal navigation |
-| 6 | Generate Midjourney assets | 9 domain backgrounds + hub |
-| 7 | Test full fleet end-to-end | Integration testing |
+| 4 | Generate Midjourney assets | 9 domain backgrounds + hub |
+| 5 | Wire cost tracking into agents | Library built, need to integrate into CHIRON/SCHOLAR/CONVENER |
+| 6 | Polish Command Center UI | Add real-time data, animations later |
 
 ---
 
@@ -40,10 +40,9 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 8 | Dev credential separation | Google Sheets (9 refs), Telegram (14 refs), Google Drive (4 refs) |
-| 9 | Cloudflare Access for Control Plane | Currently basic auth, target: Cloudflare Access |
-| 10 | AEGIS expiration alerts | Credential rotation reminders |
-| 11 | GitHub account consolidation | damonhess vs damonhess-dev cleanup |
+| 7 | Cloudflare Access for Control Plane | Needs manual Cloudflare dashboard config |
+| 8 | Import all credentials to AEGIS | Currently 6 registered, need full inventory |
+| 9 | PROD database schema sync | AEGIS V2 tables only in DEV |
 
 ---
 
@@ -51,8 +50,8 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 12 | Geopolitical Intelligence System | Product design - multi-source news with bias detection |
-| 13 | Event feed in ARIA | Wire up Fleet Dashboard visibility |
+| 10 | Geopolitical Intelligence System | Product design - multi-source news with bias detection |
+| 11 | Event feed in ARIA | Wire up Fleet Dashboard visibility |
 
 ---
 
@@ -74,7 +73,8 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 - [x] Domain themes approved (8 domains)
 - [x] Council members & supervisors assigned
 - [x] CONCLAVE V2 spec written
-- [ ] Command Center UI designed
+- [x] CONVENER V2 built and deployed
+- [x] Command Center UI built
 - [ ] Midjourney assets generated
 
 ### Feb 28 - Outreach Complete
@@ -95,15 +95,20 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 ---
 
-## Completed This Session (Jan 17)
+## Completed This Session (Jan 18)
 
-- [x] Finalized all 8 domain themes
-- [x] Assigned supervisors to each domain
-- [x] Identified 16 council-eligible agents
-- [x] Designed CONCLAVE V2 with smart facilitation
-- [x] Added summoning, consulting, advisory votes
-- [x] Garden Atrium concept for Command Center hub
-- [x] Full agent registry with ports and functions
+- [x] CONVENER V2 built with Robert's Rules facilitation
+- [x] Command Center Dashboard (Next.js 14)
+  - Hub with metrics
+  - 8 domain pages
+  - 40+ agent pages
+  - Council meeting UI
+- [x] AEGIS V2 database schema (DEV)
+- [x] Cost tracking library created
+- [x] Encryption key generated
+- [x] n8n workflow templates for AEGIS
+- [x] Dev credential separation (environment column)
+- [x] GitHub SSH verified
 
 ---
 
@@ -117,4 +122,5 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 | `AGENT-ROUTING.md` | Who does what (40+ agents) |
 | `ARIA-VISION.md` | ARIA enhancements |
 | `LESSONS-LEARNED.md` | Knowledge base |
+| `ui/command-center/` | Command Center dashboard |
 | `specs/conclave-v2-smart-councils.md` | Council system spec |

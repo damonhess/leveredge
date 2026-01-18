@@ -1,13 +1,13 @@
 # LEVEREDGE FUTURE VISION
 
-*Last Updated: January 17, 2026*
+*Last Updated: January 18, 2026*
 *Focus: Q2 2026 and beyond*
 
 ---
 
 ## Executive Summary
 
-LeverEdge AI launches March 1, 2026. Infrastructure is designed with 40+ agents across 8 themed domains. This document focuses on post-launch growth and future product development.
+LeverEdge AI launches March 1, 2026. Infrastructure is designed with 40+ agents across 8 themed domains. CONVENER V2 and Command Center are built. This document focuses on post-launch growth and future product development.
 
 ---
 
@@ -94,12 +94,14 @@ ARIA becomes the unified interface for all personal and business operations.
 
 ## CONCLAVE Evolution
 
-### V2 (Current Spec)
+### V2 (BUILT)
 - Smart facilitation (LLM-powered CONVENER)
-- Mid-meeting summoning
-- Supervisor consultation
-- Advisory votes
-- Natural meeting flow
+- Mid-meeting summoning via `/summon`
+- Supervisor consultation via `/consult`
+- Advisory votes with confidence levels
+- Natural meeting flow with Robert's Rules
+- Signal parsing ([YIELD], [REQUEST_FLOOR], etc.)
+- Full transcript and decision tracking
 
 ### V3 (Future)
 - Persistent meeting memory
@@ -107,6 +109,24 @@ ARIA becomes the unified interface for all personal and business operations.
 - Automated follow-up tracking
 - Meeting templates by type
 - External participant support (clients?)
+
+---
+
+## Command Center (BUILT)
+
+### Current Features
+- Hub dashboard with key metrics
+- 8 domain pages with agent grids
+- 40+ agent detail pages
+- Council meeting UI (create, run, summon, vote)
+- React Query hooks for real-time data
+
+### Future Enhancements
+- Real-time agent health polling
+- WebSocket updates for meetings
+- Animated transitions
+- Midjourney-generated backgrounds
+- Mobile responsive improvements
 
 ---
 
