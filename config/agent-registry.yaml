@@ -1,19 +1,5 @@
-# ╔═══════════════════════════════════════════════════════════════════════════════╗
-# ║                        LEVEREDGE AGENT REGISTRY                                ║
-# ║                         Single Source of Truth                                 ║
-# ║                                                                                ║
-# ║  Both n8n ATLAS and FastAPI ATLAS read from this file.                        ║
-# ║  SENTINEL validates sync between implementations.                              ║
-# ║  ATHENA can auto-generate n8n workflows from this.                            ║
-# ╚═══════════════════════════════════════════════════════════════════════════════╝
-
-version: "2.2"
-updated: "2026-01-17T22:00:00Z"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# GLOBAL CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════════════════
-
+version: '2.2'
+updated: '2026-01-17T22:00:00Z'
 config:
   default_timeout_ms: 60000
   max_chain_depth: 10
@@ -22,3622 +8,3555 @@ config:
   retry_delay_ms: 1000
   circuit_breaker_threshold: 5
   circuit_breaker_reset_ms: 30000
-
-  # Cost tracking
   cost_tracking_enabled: true
   cost_log_table: agent_usage_logs
-
-  # Event bus
-  event_bus_url: http://event-bus:8099
+  event_bus_url: http://localhost:8099
   publish_events: true
-
-  # Health check intervals
   health_check_interval_ms: 30000
   health_check_timeout_ms: 5000
-
-  # ARIA Omniscience (all agents report to ARIA)
   aria_omniscience:
     enabled: true
     ingest_url: http://aria-omniscience:8112
     shared_module: /opt/leveredge/shared/aria_reporter.py
     required_events:
-      - action_taken
-      - decision_made
-      - error_occurred
+    - action_taken
+    - decision_made
+    - error_occurred
     optional_events:
-      - fact_learned
-      - task_completed
-      - external_call
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# AGENT DEFINITIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
+    - fact_learned
+    - task_completed
+    - external_call
 agents:
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # ATLAS - Orchestration Engine
-  # ─────────────────────────────────────────────────────────────────────────────
   atlas:
     name: ATLAS
-    version: "2.1"
-    description: "Orchestration engine for complex chains and parallel batch execution"
+    version: '2.1'
+    description: Orchestration engine for complex chains and parallel batch execution
     category: infrastructure
     llm_powered: false
-
     connection:
-      url: http://atlas:8007
+      url: http://localhost:8007
       health_endpoint: /health
-      timeout_ms: 300000  # Long timeout for batch operations
-
+      timeout_ms: 300000
     capabilities:
-      - chain_execution
-      - parallel_batch
-      - agent_coordination
-      - cost_tracking
-
+    - chain_execution
+    - parallel_batch
+    - agent_coordination
+    - cost_tracking
     actions:
-
       execute:
         endpoint: /execute
         method: POST
-        description: "Execute a single chain or intent"
+        description: Execute a single chain or intent
         timeout_ms: 180000
         params:
-          - name: chain_name
-            type: string
-            required: false
-            description: "Name of pre-defined chain"
-          - name: steps
-            type: array
-            required: false
-            description: "Ad-hoc chain steps"
-          - name: input
-            type: object
-            required: true
+        - name: chain_name
+          type: string
+          required: false
+          description: Name of pre-defined chain
+        - name: steps
+          type: array
+          required: false
+          description: Ad-hoc chain steps
+        - name: input
+          type: object
+          required: true
         returns:
           type: object
-          fields: [intent_id, status, step_results, total_cost]
-
+          fields:
+          - intent_id
+          - status
+          - step_results
+          - total_cost
       execute-parallel:
         endpoint: /execute-parallel
         method: POST
-        description: "Execute multiple chains in parallel with concurrency control"
+        description: Execute multiple chains in parallel with concurrency control
         timeout_ms: 300000
         params:
-          - name: tasks
-            type: array
-            required: true
-            description: "Array of {chain, input} objects"
-          - name: concurrency
-            type: integer
-            required: false
-            default: 5
-          - name: callback_url
-            type: string
-            required: false
+        - name: tasks
+          type: array
+          required: true
+          description: Array of {chain, input} objects
+        - name: concurrency
+          type: integer
+          required: false
+          default: 5
+        - name: callback_url
+          type: string
+          required: false
         returns:
           type: object
-          fields: [batch_id, status, total_tasks, concurrency, message]
-
+          fields:
+          - batch_id
+          - status
+          - total_tasks
+          - concurrency
+          - message
       batch-status:
         endpoint: /batch/{batch_id}/status
         method: GET
-        description: "Get progress of parallel batch execution"
+        description: Get progress of parallel batch execution
         timeout_ms: 10000
         params:
-          - name: batch_id
-            type: string
-            required: true
+        - name: batch_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [batch_id, status, completed, failed, pending, running, progress_percent, total_cost]
-
+          fields:
+          - batch_id
+          - status
+          - completed
+          - failed
+          - pending
+          - running
+          - progress_percent
+          - total_cost
       batch-results:
         endpoint: /batch/{batch_id}/results
         method: GET
-        description: "Get full results of parallel batch execution"
+        description: Get full results of parallel batch execution
         timeout_ms: 30000
         params:
-          - name: batch_id
-            type: string
-            required: true
+        - name: batch_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [batch_id, status, results, errors, tasks]
-
+          fields:
+          - batch_id
+          - status
+          - results
+          - errors
+          - tasks
       list-chains:
         endpoint: /chains
         method: GET
-        description: "List available chains"
+        description: List available chains
         timeout_ms: 5000
         params: []
         returns:
           type: object
-          fields: [chains, count]
-
+          fields:
+          - chains
+          - count
       list-batches:
         endpoint: /batches
         method: GET
-        description: "List recent batch executions"
+        description: List recent batch executions
         timeout_ms: 5000
         params:
-          - name: limit
-            type: integer
-            required: false
-            default: 20
-          - name: active_only
-            type: boolean
-            required: false
-            default: false
+        - name: limit
+          type: integer
+          required: false
+          default: 20
+        - name: active_only
+          type: boolean
+          required: false
+          default: false
         returns:
           type: object
-          fields: [batches, count]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # SCHOLAR - Market Research & Intelligence (LLM-Powered)
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - batches
+          - count
   scholar:
     name: SCHOLAR
-    version: "2.0"
-    description: "Elite market research with web search capabilities"
+    version: '2.0'
+    description: Elite market research with web search capabilities
     category: business
     llm_powered: true
-    
     connection:
       url: http://scholar:8018
       health_endpoint: /health
       timeout_ms: 120000
-      
     capabilities:
-      - market_research
-      - competitive_intelligence
-      - web_search
-      - data_synthesis
-      
+    - market_research
+    - competitive_intelligence
+    - web_search
+    - data_synthesis
     actions:
-      
       research:
         endpoint: /research
         method: POST
-        description: "General research on a topic"
+        description: General research on a topic
         timeout_ms: 60000
         params:
-          - name: topic
-            type: string
-            required: true
-            description: "Topic to research"
-          - name: depth
-            type: string
-            required: false
-            default: "standard"
-            enum: [quick, standard, deep]
+        - name: topic
+          type: string
+          required: true
+          description: Topic to research
+        - name: depth
+          type: string
+          required: false
+          default: standard
+          enum:
+          - quick
+          - standard
+          - deep
         returns:
           type: object
-          fields: [research, sources, confidence]
-          
+          fields:
+          - research
+          - sources
+          - confidence
       deep-research:
         endpoint: /deep-research
         method: POST
-        description: "Comprehensive multi-source research with web search"
+        description: Comprehensive multi-source research with web search
         timeout_ms: 180000
         cost_tier: high
         params:
-          - name: question
-            type: string
-            required: true
-            description: "Research question"
-          - name: context
-            type: string
-            required: false
-            description: "Additional context"
-          - name: required_sources
-            type: integer
-            required: false
-            default: 5
+        - name: question
+          type: string
+          required: true
+          description: Research question
+        - name: context
+          type: string
+          required: false
+          description: Additional context
+        - name: required_sources
+          type: integer
+          required: false
+          default: 5
         returns:
           type: object
-          fields: [research, methodology, findings, sources, confidence_level]
-          
+          fields:
+          - research
+          - methodology
+          - findings
+          - sources
+          - confidence_level
       competitors:
         endpoint: /competitors
         method: POST
-        description: "Competitive analysis for a niche"
+        description: Competitive analysis for a niche
         timeout_ms: 120000
         cost_tier: high
         params:
-          - name: niche
-            type: string
-            required: true
+        - name: niche
+          type: string
+          required: true
         returns:
           type: object
-          fields: [competitors, analysis, market_position]
-          
+          fields:
+          - competitors
+          - analysis
+          - market_position
       competitor-profile:
         endpoint: /competitor-profile
         method: POST
-        description: "Deep dive on specific competitor"
+        description: Deep dive on specific competitor
         timeout_ms: 120000
         cost_tier: high
         params:
-          - name: company_name
-            type: string
-            required: true
-          - name: website
-            type: string
-            required: false
+        - name: company_name
+          type: string
+          required: true
+        - name: website
+          type: string
+          required: false
         returns:
           type: object
-          fields: [company, products, pricing, strengths, weaknesses, threat_level]
-          
+          fields:
+          - company
+          - products
+          - pricing
+          - strengths
+          - weaknesses
+          - threat_level
       market-size:
         endpoint: /market-size
         method: POST
-        description: "TAM/SAM/SOM market sizing"
+        description: TAM/SAM/SOM market sizing
         timeout_ms: 120000
         cost_tier: high
         params:
-          - name: market
-            type: string
-            required: true
-          - name: geography
-            type: string
-            required: false
-            default: "United States"
-          - name: segment
-            type: string
-            required: false
+        - name: market
+          type: string
+          required: true
+        - name: geography
+          type: string
+          required: false
+          default: United States
+        - name: segment
+          type: string
+          required: false
         returns:
           type: object
-          fields: [tam, sam, som, methodology, sources]
-          
+          fields:
+          - tam
+          - sam
+          - som
+          - methodology
+          - sources
       pain-discovery:
         endpoint: /pain-discovery
         method: POST
-        description: "Discover and quantify pain points"
+        description: Discover and quantify pain points
         timeout_ms: 120000
         cost_tier: high
         params:
-          - name: role
-            type: string
-            required: true
-            description: "Target role (e.g., 'Compliance Officer')"
-          - name: industry
-            type: string
-            required: true
+        - name: role
+          type: string
+          required: true
+          description: Target role (e.g., 'Compliance Officer')
+        - name: industry
+          type: string
+          required: true
         returns:
           type: object
-          fields: [pain_points, quantification, trigger_events]
-          
+          fields:
+          - pain_points
+          - quantification
+          - trigger_events
       validate-assumption:
         endpoint: /validate-assumption
         method: POST
-        description: "Test business assumption with evidence"
+        description: Test business assumption with evidence
         timeout_ms: 120000
         cost_tier: high
         params:
-          - name: assumption
-            type: string
-            required: true
-          - name: importance
-            type: string
-            required: false
-            default: "high"
-            enum: [low, medium, high, critical]
+        - name: assumption
+          type: string
+          required: true
+        - name: importance
+          type: string
+          required: false
+          default: high
+          enum:
+          - low
+          - medium
+          - high
+          - critical
         returns:
           type: object
-          fields: [verdict, evidence_for, evidence_against, confidence, recommendation]
-          
+          fields:
+          - verdict
+          - evidence_for
+          - evidence_against
+          - confidence
+          - recommendation
       icp:
         endpoint: /icp
         method: POST
-        description: "Develop Ideal Customer Profile"
+        description: Develop Ideal Customer Profile
         timeout_ms: 90000
         cost_tier: medium
         params:
-          - name: niche
-            type: string
-            required: true
+        - name: niche
+          type: string
+          required: true
         returns:
           type: object
-          fields: [company_profile, buyer_profile, trigger_events, disqualifiers]
-          
+          fields:
+          - company_profile
+          - buyer_profile
+          - trigger_events
+          - disqualifiers
       niche:
         endpoint: /niche
         method: POST
-        description: "Analyze niche viability"
+        description: Analyze niche viability
         timeout_ms: 90000
         cost_tier: medium
         params:
-          - name: niche
-            type: string
-            required: true
+        - name: niche
+          type: string
+          required: true
         returns:
           type: object
-          fields: [analysis, score, recommendation]
-          
+          fields:
+          - analysis
+          - score
+          - recommendation
       compare:
         endpoint: /compare
         method: POST
-        description: "Compare multiple niches"
+        description: Compare multiple niches
         timeout_ms: 180000
         cost_tier: high
         params:
-          - name: niches
-            type: array
-            required: true
-            items: string
+        - name: niches
+          type: array
+          required: true
+          items: string
         returns:
           type: object
-          fields: [comparison_matrix, recommendation, rationale]
-          
+          fields:
+          - comparison_matrix
+          - recommendation
+          - rationale
       lead:
         endpoint: /lead
         method: POST
-        description: "Research specific company as potential lead"
+        description: Research specific company as potential lead
         timeout_ms: 90000
         cost_tier: medium
         params:
-          - name: company
-            type: string
-            required: true
-          - name: context
-            type: string
-            required: false
+        - name: company
+          type: string
+          required: true
+        - name: context
+          type: string
+          required: false
         returns:
           type: object
-          fields: [company_info, fit_score, talking_points, concerns]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CHIRON - Business Strategy & ADHD Planning (LLM-Powered)
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - company_info
+          - fit_score
+          - talking_points
+          - concerns
   chiron:
     name: CHIRON
-    version: "2.0"
-    description: "Elite business davos with ADHD-optimized frameworks"
+    version: '2.0'
+    description: Elite business davos with ADHD-optimized frameworks
     category: business
     llm_powered: true
-    
     connection:
       url: http://chiron:8017
       health_endpoint: /health
       timeout_ms: 60000
-      
     capabilities:
-      - strategic_planning
-      - adhd_optimization
-      - pricing_strategy
-      - accountability
-      - fear_analysis
-      
+    - strategic_planning
+    - adhd_optimization
+    - pricing_strategy
+    - accountability
+    - fear_analysis
     actions:
-      
       chat:
         endpoint: /chat
         method: POST
-        description: "General strategic conversation"
+        description: General strategic conversation
         timeout_ms: 60000
         params:
-          - name: message
-            type: string
-            required: true
+        - name: message
+          type: string
+          required: true
         returns:
           type: object
-          fields: [response]
-          
+          fields:
+          - response
       sprint-plan:
         endpoint: /sprint-plan
         method: POST
-        description: "ADHD-optimized sprint planning"
+        description: ADHD-optimized sprint planning
         timeout_ms: 60000
         params:
-          - name: goals
-            type: array
-            required: true
-            items: string
-          - name: time_available
-            type: string
-            required: false
-            default: "this week"
-          - name: energy_level
-            type: string
-            required: false
-            default: "medium"
-            enum: [low, medium, high]
-          - name: blockers
-            type: array
-            required: false
-            items: string
+        - name: goals
+          type: array
+          required: true
+          items: string
+        - name: time_available
+          type: string
+          required: false
+          default: this week
+        - name: energy_level
+          type: string
+          required: false
+          default: medium
+          enum:
+          - low
+          - medium
+          - high
+        - name: blockers
+          type: array
+          required: false
+          items: string
         returns:
           type: object
-          fields: [daily_priorities, time_blocks, dopamine_stacking, done_criteria]
-          
+          fields:
+          - daily_priorities
+          - time_blocks
+          - dopamine_stacking
+          - done_criteria
       pricing-help:
         endpoint: /pricing-help
         method: POST
-        description: "Value-based pricing strategy"
+        description: Value-based pricing strategy
         timeout_ms: 60000
         params:
-          - name: service_description
-            type: string
-            required: true
-          - name: client_context
-            type: string
-            required: false
-          - name: budget_signals
-            type: string
-            required: false
-          - name: value_delivered
-            type: string
-            required: false
+        - name: service_description
+          type: string
+          required: true
+        - name: client_context
+          type: string
+          required: false
+        - name: budget_signals
+          type: string
+          required: false
+        - name: value_delivered
+          type: string
+          required: false
         returns:
           type: object
-          fields: [value_quantification, price_recommendation, anchoring_strategy, three_tier_options, objection_prep]
-          
+          fields:
+          - value_quantification
+          - price_recommendation
+          - anchoring_strategy
+          - three_tier_options
+          - objection_prep
       fear-check:
         endpoint: /fear-check
         method: POST
-        description: "Rapid fear analysis and reframe"
+        description: Rapid fear analysis and reframe
         timeout_ms: 45000
         params:
-          - name: situation
-            type: string
-            required: true
-          - name: what_im_avoiding
-            type: string
-            required: false
+        - name: situation
+          type: string
+          required: true
+        - name: what_im_avoiding
+          type: string
+          required: false
         returns:
           type: object
-          fields: [fear_named, worst_case, survivability, evidence_against, smallest_experiment, reframe, immediate_action]
-          
+          fields:
+          - fear_named
+          - worst_case
+          - survivability
+          - evidence_against
+          - smallest_experiment
+          - reframe
+          - immediate_action
       weekly-review:
         endpoint: /weekly-review
         method: POST
-        description: "Structured weekly accountability"
+        description: Structured weekly accountability
         timeout_ms: 60000
         params:
-          - name: wins
-            type: array
-            required: true
-            items: string
-          - name: losses
-            type: array
-            required: false
-            items: string
-          - name: lessons
-            type: array
-            required: false
-            items: string
-          - name: next_week_goals
-            type: array
-            required: false
-            items: string
+        - name: wins
+          type: array
+          required: true
+          items: string
+        - name: losses
+          type: array
+          required: false
+          items: string
+        - name: lessons
+          type: array
+          required: false
+          items: string
+        - name: next_week_goals
+          type: array
+          required: false
+          items: string
         returns:
           type: object
-          fields: [win_analysis, loss_autopsy, pattern_check, one_thing_focus, accountability_commitment]
-          
+          fields:
+          - win_analysis
+          - loss_autopsy
+          - pattern_check
+          - one_thing_focus
+          - accountability_commitment
       accountability:
         endpoint: /accountability
         method: POST
-        description: "Accountability check-in"
+        description: Accountability check-in
         timeout_ms: 45000
         params:
-          - name: commitment
-            type: string
-            required: true
-          - name: deadline
-            type: string
-            required: false
+        - name: commitment
+          type: string
+          required: true
+        - name: deadline
+          type: string
+          required: false
         returns:
           type: object
-          fields: [status, blockers, next_actions]
-          
+          fields:
+          - status
+          - blockers
+          - next_actions
       challenge:
         endpoint: /challenge
         method: POST
-        description: "Challenge assumptions and beliefs"
+        description: Challenge assumptions and beliefs
         timeout_ms: 45000
         params:
-          - name: assumption
-            type: string
-            required: true
+        - name: assumption
+          type: string
+          required: true
         returns:
           type: object
-          fields: [analysis, counter_evidence, reframe, verdict]
-          
+          fields:
+          - analysis
+          - counter_evidence
+          - reframe
+          - verdict
       hype:
         endpoint: /hype
         method: POST
-        description: "Evidence-based motivation boost"
+        description: Evidence-based motivation boost
         timeout_ms: 30000
         params: []
         returns:
           type: object
-          fields: [message, evidence, call_to_action]
-          
+          fields:
+          - message
+          - evidence
+          - call_to_action
       decide:
         endpoint: /decide
         method: POST
-        description: "Decision framework analysis"
+        description: Decision framework analysis
         timeout_ms: 60000
         params:
-          - name: decision
-            type: string
-            required: true
-          - name: options
-            type: array
-            required: false
-            items: string
-          - name: constraints
-            type: string
-            required: false
+        - name: decision
+          type: string
+          required: true
+        - name: options
+          type: array
+          required: false
+          items: string
+        - name: constraints
+          type: string
+          required: false
         returns:
           type: object
-          fields: [analysis, recommendation, confidence, reversibility]
-          
+          fields:
+          - analysis
+          - recommendation
+          - confidence
+          - reversibility
       framework:
         endpoint: /framework/{name}
         method: GET
-        description: "Get specific framework"
+        description: Get specific framework
         timeout_ms: 10000
         params:
-          - name: name
-            type: string
-            required: true
-            enum: [decision, accountability, strategic, fear, launch, adhd, pricing, sales, mvp]
+        - name: name
+          type: string
+          required: true
+          enum:
+          - decision
+          - accountability
+          - strategic
+          - fear
+          - launch
+          - adhd
+          - pricing
+          - sales
+          - mvp
         returns:
           type: object
-          fields: [framework, principles, examples]
-
+          fields:
+          - framework
+          - principles
+          - examples
       break-down:
         endpoint: /break-down
         method: POST
-        description: "Break large task into ADHD-friendly small steps"
+        description: Break large task into ADHD-friendly small steps
         timeout_ms: 60000
         params:
-          - name: task
-            type: string
-            required: true
-            description: "The task to break down into steps"
-          - name: max_steps
-            type: integer
-            required: false
-            default: 10
-          - name: context
-            type: string
-            required: false
+        - name: task
+          type: string
+          required: true
+          description: The task to break down into steps
+        - name: max_steps
+          type: integer
+          required: false
+          default: 10
+        - name: context
+          type: string
+          required: false
         returns:
           type: object
-          fields: [breakdown, steps, total_time, first_step]
-
+          fields:
+          - breakdown
+          - steps
+          - total_time
+          - first_step
       prioritize:
         endpoint: /prioritize
         method: POST
-        description: "Order tasks by impact and urgency using Eisenhower matrix"
+        description: Order tasks by impact and urgency using Eisenhower matrix
         timeout_ms: 60000
         params:
-          - name: tasks
-            type: array
-            required: true
-            items: string
-            description: "List of tasks to prioritize"
-          - name: criteria
-            type: array
-            required: false
-            items: string
-          - name: context
-            type: string
-            required: false
+        - name: tasks
+          type: array
+          required: true
+          items: string
+          description: List of tasks to prioritize
+        - name: criteria
+          type: array
+          required: false
+          items: string
+        - name: context
+          type: string
+          required: false
         returns:
           type: object
-          fields: [prioritization, matrix, today_focus, week_focus]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # HERMES - Notifications & Messaging
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - prioritization
+          - matrix
+          - today_focus
+          - week_focus
   hermes:
     name: HERMES
-    version: "1.0"
-    description: "Multi-channel notifications and messaging"
+    version: '1.0'
+    description: Multi-channel notifications and messaging
     category: infrastructure
     llm_powered: false
-    
     connection:
-      url: http://hermes:8014
+      url: http://localhost:8014
       health_endpoint: /health
       timeout_ms: 10000
-      
     capabilities:
-      - telegram
-      - email
-      - event_bus
-      - multi_channel
-      
+    - telegram
+    - email
+    - event_bus
+    - multi_channel
     actions:
-      
       notify:
         endpoint: /notify
         method: POST
-        description: "Send notification to specified channel"
+        description: Send notification to specified channel
         timeout_ms: 10000
         params:
-          - name: channel
-            type: string
-            required: true
-            enum: [telegram, email, event_bus, all]
-          - name: message
-            type: string
-            required: true
-          - name: priority
-            type: string
-            required: false
-            default: "normal"
-            enum: [low, normal, high, critical]
+        - name: channel
+          type: string
+          required: true
+          enum:
+          - telegram
+          - email
+          - event_bus
+          - all
+        - name: message
+          type: string
+          required: true
+        - name: priority
+          type: string
+          required: false
+          default: normal
+          enum:
+          - low
+          - normal
+          - high
+          - critical
         returns:
           type: object
-          fields: [sent, channel, timestamp]
-          
+          fields:
+          - sent
+          - channel
+          - timestamp
       telegram:
         endpoint: /telegram
         method: POST
-        description: "Send Telegram message directly"
+        description: Send Telegram message directly
         timeout_ms: 10000
         params:
-          - name: message
-            type: string
-            required: true
-          - name: chat_id
-            type: string
-            required: false
+        - name: message
+          type: string
+          required: true
+        - name: chat_id
+          type: string
+          required: false
         returns:
           type: object
-          fields: [sent, message_id]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CHRONOS - Backup Management
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - sent
+          - message_id
   chronos:
     name: CHRONOS
-    version: "1.0"
-    description: "Backup and snapshot management"
+    version: '1.0'
+    description: Backup and snapshot management
     category: infrastructure
     llm_powered: false
-    
     connection:
-      url: http://chronos:8010
+      url: http://localhost:8010
       health_endpoint: /health
-      timeout_ms: 300000  # Backups can take time
-      
+      timeout_ms: 300000
     capabilities:
-      - backup
-      - restore
-      - scheduling
-      
+    - backup
+    - restore
+    - scheduling
     actions:
-      
       backup:
         endpoint: /backup
         method: POST
-        description: "Create backup"
+        description: Create backup
         timeout_ms: 300000
         params:
-          - name: target
-            type: string
-            required: false
-            default: "all"
-          - name: tag
-            type: string
-            required: false
+        - name: target
+          type: string
+          required: false
+          default: all
+        - name: tag
+          type: string
+          required: false
         returns:
           type: object
-          fields: [backup_id, timestamp, size, components]
-          
+          fields:
+          - backup_id
+          - timestamp
+          - size
+          - components
       list:
         endpoint: /list
         method: GET
-        description: "List available backups"
+        description: List available backups
         timeout_ms: 10000
         params:
-          - name: target
-            type: string
-            required: false
+        - name: target
+          type: string
+          required: false
         returns:
           type: array
           items:
-            fields: [backup_id, timestamp, size, tag]
-            
+            fields:
+            - backup_id
+            - timestamp
+            - size
+            - tag
       restore:
         endpoint: /restore
         method: POST
-        description: "Restore from backup"
+        description: Restore from backup
         timeout_ms: 300000
         requires_confirmation: true
         params:
-          - name: backup_id
-            type: string
-            required: true
-          - name: confirm
-            type: boolean
-            required: true
+        - name: backup_id
+          type: string
+          required: true
+        - name: confirm
+          type: boolean
+          required: true
         returns:
           type: object
-          fields: [restored, backup_id, components]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # HADES - Rollback & Recovery
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - restored
+          - backup_id
+          - components
   hades:
     name: HADES
-    version: "1.0"
-    description: "Rollback and disaster recovery"
+    version: '1.0'
+    description: Rollback and disaster recovery
     category: infrastructure
     llm_powered: false
-    
     connection:
-      url: http://hades:8008
+      url: http://localhost:8008
       health_endpoint: /health
       timeout_ms: 300000
-      
     capabilities:
-      - rollback
-      - recovery
-      - version_management
-      
+    - rollback
+    - recovery
+    - version_management
     actions:
-      
       rollback:
         endpoint: /rollback
         method: POST
-        description: "Rollback to previous state"
+        description: Rollback to previous state
         timeout_ms: 300000
         requires_confirmation: true
         params:
-          - name: target
-            type: string
-            required: true
-          - name: backup_id
-            type: string
-            required: true
-          - name: confirm
-            type: boolean
-            required: true
+        - name: target
+          type: string
+          required: true
+        - name: backup_id
+          type: string
+          required: true
+        - name: confirm
+          type: boolean
+          required: true
         returns:
           type: object
-          fields: [rolled_back, previous_state, new_state]
-          
+          fields:
+          - rolled_back
+          - previous_state
+          - new_state
       emergency:
         endpoint: /emergency
         method: POST
-        description: "Emergency rollback (last known good)"
+        description: Emergency rollback (last known good)
         timeout_ms: 60000
         requires_confirmation: true
         params:
-          - name: component
-            type: string
-            required: true
-          - name: confirm
-            type: boolean
-            required: true
+        - name: component
+          type: string
+          required: true
+        - name: confirm
+          type: boolean
+          required: true
         returns:
           type: object
-          fields: [rolled_back, state]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # AEGIS - Credential Management
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - rolled_back
+          - state
   aegis:
     name: AEGIS
-    version: "1.0"
-    description: "Credential vault and secret management"
+    version: '1.0'
+    description: Credential vault and secret management
     category: infrastructure
     llm_powered: false
     sensitive: true
-    
     connection:
-      url: http://aegis:8012
+      url: http://localhost:8012
       health_endpoint: /health
       timeout_ms: 10000
-      
     capabilities:
-      - credential_storage
-      - rotation
-      - audit
-      
+    - credential_storage
+    - rotation
+    - audit
     actions:
-      
       list:
         endpoint: /credentials
         method: GET
-        description: "List credentials (metadata only)"
+        description: List credentials (metadata only)
         timeout_ms: 5000
         params: []
         returns:
           type: array
           items:
-            fields: [name, type, created_at, expires_at]
-            
+            fields:
+            - name
+            - type
+            - created_at
+            - expires_at
       get:
         endpoint: /credentials/{name}
         method: GET
-        description: "Get credential metadata"
+        description: Get credential metadata
         timeout_ms: 5000
         sensitive: true
         params:
-          - name: name
-            type: string
-            required: true
+        - name: name
+          type: string
+          required: true
         returns:
           type: object
-          fields: [name, type, metadata]
-          
+          fields:
+          - name
+          - type
+          - metadata
       sync:
         endpoint: /sync
         method: POST
-        description: "Sync credentials from n8n"
+        description: Sync credentials from n8n
         timeout_ms: 30000
         params: []
         returns:
           type: object
-          fields: [synced_count, credentials]
-          
+          fields:
+          - synced_count
+          - credentials
       audit:
         endpoint: /audit
         method: GET
-        description: "Audit credential access"
+        description: Audit credential access
         timeout_ms: 10000
         params:
-          - name: since
-            type: string
-            required: false
+        - name: since
+          type: string
+          required: false
         returns:
           type: array
           items:
-            fields: [credential, action, timestamp, source]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # ARGUS - Monitoring & Metrics
-  # ─────────────────────────────────────────────────────────────────────────────
+            fields:
+            - credential
+            - action
+            - timestamp
+            - source
   argus:
     name: ARGUS
-    version: "1.0"
-    description: "System monitoring and metrics"
+    version: '1.0'
+    description: System monitoring and metrics
     category: infrastructure
     llm_powered: false
-    
     connection:
-      url: http://argus:8016
+      url: http://localhost:8016
       health_endpoint: /health
       timeout_ms: 10000
-      
     capabilities:
-      - health_monitoring
-      - metrics
-      - alerting
-      - cost_tracking
-      
+    - health_monitoring
+    - metrics
+    - alerting
+    - cost_tracking
     actions:
-      
       status:
         endpoint: /status
         method: GET
-        description: "Get system status"
+        description: Get system status
         timeout_ms: 10000
         params: []
         returns:
           type: object
-          fields: [healthy, components, issues]
-          
+          fields:
+          - healthy
+          - components
+          - issues
       health:
         endpoint: /health
         method: GET
-        description: "Health check"
+        description: Health check
         timeout_ms: 5000
         params: []
         returns:
           type: object
-          fields: [status, timestamp]
-          
+          fields:
+          - status
+          - timestamp
       costs:
         endpoint: /costs
         method: GET
-        description: "Get cost summary"
+        description: Get cost summary
         timeout_ms: 10000
         params:
-          - name: days
-            type: integer
-            required: false
-            default: 30
+        - name: days
+          type: integer
+          required: false
+          default: 30
         returns:
           type: object
-          fields: [period_days, costs_by_agent, total_cost]
-          
+          fields:
+          - period_days
+          - costs_by_agent
+          - total_cost
       costs-daily:
         endpoint: /costs/daily
         method: GET
-        description: "Get daily cost trend"
+        description: Get daily cost trend
         timeout_ms: 10000
         params:
-          - name: days
-            type: integer
-            required: false
-            default: 30
+        - name: days
+          type: integer
+          required: false
+          default: 30
         returns:
           type: object
-          fields: [daily_costs]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # ALOY - Audit & Anomaly Detection
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - daily_costs
   aloy:
     name: ALOY
-    version: "1.0"
-    description: "Audit logging and anomaly detection"
+    version: '1.0'
+    description: Audit logging and anomaly detection
     category: infrastructure
     llm_powered: false
-    
     connection:
-      url: http://aloy:8015
+      url: http://localhost:8015
       health_endpoint: /health
       timeout_ms: 10000
-      
     capabilities:
-      - audit_logging
-      - anomaly_detection
-      - compliance
-      
+    - audit_logging
+    - anomaly_detection
+    - compliance
     actions:
-      
       logs:
         endpoint: /logs
         method: GET
-        description: "Query audit logs"
+        description: Query audit logs
         timeout_ms: 10000
         params:
-          - name: since
-            type: string
-            required: false
-            default: "1h"
-          - name: agent
-            type: string
-            required: false
-          - name: level
-            type: string
-            required: false
-            enum: [debug, info, warn, error]
+        - name: since
+          type: string
+          required: false
+          default: 1h
+        - name: agent
+          type: string
+          required: false
+        - name: level
+          type: string
+          required: false
+          enum:
+          - debug
+          - info
+          - warn
+          - error
         returns:
           type: array
           items:
-            fields: [timestamp, agent, action, level, details]
-            
+            fields:
+            - timestamp
+            - agent
+            - action
+            - level
+            - details
       anomalies:
         endpoint: /anomalies
         method: GET
-        description: "Get detected anomalies"
+        description: Get detected anomalies
         timeout_ms: 10000
         params:
-          - name: since
-            type: string
-            required: false
-            default: "24h"
+        - name: since
+          type: string
+          required: false
+          default: 24h
         returns:
           type: array
           items:
-            fields: [timestamp, type, severity, description]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # ATHENA - Documentation Generation
-  # ─────────────────────────────────────────────────────────────────────────────
+            fields:
+            - timestamp
+            - type
+            - severity
+            - description
   athena:
     name: ATHENA
-    version: "1.0"
-    description: "Automated documentation generation"
+    version: '1.0'
+    description: Automated documentation generation
     category: infrastructure
     llm_powered: false
-    
     connection:
-      url: http://athena:8013
+      url: http://localhost:8013
       health_endpoint: /health
       timeout_ms: 60000
-      
     capabilities:
-      - documentation
-      - api_docs
-      - changelog
-      
+    - documentation
+    - api_docs
+    - changelog
     actions:
-      
       generate:
         endpoint: /generate
         method: POST
-        description: "Generate documentation"
+        description: Generate documentation
         timeout_ms: 60000
         params:
-          - name: type
-            type: string
-            required: true
-            enum: [readme, api, changelog, architecture]
-          - name: path
-            type: string
-            required: true
-          - name: format
-            type: string
-            required: false
-            default: "markdown"
+        - name: type
+          type: string
+          required: true
+          enum:
+          - readme
+          - api
+          - changelog
+          - architecture
+        - name: path
+          type: string
+          required: true
+        - name: format
+          type: string
+          required: false
+          default: markdown
         returns:
           type: object
-          fields: [content, path, format]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # VARYS - Mission Guardian
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - content
+          - path
+          - format
   varys:
     name: VARYS
-    version: "1.0"
-    description: "Mission Guardian - accountability, drift detection, strategic alignment"
+    version: '1.0'
+    description: Mission Guardian - accountability, drift detection, strategic alignment
     category: infrastructure
     llm_powered: false
-
     connection:
       url: http://varys:8020
       health_endpoint: /health
       timeout_ms: 30000
-
     capabilities:
-      - accountability
-      - drift_detection
-      - mission_alignment
-      - daily_briefs
-      - weekly_reviews
-
+    - accountability
+    - drift_detection
+    - mission_alignment
+    - daily_briefs
+    - weekly_reviews
     actions:
-
       daily-brief:
         endpoint: /daily-brief
         method: POST
-        description: "Generate and send daily accountability brief"
+        description: Generate and send daily accountability brief
         timeout_ms: 30000
         params: []
         returns:
           type: object
-          fields: [status, brief]
-
+          fields:
+          - status
+          - brief
       weekly-review:
         endpoint: /weekly-review
         method: POST
-        description: "Generate comprehensive weekly review"
+        description: Generate comprehensive weekly review
         timeout_ms: 120000
         params: []
         returns:
           type: object
-          fields: [status, review]
-
+          fields:
+          - status
+          - review
       days-to-launch:
         endpoint: /days-to-launch
         method: GET
-        description: "Get days remaining until launch"
+        description: Get days remaining until launch
         timeout_ms: 5000
         params: []
         returns:
           type: object
-          fields: [launch_date, days_remaining, weeks_remaining, urgency]
-
+          fields:
+          - launch_date
+          - days_remaining
+          - weeks_remaining
+          - urgency
       todays-focus:
         endpoint: /todays-focus
         method: GET
-        description: "Get today's focus from calendar"
+        description: Get today's focus from calendar
         timeout_ms: 10000
         params: []
         returns:
           type: object
-          fields: [date, day_of_week, focus, days_to_launch]
-
+          fields:
+          - date
+          - day_of_week
+          - focus
+          - days_to_launch
       scan-drift:
         endpoint: /scan-drift
         method: GET
-        description: "Scan for scope creep in recent commits"
+        description: Scan for scope creep in recent commits
         timeout_ms: 30000
         params:
-          - name: days
-            type: integer
-            required: false
-            default: 1
+        - name: days
+          type: integer
+          required: false
+          default: 1
         returns:
           type: object
-          fields: [period_days, total_commits, drift_flags, drift_details, status]
-
+          fields:
+          - period_days
+          - total_commits
+          - drift_flags
+          - drift_details
+          - status
       validate-decision:
         endpoint: /validate-decision
         method: POST
-        description: "Validate a decision against mission alignment"
+        description: Validate a decision against mission alignment
         timeout_ms: 15000
         params:
-          - name: description
-            type: string
-            required: true
+        - name: description
+          type: string
+          required: true
         returns:
           type: object
-          fields: [decision, alignment, red_flags, recommendation]
-
+          fields:
+          - decision
+          - alignment
+          - red_flags
+          - recommendation
       mission:
         endpoint: /mission/{document}
         method: GET
-        description: "Retrieve sacred mission documents"
+        description: Retrieve sacred mission documents
         timeout_ms: 5000
         params:
-          - name: document
-            type: string
-            required: true
-            enum: [MISSION, LAUNCH-DATE, REVENUE-GOAL, BOUNDARIES, PORTFOLIO-TARGET]
+        - name: document
+          type: string
+          required: true
+          enum:
+          - MISSION
+          - LAUNCH-DATE
+          - REVENUE-GOAL
+          - BOUNDARIES
+          - PORTFOLIO-TARGET
         returns:
           type: object
-          fields: [document, content]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # HEPHAESTUS - Builder & Deployer
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - document
+          - content
   hephaestus:
     name: HEPHAESTUS
-    version: "1.1"
-    description: "File operations, commands, deployment, and orchestration"
+    version: '1.1'
+    description: File operations, commands, deployment, and orchestration
     category: infrastructure
     llm_powered: false
-
     connection:
       url: http://hephaestus:8011
       health_endpoint: /health
       timeout_ms: 30000
-
     capabilities:
-      - file_operations
-      - command_execution
-      - deployment
-      - git_operations
-      - parallel_orchestration
-      
+    - file_operations
+    - command_execution
+    - deployment
+    - git_operations
+    - parallel_orchestration
     actions:
-      
       read-file:
         endpoint: /tools/file/read
         method: GET
-        description: "Read file contents"
+        description: Read file contents
         timeout_ms: 10000
         params:
-          - name: path
-            type: string
-            required: true
+        - name: path
+          type: string
+          required: true
         returns:
           type: object
-          fields: [content, path, size]
-          
+          fields:
+          - content
+          - path
+          - size
       create-file:
         endpoint: /tools/file/create
         method: POST
-        description: "Create or update file"
+        description: Create or update file
         timeout_ms: 10000
         params:
-          - name: path
-            type: string
-            required: true
-          - name: content
-            type: string
-            required: true
+        - name: path
+          type: string
+          required: true
+        - name: content
+          type: string
+          required: true
         returns:
           type: object
-          fields: [created, path]
-          
+          fields:
+          - created
+          - path
       list-directory:
         endpoint: /tools/file/list
         method: GET
-        description: "List directory contents"
+        description: List directory contents
         timeout_ms: 10000
         params:
-          - name: path
-            type: string
-            required: true
+        - name: path
+          type: string
+          required: true
         returns:
           type: array
           items:
-            fields: [name, type, size]
-            
+            fields:
+            - name
+            - type
+            - size
       run-command:
         endpoint: /tools/command/run
         method: POST
-        description: "Execute whitelisted command"
+        description: Execute whitelisted command
         timeout_ms: 30000
         params:
-          - name: command
-            type: string
-            required: true
-          - name: working_dir
-            type: string
-            required: false
+        - name: command
+          type: string
+          required: true
+        - name: working_dir
+          type: string
+          required: false
         returns:
           type: object
-          fields: [stdout, stderr, exit_code]
-          
+          fields:
+          - stdout
+          - stderr
+          - exit_code
       git-commit:
         endpoint: /tools/git/commit
         method: POST
-        description: "Git commit changes"
+        description: Git commit changes
         timeout_ms: 30000
         params:
-          - name: message
-            type: string
-            required: true
-          - name: files
-            type: array
-            required: false
-            items: string
+        - name: message
+          type: string
+          required: true
+        - name: files
+          type: array
+          required: false
+          items: string
         returns:
           type: object
-          fields: [committed, hash, files]
-
+          fields:
+          - committed
+          - hash
+          - files
       orchestrate-parallel:
         endpoint: /tools/orchestrate/parallel
         method: POST
-        description: "Execute multiple chains in parallel via ATLAS"
+        description: Execute multiple chains in parallel via ATLAS
         timeout_ms: 300000
         params:
-          - name: tasks
-            type: array
-            required: true
-            description: "Array of {chain, input} objects"
-          - name: concurrency
-            type: integer
-            required: false
-            default: 5
-          - name: callback_url
-            type: string
-            required: false
+        - name: tasks
+          type: array
+          required: true
+          description: Array of {chain, input} objects
+        - name: concurrency
+          type: integer
+          required: false
+          default: 5
+        - name: callback_url
+          type: string
+          required: false
         returns:
           type: object
-          fields: [batch_id, status, total_tasks, concurrency, message]
-
+          fields:
+          - batch_id
+          - status
+          - total_tasks
+          - concurrency
+          - message
       orchestrate-batch-status:
         endpoint: /tools/orchestrate/batch/{batch_id}/status
         method: GET
-        description: "Get status of parallel batch execution"
+        description: Get status of parallel batch execution
         timeout_ms: 10000
         params:
-          - name: batch_id
-            type: string
-            required: true
+        - name: batch_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [batch_id, status, completed, failed, pending, running, progress_percent]
-
+          fields:
+          - batch_id
+          - status
+          - completed
+          - failed
+          - pending
+          - running
+          - progress_percent
       orchestrate-batch-results:
         endpoint: /tools/orchestrate/batch/{batch_id}/results
         method: GET
-        description: "Get full results of parallel batch execution"
+        description: Get full results of parallel batch execution
         timeout_ms: 30000
         params:
-          - name: batch_id
-            type: string
-            required: true
+        - name: batch_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [batch_id, status, results, errors, tasks]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CREATIVE FLEET AGENTS (Greek Muses)
-  # ─────────────────────────────────────────────────────────────────────────────
-
+          fields:
+          - batch_id
+          - status
+          - results
+          - errors
+          - tasks
   muse:
     name: MUSE
-    version: "1.0"
-    description: "Creative Director - Coordinator for content production"
+    version: '1.0'
+    description: Creative Director - Coordinator for content production
     category: creative
     llm_powered: true
-
     connection:
       url: http://muse:8030
       health_endpoint: /health
       timeout_ms: 120000
-
     capabilities:
-      - project_coordination
-      - task_decomposition
-      - storyboarding
-      - workflow_management
-
+    - project_coordination
+    - task_decomposition
+    - storyboarding
+    - workflow_management
     actions:
-
       create-project:
         endpoint: /projects/create
         method: POST
-        description: "Create new creative project with task decomposition"
+        description: Create new creative project with task decomposition
         timeout_ms: 60000
         cost_tier: medium
         params:
-          - name: type
-            type: string
-            required: true
-            enum: [presentation, document, image, video, social]
-          - name: brief
-            type: string
-            required: true
-          - name: brand_id
-            type: string
-            required: false
-          - name: priority
-            type: string
-            required: false
-            default: "medium"
+        - name: type
+          type: string
+          required: true
+          enum:
+          - presentation
+          - document
+          - image
+          - video
+          - social
+        - name: brief
+          type: string
+          required: true
+        - name: brand_id
+          type: string
+          required: false
+        - name: priority
+          type: string
+          required: false
+          default: medium
         returns:
           type: object
-          fields: [project_id, status, task_breakdown]
-
+          fields:
+          - project_id
+          - status
+          - task_breakdown
       get-project:
         endpoint: /projects/{id}
         method: GET
-        description: "Get project status and progress"
+        description: Get project status and progress
         timeout_ms: 10000
         params:
-          - name: id
-            type: string
-            required: true
+        - name: id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [project, tasks, current_stage, progress_pct]
-
+          fields:
+          - project
+          - tasks
+          - current_stage
+          - progress_pct
       storyboard:
         endpoint: /storyboard
         method: POST
-        description: "Create video storyboard"
+        description: Create video storyboard
         timeout_ms: 60000
         params:
-          - name: topic
-            type: string
-            required: true
-          - name: duration_target
-            type: integer
-            required: false
-          - name: style
-            type: string
-            required: false
+        - name: topic
+          type: string
+          required: true
+        - name: duration_target
+          type: integer
+          required: false
+        - name: style
+          type: string
+          required: false
         returns:
           type: object
-          fields: [scenes, total_duration]
-
+          fields:
+          - scenes
+          - total_duration
   calliope:
     name: CALLIOPE
-    version: "1.0"
-    description: "Elite Writer - Content, copy, scripts"
+    version: '1.0'
+    description: Elite Writer - Content, copy, scripts
     category: creative
     llm_powered: true
-
     connection:
       url: http://calliope:8031
       health_endpoint: /health
       timeout_ms: 120000
-
     capabilities:
-      - long_form_content
-      - short_form_copy
-      - video_scripts
-      - technical_writing
-      - social_media
-
+    - long_form_content
+    - short_form_copy
+    - video_scripts
+    - technical_writing
+    - social_media
     actions:
-
       write:
         endpoint: /write
         method: POST
-        description: "Generate content"
+        description: Generate content
         timeout_ms: 60000
         cost_tier: medium
         params:
-          - name: type
-            type: string
-            required: true
-            enum: [article, case_study, report, headline, tagline, cta, slide_deck, video_script, linkedin_post]
-          - name: brief
-            type: string
-            required: true
-          - name: tone
-            type: string
-            required: false
-            default: "professional"
-          - name: length
-            type: string
-            required: false
-            default: "medium"
+        - name: type
+          type: string
+          required: true
+          enum:
+          - article
+          - case_study
+          - report
+          - headline
+          - tagline
+          - cta
+          - slide_deck
+          - video_script
+          - linkedin_post
+        - name: brief
+          type: string
+          required: true
+        - name: tone
+          type: string
+          required: false
+          default: professional
+        - name: length
+          type: string
+          required: false
+          default: medium
         returns:
           type: object
-          fields: [content, word_count, sections]
-
+          fields:
+          - content
+          - word_count
+          - sections
       script-video:
         endpoint: /script/video
         method: POST
-        description: "Generate video script with scenes"
+        description: Generate video script with scenes
         timeout_ms: 60000
         cost_tier: medium
         params:
-          - name: topic
-            type: string
-            required: true
-          - name: duration_target
-            type: integer
-            required: true
-          - name: style
-            type: string
-            required: false
+        - name: topic
+          type: string
+          required: true
+        - name: duration_target
+          type: integer
+          required: true
+        - name: style
+          type: string
+          required: false
         returns:
           type: object
-          fields: [script, scenes, total_duration, word_count]
-
+          fields:
+          - script
+          - scenes
+          - total_duration
+          - word_count
       rewrite:
         endpoint: /rewrite
         method: POST
-        description: "Revise content based on feedback"
+        description: Revise content based on feedback
         timeout_ms: 45000
         params:
-          - name: original
-            type: string
-            required: true
-          - name: feedback
-            type: string
-            required: true
+        - name: original
+          type: string
+          required: true
+        - name: feedback
+          type: string
+          required: true
         returns:
           type: object
-          fields: [revised_content, changes_made]
-
+          fields:
+          - revised_content
+          - changes_made
   thalia:
     name: THALIA
-    version: "1.1"
-    description: "Designer - Presentations, charts, layouts, web/UI design"
+    version: '1.1'
+    description: Designer - Presentations, charts, layouts, web/UI design
     category: creative
     llm_powered: false
-
     connection:
       url: http://thalia:8032
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - presentation_design
-      - document_formatting
-      - chart_generation
-      - thumbnail_creation
-      - landing_page_design
-      - ui_component_design
-      - wireframe_generation
-      - website_template_design
-
+    - presentation_design
+    - document_formatting
+    - chart_generation
+    - thumbnail_creation
+    - landing_page_design
+    - ui_component_design
+    - wireframe_generation
+    - website_template_design
     actions:
-
       design-presentation:
         endpoint: /design/presentation
         method: POST
-        description: "Create branded presentation"
+        description: Create branded presentation
         timeout_ms: 60000
         params:
-          - name: content
-            type: object
-            required: true
-          - name: brand_id
-            type: string
-            required: false
-          - name: style
-            type: string
-            required: false
+        - name: content
+          type: object
+          required: true
+        - name: brand_id
+          type: string
+          required: false
+        - name: style
+          type: string
+          required: false
         returns:
           type: object
-          fields: [file_path, preview_url, slide_count]
-
+          fields:
+          - file_path
+          - preview_url
+          - slide_count
       design-chart:
         endpoint: /design/chart
         method: POST
-        description: "Generate chart/graph"
+        description: Generate chart/graph
         timeout_ms: 30000
         params:
-          - name: type
-            type: string
-            required: true
-            enum: [bar, line, pie, area, scatter, donut]
-          - name: data
-            type: object
-            required: true
+        - name: type
+          type: string
+          required: true
+          enum:
+          - bar
+          - line
+          - pie
+          - area
+          - scatter
+          - donut
+        - name: data
+          type: object
+          required: true
         returns:
           type: object
-          fields: [image_path, svg_path]
-
+          fields:
+          - image_path
+          - svg_path
       design-thumbnail:
         endpoint: /design/thumbnail
         method: POST
-        description: "Create thumbnail in multiple sizes"
+        description: Create thumbnail in multiple sizes
         timeout_ms: 30000
         params:
-          - name: title
-            type: string
-            required: true
-          - name: style
-            type: string
-            required: false
+        - name: title
+          type: string
+          required: true
+        - name: style
+          type: string
+          required: false
         returns:
           type: object
-          fields: [image_path, sizes]
-
+          fields:
+          - image_path
+          - sizes
       design-landing-page:
         endpoint: /design/landing-page
         method: POST
-        description: "Generate complete landing page with Tailwind CSS"
+        description: Generate complete landing page with Tailwind CSS
         timeout_ms: 60000
         params:
-          - name: title
-            type: string
-            required: true
-          - name: sections
-            type: array
-            required: true
-            description: "Array of section definitions (hero, features, pricing, etc.)"
-          - name: brand_id
-            type: string
-            required: false
-          - name: style
-            type: string
-            required: false
-            enum: [modern, minimal, corporate, playful, dark]
-          - name: use_tailwind
-            type: boolean
-            required: false
-            default: true
-          - name: include_animations
-            type: boolean
-            required: false
-            default: true
+        - name: title
+          type: string
+          required: true
+        - name: sections
+          type: array
+          required: true
+          description: Array of section definitions (hero, features, pricing, etc.)
+        - name: brand_id
+          type: string
+          required: false
+        - name: style
+          type: string
+          required: false
+          enum:
+          - modern
+          - minimal
+          - corporate
+          - playful
+          - dark
+        - name: use_tailwind
+          type: boolean
+          required: false
+          default: true
+        - name: include_animations
+          type: boolean
+          required: false
+          default: true
         returns:
           type: object
-          fields: [file_path, filename, preview_url, sections_generated, style]
-
+          fields:
+          - file_path
+          - filename
+          - preview_url
+          - sections_generated
+          - style
       design-ui-component:
         endpoint: /design/ui-component
         method: POST
-        description: "Generate individual UI components with Tailwind CSS"
+        description: Generate individual UI components with Tailwind CSS
         timeout_ms: 30000
         params:
-          - name: component_type
-            type: string
-            required: true
-            enum: [button, card, form, navbar, footer, modal, alert, badge, input, dropdown, tabs, accordion, pricing_card, testimonial_card, feature_card, hero, cta_banner]
-          - name: variant
-            type: string
-            required: false
-            default: "primary"
-          - name: size
-            type: string
-            required: false
-            enum: [sm, md, lg, xl]
-          - name: brand_id
-            type: string
-            required: false
-          - name: dark_mode
-            type: boolean
-            required: false
-            default: false
+        - name: component_type
+          type: string
+          required: true
+          enum:
+          - button
+          - card
+          - form
+          - navbar
+          - footer
+          - modal
+          - alert
+          - badge
+          - input
+          - dropdown
+          - tabs
+          - accordion
+          - pricing_card
+          - testimonial_card
+          - feature_card
+          - hero
+          - cta_banner
+        - name: variant
+          type: string
+          required: false
+          default: primary
+        - name: size
+          type: string
+          required: false
+          enum:
+          - sm
+          - md
+          - lg
+          - xl
+        - name: brand_id
+          type: string
+          required: false
+        - name: dark_mode
+          type: boolean
+          required: false
+          default: false
         returns:
           type: object
-          fields: [file_path, filename, preview_url, component_type, variant, size]
-
+          fields:
+          - file_path
+          - filename
+          - preview_url
+          - component_type
+          - variant
+          - size
       design-wireframe:
         endpoint: /design/wireframe
         method: POST
-        description: "Generate wireframe/mockup for page layout"
+        description: Generate wireframe/mockup for page layout
         timeout_ms: 30000
         params:
-          - name: page_type
-            type: string
-            required: true
-            enum: [landing, dashboard, blog, ecommerce, portfolio, saas, app]
-          - name: sections
-            type: array
-            required: true
-            description: "Section names to include"
-          - name: brand_id
-            type: string
-            required: false
-          - name: annotations
-            type: boolean
-            required: false
-            default: true
-          - name: include_grid
-            type: boolean
-            required: false
-            default: true
+        - name: page_type
+          type: string
+          required: true
+          enum:
+          - landing
+          - dashboard
+          - blog
+          - ecommerce
+          - portfolio
+          - saas
+          - app
+        - name: sections
+          type: array
+          required: true
+          description: Section names to include
+        - name: brand_id
+          type: string
+          required: false
+        - name: annotations
+          type: boolean
+          required: false
+          default: true
+        - name: include_grid
+          type: boolean
+          required: false
+          default: true
         returns:
           type: object
-          fields: [file_path, filename, preview_url, page_type, sections]
-
+          fields:
+          - file_path
+          - filename
+          - preview_url
+          - page_type
+          - sections
       design-website-template:
         endpoint: /design/website-template
         method: POST
-        description: "Generate complete website template with multiple pages"
+        description: Generate complete website template with multiple pages
         timeout_ms: 120000
         params:
-          - name: template_type
-            type: string
-            required: true
-            enum: [landing, portfolio, blog, business, saas, agency, startup]
-          - name: pages
-            type: array
-            required: false
-            default: ["home"]
-            description: "Pages to generate (home, about, contact, pricing, etc.)"
-          - name: brand_id
-            type: string
-            required: false
-          - name: style
-            type: string
-            required: false
-            enum: [modern, minimal, corporate, playful, dark]
-          - name: include_javascript
-            type: boolean
-            required: false
-            default: true
+        - name: template_type
+          type: string
+          required: true
+          enum:
+          - landing
+          - portfolio
+          - blog
+          - business
+          - saas
+          - agency
+          - startup
+        - name: pages
+          type: array
+          required: false
+          default:
+          - home
+          description: Pages to generate (home, about, contact, pricing, etc.)
+        - name: brand_id
+          type: string
+          required: false
+        - name: style
+          type: string
+          required: false
+          enum:
+          - modern
+          - minimal
+          - corporate
+          - playful
+          - dark
+        - name: include_javascript
+          type: boolean
+          required: false
+          default: true
         returns:
           type: object
-          fields: [template_id, template_dir, pages, template_type, style]
-
+          fields:
+          - template_id
+          - template_dir
+          - pages
+          - template_type
+          - style
   erato:
     name: ERATO
-    version: "1.0"
-    description: "Media Producer - Images, video, audio"
+    version: '1.0'
+    description: Media Producer - Images, video, audio
     category: creative
     llm_powered: false
-
     connection:
       url: http://erato:8033
       health_endpoint: /health
       timeout_ms: 300000
-
     capabilities:
-      - image_generation
-      - video_production
-      - voice_synthesis
-      - avatar_videos
-      - stock_sourcing
-
+    - image_generation
+    - video_production
+    - voice_synthesis
+    - avatar_videos
+    - stock_sourcing
     actions:
-
       generate-image:
         endpoint: /generate/image
         method: POST
-        description: "Generate AI image via DALL-E 3"
+        description: Generate AI image via DALL-E 3
         timeout_ms: 60000
         cost_tier: medium
         params:
-          - name: prompt
-            type: string
-            required: true
-          - name: size
-            type: string
-            required: false
-            default: "1024x1024"
+        - name: prompt
+          type: string
+          required: true
+        - name: size
+          type: string
+          required: false
+          default: 1024x1024
         returns:
           type: object
-          fields: [images, generation_id]
-
+          fields:
+          - images
+          - generation_id
       generate-video:
         endpoint: /generate/video
         method: POST
-        description: "Full video production pipeline"
+        description: Full video production pipeline
         timeout_ms: 300000
         cost_tier: high
         params:
-          - name: script
-            type: string
-            required: true
-          - name: style
-            type: string
-            required: true
-            enum: [avatar, motion_graphics, slideshow, stock_footage]
+        - name: script
+          type: string
+          required: true
+        - name: style
+          type: string
+          required: true
+          enum:
+          - avatar
+          - motion_graphics
+          - slideshow
+          - stock_footage
         returns:
           type: object
-          fields: [video_path, thumbnail_path, duration, cost_breakdown]
-
+          fields:
+          - video_path
+          - thumbnail_path
+          - duration
+          - cost_breakdown
       generate-voiceover:
         endpoint: /generate/voiceover
         method: POST
-        description: "Generate voiceover via ElevenLabs"
+        description: Generate voiceover via ElevenLabs
         timeout_ms: 60000
         cost_tier: medium
         params:
-          - name: text
-            type: string
-            required: true
-          - name: voice_id
-            type: string
-            required: true
+        - name: text
+          type: string
+          required: true
+        - name: voice_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [audio_path, duration, characters_used]
-
+          fields:
+          - audio_path
+          - duration
+          - characters_used
       source-stock:
         endpoint: /source/stock
         method: POST
-        description: "Find stock footage/photos"
+        description: Find stock footage/photos
         timeout_ms: 30000
         params:
-          - name: query
-            type: string
-            required: true
-          - name: type
-            type: string
-            required: true
-            enum: [video, image]
+        - name: query
+          type: string
+          required: true
+        - name: type
+          type: string
+          required: true
+          enum:
+          - video
+          - image
         returns:
           type: object
-          fields: [assets, source]
-
+          fields:
+          - assets
+          - source
   clio:
     name: CLIO
-    version: "1.0"
-    description: "Reviewer - QA, brand compliance, fact-check"
+    version: '1.0'
+    description: Reviewer - QA, brand compliance, fact-check
     category: creative
     llm_powered: true
-
     connection:
       url: http://clio:8034
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - brand_compliance
-      - quality_assurance
-      - fact_checking
-      - video_review
-      - accessibility_check
-
+    - brand_compliance
+    - quality_assurance
+    - fact_checking
+    - video_review
+    - accessibility_check
     actions:
-
       review:
         endpoint: /review
         method: POST
-        description: "Review any content type"
+        description: Review any content type
         timeout_ms: 60000
         params:
-          - name: content_type
-            type: string
-            required: true
-            enum: [presentation, document, image, video, copy]
-          - name: content_path
-            type: string
-            required: true
-          - name: brand_id
-            type: string
-            required: false
+        - name: content_type
+          type: string
+          required: true
+          enum:
+          - presentation
+          - document
+          - image
+          - video
+          - copy
+        - name: content_path
+          type: string
+          required: true
+        - name: brand_id
+          type: string
+          required: false
         returns:
           type: object
-          fields: [passed, score, issues]
-
+          fields:
+          - passed
+          - score
+          - issues
       review-video:
         endpoint: /review/video
         method: POST
-        description: "Review video quality"
+        description: Review video quality
         timeout_ms: 60000
         params:
-          - name: video_path
-            type: string
-            required: true
-          - name: checks
-            type: array
-            required: false
+        - name: video_path
+          type: string
+          required: true
+        - name: checks
+          type: array
+          required: false
         returns:
           type: object
-          fields: [passed, scores, issues]
-
+          fields:
+          - passed
+          - scores
+          - issues
       review-text:
         endpoint: /review/text
         method: POST
-        description: "Review text for grammar and tone"
+        description: Review text for grammar and tone
         timeout_ms: 30000
         params:
-          - name: content
-            type: string
-            required: true
-          - name: target_tone
-            type: string
-            required: false
+        - name: content
+          type: string
+          required: true
+        - name: target_tone
+          type: string
+          required: false
         returns:
           type: object
-          fields: [score, issues, suggestions]
-
+          fields:
+          - score
+          - issues
+          - suggestions
       fact-check:
         endpoint: /fact-check
         method: POST
-        description: "Verify facts via SCHOLAR"
+        description: Verify facts via SCHOLAR
         timeout_ms: 120000
         params:
-          - name: claims
-            type: array
-            required: true
+        - name: claims
+          type: array
+          required: true
         returns:
           type: object
-          fields: [results, verified, unverified]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # SECURITY FLEET AGENTS
-  # ─────────────────────────────────────────────────────────────────────────────
-
+          fields:
+          - results
+          - verified
+          - unverified
   cerberus:
     name: CERBERUS
-    version: "1.0"
-    description: "Security Gateway - Authentication, authorization, rate limiting"
+    version: '1.0'
+    description: Security Gateway - Authentication, authorization, rate limiting
     category: security
     llm_powered: false
-
     connection:
-      url: http://cerberus:8020
+      url: http://cerberus:8025
       health_endpoint: /health
       timeout_ms: 10000
-
     capabilities:
-      - authentication
-      - authorization
-      - rate_limiting
-      - security_policy
-
+    - authentication
+    - authorization
+    - rate_limiting
+    - security_policy
     actions:
-
       authenticate:
         endpoint: /authenticate
         method: POST
-        description: "Authenticate user or service"
+        description: Authenticate user or service
         timeout_ms: 5000
         params:
-          - name: credentials
-            type: object
-            required: true
+        - name: credentials
+          type: object
+          required: true
         returns:
           type: object
-          fields: [authenticated, token, expires]
-
+          fields:
+          - authenticated
+          - token
+          - expires
       authorize:
         endpoint: /authorize
         method: POST
-        description: "Check authorization for action"
+        description: Check authorization for action
         timeout_ms: 5000
         params:
-          - name: token
-            type: string
-            required: true
-          - name: resource
-            type: string
-            required: true
-          - name: action
-            type: string
-            required: true
+        - name: token
+          type: string
+          required: true
+        - name: resource
+          type: string
+          required: true
+        - name: action
+          type: string
+          required: true
         returns:
           type: object
-          fields: [authorized, reason]
-
+          fields:
+          - authorized
+          - reason
   sphinx:
     name: PORT-MANAGER
-    version: "1.0"
-    description: "Network Manager - Port allocation, service discovery"
+    version: '1.0'
+    description: Network Manager - Port allocation, service discovery
     category: security
     llm_powered: false
-
     connection:
       url: http://sphinx:8021
       health_endpoint: /health
       timeout_ms: 10000
-
     capabilities:
-      - port_allocation
-      - service_discovery
-      - network_health
-      - conflict_resolution
-
+    - port_allocation
+    - service_discovery
+    - network_health
+    - conflict_resolution
     actions:
-
       allocate:
         endpoint: /allocate
         method: POST
-        description: "Allocate a port for a service"
+        description: Allocate a port for a service
         timeout_ms: 5000
         params:
-          - name: service_name
-            type: string
-            required: true
-          - name: preferred_port
-            type: integer
-            required: false
+        - name: service_name
+          type: string
+          required: true
+        - name: preferred_port
+          type: integer
+          required: false
         returns:
           type: object
-          fields: [port, service_name, status]
-
+          fields:
+          - port
+          - service_name
+          - status
       list-ports:
         endpoint: /ports
         method: GET
-        description: "List all allocated ports"
+        description: List all allocated ports
         timeout_ms: 5000
         params: []
         returns:
           type: array
           items:
-            fields: [port, service_name, status]
-
+            fields:
+            - port
+            - service_name
+            - status
       check-conflicts:
         endpoint: /conflicts
         method: GET
-        description: "Check for port conflicts"
+        description: Check for port conflicts
         timeout_ms: 10000
         params: []
         returns:
           type: object
-          fields: [conflicts, recommendations]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PANOPTES - Integrity Guardian
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - conflicts
+          - recommendations
   panoptes:
     name: PANOPTES
-    version: "1.0"
-    description: "The All-Seeing Integrity Guardian - system verification and audit"
+    version: '1.0'
+    description: The All-Seeing Integrity Guardian - system verification and audit
     category: security
     llm_powered: false
-
     connection:
-      url: http://panoptes:8023
+      url: http://localhost:8023
       health_endpoint: /health
       timeout_ms: 30000
-
     capabilities:
-      - registry_validation
-      - port_scanning
-      - identity_verification
-      - code_scanning
-      - integrity_reporting
-
+    - registry_validation
+    - port_scanning
+    - identity_verification
+    - code_scanning
+    - integrity_reporting
     actions:
-
       scan:
         endpoint: /scan
         method: POST
-        description: "Run full integrity scan"
+        description: Run full integrity scan
         timeout_ms: 60000
         params: []
         returns:
           type: object
-          fields: [report_id, total_checks, passed_checks, issues, health_score]
-
+          fields:
+          - report_id
+          - total_checks
+          - passed_checks
+          - issues
+          - health_score
       status:
         endpoint: /status
         method: GET
-        description: "Quick status overview"
+        description: Quick status overview
         timeout_ms: 10000
         params: []
         returns:
           type: object
-          fields: [status, critical_issues, high_issues, total_issues]
-
+          fields:
+          - status
+          - critical_issues
+          - high_issues
+          - total_issues
       dashboard:
         endpoint: /dashboard
         method: GET
-        description: "Dashboard view with key metrics"
+        description: Dashboard view with key metrics
         timeout_ms: 10000
         params: []
         returns:
           type: object
-          fields: [system_status, registered_agents, critical_issues, health_score]
-
+          fields:
+          - system_status
+          - registered_agents
+          - critical_issues
+          - health_score
       ports:
         endpoint: /ports
         method: GET
-        description: "Scan for port conflicts"
+        description: Scan for port conflicts
         timeout_ms: 30000
         params: []
         returns:
           type: object
-          fields: [checks, issues, conflicts]
-
+          fields:
+          - checks
+          - issues
+          - conflicts
       verify-agents:
         endpoint: /agents/verify
         method: GET
-        description: "Verify agent identities"
+        description: Verify agent identities
         timeout_ms: 60000
         params: []
         returns:
           type: object
-          fields: [checks, issues, mismatches]
-
+          fields:
+          - checks
+          - issues
+          - mismatches
       validate-registry:
         endpoint: /registry/validate
         method: GET
-        description: "Validate registry file"
+        description: Validate registry file
         timeout_ms: 10000
         params: []
         returns:
           type: object
-          fields: [checks, valid, issues]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # ASCLEPIUS - Divine Physician
-  # ─────────────────────────────────────────────────────────────────────────────
+          fields:
+          - checks
+          - valid
+          - issues
   asclepius:
     name: ASCLEPIUS
-    version: "1.0"
-    description: "The Divine Physician - automated healing and remediation"
+    version: '1.0'
+    description: The Divine Physician - automated healing and remediation
     category: infrastructure
     llm_powered: false
-
     connection:
-      url: http://asclepius:8024
+      url: http://localhost:8024
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - service_healing
-      - port_healing
-      - registry_healing
-      - filesystem_healing
-      - database_healing
-      - network_healing
-      - emergency_protocols
-
+    - service_healing
+    - port_healing
+    - registry_healing
+    - filesystem_healing
+    - database_healing
+    - network_healing
+    - emergency_protocols
     actions:
-
       plan-generate:
         endpoint: /plan/generate
         method: POST
-        description: "Generate healing plan from PANOPTES issues"
+        description: Generate healing plan from PANOPTES issues
         timeout_ms: 30000
         params: []
         returns:
           type: object
-          fields: [plan_id, actions, requires_approval]
-
+          fields:
+          - plan_id
+          - actions
+          - requires_approval
       plan-execute:
         endpoint: /plan/{plan_id}/execute
         method: POST
-        description: "Execute a healing plan"
+        description: Execute a healing plan
         timeout_ms: 300000
         params:
-          - name: plan_id
-            type: string
-            required: true
+        - name: plan_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [plan_id, overall_status, success_count]
-
+          fields:
+          - plan_id
+          - overall_status
+          - success_count
       restart-service:
         endpoint: /heal/service/restart/{service_name}
         method: POST
-        description: "Restart a service"
+        description: Restart a service
         timeout_ms: 30000
         params:
-          - name: service_name
-            type: string
-            required: true
-
+        - name: service_name
+          type: string
+          required: true
       emergency-full:
         endpoint: /emergency/full
         method: POST
-        description: "Full system healing"
+        description: Full system healing
         timeout_ms: 600000
         params: []
-
       emergency-auto:
         endpoint: /emergency/auto
         method: POST
-        description: "Auto-heal from PANOPTES issues"
+        description: Auto-heal from PANOPTES issues
         timeout_ms: 300000
         params: []
-
       emergency-nuclear:
         endpoint: /emergency/nuclear
         method: POST
-        description: "Nuclear restart - requires confirmation"
+        description: Nuclear restart - requires confirmation
         timeout_ms: 600000
         params:
-          - name: confirm
-            type: boolean
-            required: true
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PERSONAL FLEET AGENTS (Life Management)
-  # ─────────────────────────────────────────────────────────────────────────────
-
+        - name: confirm
+          type: boolean
+          required: true
   aragorn:
     name: GYM-COACH
-    version: "1.0"
-    description: "Fitness Coach - Workout planning, progress tracking"
+    version: '1.0'
+    description: Fitness Coach - Workout planning, progress tracking
     category: personal
     llm_powered: true
-    # NOTE: Uses port 8110 (not 8100) due to conflict with supabase-kong-dev
-
     connection:
       url: http://aragorn:8110
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - workout_planning
-      - exercise_guidance
-      - progress_tracking
-      - fitness_goals
-
+    - workout_planning
+    - exercise_guidance
+    - progress_tracking
+    - fitness_goals
     actions:
-
       plan-workout:
         endpoint: /plan
         method: POST
-        description: "Create workout plan"
+        description: Create workout plan
         timeout_ms: 30000
         params:
-          - name: goals
-            type: array
-            required: true
-          - name: equipment
-            type: array
-            required: false
-          - name: duration_minutes
-            type: integer
-            required: false
+        - name: goals
+          type: array
+          required: true
+        - name: equipment
+          type: array
+          required: false
+        - name: duration_minutes
+          type: integer
+          required: false
         returns:
           type: object
-          fields: [workout, exercises, duration, notes]
-
+          fields:
+          - workout
+          - exercises
+          - duration
+          - notes
       log-workout:
         endpoint: /log
         method: POST
-        description: "Log completed workout"
+        description: Log completed workout
         timeout_ms: 10000
         params:
-          - name: exercises
-            type: array
-            required: true
-          - name: duration_minutes
-            type: integer
-            required: true
+        - name: exercises
+          type: array
+          required: true
+        - name: duration_minutes
+          type: integer
+          required: true
         returns:
           type: object
-          fields: [logged, stats]
-
+          fields:
+          - logged
+          - stats
   bombadil:
     name: NUTRITIONIST
-    version: "1.0"
-    description: "Nutrition Advisor - Diet planning, macro tracking"
+    version: '1.0'
+    description: Nutrition Advisor - Diet planning, macro tracking
     category: personal
     llm_powered: true
-
     connection:
       url: http://bombadil:8101
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - nutrition_planning
-      - macro_tracking
-      - diet_recommendations
-      - supplement_guidance
-
+    - nutrition_planning
+    - macro_tracking
+    - diet_recommendations
+    - supplement_guidance
     actions:
-
       analyze-diet:
         endpoint: /analyze
         method: POST
-        description: "Analyze current diet"
+        description: Analyze current diet
         timeout_ms: 30000
         params:
-          - name: meals
-            type: array
-            required: true
-          - name: goals
-            type: string
-            required: false
+        - name: meals
+          type: array
+          required: true
+        - name: goals
+          type: string
+          required: false
         returns:
           type: object
-          fields: [analysis, macros, recommendations]
-
+          fields:
+          - analysis
+          - macros
+          - recommendations
       recommend-supplements:
         endpoint: /supplements
         method: POST
-        description: "Get supplement recommendations"
+        description: Get supplement recommendations
         timeout_ms: 30000
         params:
-          - name: goals
-            type: array
-            required: true
-          - name: current_diet
-            type: object
-            required: false
+        - name: goals
+          type: array
+          required: true
+        - name: current_diet
+          type: object
+          required: false
         returns:
           type: object
-          fields: [supplements, reasoning]
-
+          fields:
+          - supplements
+          - reasoning
   samwise:
     name: MEAL-PLANNER
-    version: "1.0"
-    description: "Meal Planning - Weekly menus, grocery lists"
+    version: '1.0'
+    description: Meal Planning - Weekly menus, grocery lists
     category: personal
     llm_powered: true
-
     connection:
       url: http://samwise:8102
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - meal_planning
-      - recipe_suggestions
-      - grocery_lists
-      - calorie_tracking
-
+    - meal_planning
+    - recipe_suggestions
+    - grocery_lists
+    - calorie_tracking
     actions:
-
       plan-week:
         endpoint: /plan-week
         method: POST
-        description: "Create weekly meal plan"
+        description: Create weekly meal plan
         timeout_ms: 60000
         params:
-          - name: preferences
-            type: object
-            required: false
-          - name: dietary_restrictions
-            type: array
-            required: false
-          - name: calorie_target
-            type: integer
-            required: false
+        - name: preferences
+          type: object
+          required: false
+        - name: dietary_restrictions
+          type: array
+          required: false
+        - name: calorie_target
+          type: integer
+          required: false
         returns:
           type: object
-          fields: [meals, grocery_list, nutrition_summary]
-
+          fields:
+          - meals
+          - grocery_list
+          - nutrition_summary
       suggest-recipe:
         endpoint: /suggest
         method: POST
-        description: "Suggest recipe based on ingredients"
+        description: Suggest recipe based on ingredients
         timeout_ms: 30000
         params:
-          - name: ingredients
-            type: array
-            required: true
+        - name: ingredients
+          type: array
+          required: true
         returns:
           type: object
-          fields: [recipes, instructions]
-
+          fields:
+          - recipes
+          - instructions
   gandalf:
     name: ACADEMIC-GUIDE
-    version: "1.0"
-    description: "Education Coach - Learning paths, study optimization"
+    version: '1.0'
+    description: Education Coach - Learning paths, study optimization
     category: personal
     llm_powered: true
-
     connection:
       url: http://gandalf:8103
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - learning_paths
-      - study_planning
-      - skill_development
-      - course_recommendations
-
+    - learning_paths
+    - study_planning
+    - skill_development
+    - course_recommendations
     actions:
-
       plan-learning:
         endpoint: /plan
         method: POST
-        description: "Create learning plan for skill/topic"
+        description: Create learning plan for skill/topic
         timeout_ms: 60000
         params:
-          - name: skill
-            type: string
-            required: true
-          - name: current_level
-            type: string
-            required: false
-          - name: time_available
-            type: string
-            required: false
+        - name: skill
+          type: string
+          required: true
+        - name: current_level
+          type: string
+          required: false
+        - name: time_available
+          type: string
+          required: false
         returns:
           type: object
-          fields: [plan, resources, milestones]
-
+          fields:
+          - plan
+          - resources
+          - milestones
       recommend-courses:
         endpoint: /courses
         method: POST
-        description: "Recommend courses for goal"
+        description: Recommend courses for goal
         timeout_ms: 30000
         params:
-          - name: goal
-            type: string
-            required: true
+        - name: goal
+          type: string
+          required: true
         returns:
           type: object
-          fields: [courses, rationale]
-
+          fields:
+          - courses
+          - rationale
   arwen:
     name: EROS
-    version: "1.0"
-    description: "Relationship Coach - Dating advice, communication"
+    version: '1.0'
+    description: Relationship Coach - Dating advice, communication
     category: personal
     llm_powered: true
-
     connection:
       url: http://arwen:8104
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - dating_advice
-      - relationship_guidance
-      - communication_strategies
-      - social_skills
-
+    - dating_advice
+    - relationship_guidance
+    - communication_strategies
+    - social_skills
     actions:
-
       dating-advice:
         endpoint: /advice
         method: POST
-        description: "Get dating advice for situation"
+        description: Get dating advice for situation
         timeout_ms: 45000
         params:
-          - name: situation
-            type: string
-            required: true
-          - name: context
-            type: string
-            required: false
+        - name: situation
+          type: string
+          required: true
+        - name: context
+          type: string
+          required: false
         returns:
           type: object
-          fields: [advice, strategies, do_nots]
-
+          fields:
+          - advice
+          - strategies
+          - do_nots
       improve-message:
         endpoint: /message
         method: POST
-        description: "Improve dating message/profile"
+        description: Improve dating message/profile
         timeout_ms: 30000
         params:
-          - name: original
-            type: string
-            required: true
-          - name: goal
-            type: string
-            required: false
+        - name: original
+          type: string
+          required: true
+        - name: goal
+          type: string
+          required: false
         returns:
           type: object
-          fields: [improved, changes, reasoning]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # BUSINESS FLEET AGENTS (Professional Services)
-  # ─────────────────────────────────────────────────────────────────────────────
-
+          fields:
+          - improved
+          - changes
+          - reasoning
   tyrion:
     name: HERACLES
-    version: "1.0"
-    description: "Project Manager - Planning, tracking, sprints"
+    version: '1.0'
+    description: Project Manager - Planning, tracking, sprints
     category: business
     llm_powered: true
-
     connection:
       url: http://tyrion:8200
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - project_planning
-      - task_management
-      - sprint_management
-      - resource_allocation
-
+    - project_planning
+    - task_management
+    - sprint_management
+    - resource_allocation
     actions:
-
       plan-project:
         endpoint: /plan
         method: POST
-        description: "Create project plan"
+        description: Create project plan
         timeout_ms: 60000
         params:
-          - name: project
-            type: string
-            required: true
-          - name: deadline
-            type: string
-            required: false
-          - name: constraints
-            type: array
-            required: false
+        - name: project
+          type: string
+          required: true
+        - name: deadline
+          type: string
+          required: false
+        - name: constraints
+          type: array
+          required: false
         returns:
           type: object
-          fields: [plan, phases, milestones, risks]
-
+          fields:
+          - plan
+          - phases
+          - milestones
+          - risks
       break-down-task:
         endpoint: /break-down
         method: POST
-        description: "Break large task into subtasks"
+        description: Break large task into subtasks
         timeout_ms: 30000
         params:
-          - name: task
-            type: string
-            required: true
+        - name: task
+          type: string
+          required: true
         returns:
           type: object
-          fields: [subtasks, estimates, dependencies]
-
+          fields:
+          - subtasks
+          - estimates
+          - dependencies
   samwell-tarly:
     name: LIBRARIAN
-    version: "1.0"
-    description: "Knowledge Manager - Document organization, search"
+    version: '1.0'
+    description: Knowledge Manager - Document organization, search
     category: business
     llm_powered: true
-
     connection:
       url: http://samwell-tarly:8201
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - document_organization
-      - knowledge_management
-      - information_retrieval
-      - categorization
-
+    - document_organization
+    - knowledge_management
+    - information_retrieval
+    - categorization
     actions:
-
       organize:
         endpoint: /organize
         method: POST
-        description: "Organize documents/knowledge"
+        description: Organize documents/knowledge
         timeout_ms: 60000
         params:
-          - name: documents
-            type: array
-            required: true
-          - name: schema
-            type: object
-            required: false
+        - name: documents
+          type: array
+          required: true
+        - name: schema
+          type: object
+          required: false
         returns:
           type: object
-          fields: [organized, categories, suggestions]
-
+          fields:
+          - organized
+          - categories
+          - suggestions
       search:
         endpoint: /search
         method: POST
-        description: "Search knowledge base"
+        description: Search knowledge base
         timeout_ms: 30000
         params:
-          - name: query
-            type: string
-            required: true
+        - name: query
+          type: string
+          required: true
         returns:
           type: object
-          fields: [results, relevance_scores]
-
+          fields:
+          - results
+          - relevance_scores
   daedalus:
     name: DAEDALUS
-    version: "1.0"
-    description: "Workflow Builder - Automation design, n8n workflows"
+    version: '1.0'
+    description: Workflow Builder - Automation design, n8n workflows
     category: business
     llm_powered: true
-
     connection:
       url: http://daedalus:8202
       health_endpoint: /health
       timeout_ms: 120000
-
     capabilities:
-      - workflow_design
-      - automation_planning
-      - integration_planning
-      - n8n_workflows
-
+    - workflow_design
+    - automation_planning
+    - integration_planning
+    - n8n_workflows
     actions:
-
       design-workflow:
         endpoint: /design
         method: POST
-        description: "Design automation workflow"
+        description: Design automation workflow
         timeout_ms: 90000
         params:
-          - name: process
-            type: string
-            required: true
-          - name: systems
-            type: array
-            required: false
+        - name: process
+          type: string
+          required: true
+        - name: systems
+          type: array
+          required: false
         returns:
           type: object
-          fields: [workflow, nodes, connections, notes]
-
+          fields:
+          - workflow
+          - nodes
+          - connections
+          - notes
       optimize-workflow:
         endpoint: /optimize
         method: POST
-        description: "Optimize existing workflow"
+        description: Optimize existing workflow
         timeout_ms: 60000
         params:
-          - name: workflow_id
-            type: string
-            required: true
+        - name: workflow_id
+          type: string
+          required: true
         returns:
           type: object
-          fields: [improvements, savings]
-
+          fields:
+          - improvements
+          - savings
   stannis:
     name: THEMIS
-    version: "1.0"
-    description: "Legal Advisor - Contracts, compliance"
+    version: '1.0'
+    description: Legal Advisor - Contracts, compliance
     category: business
     llm_powered: true
-
     connection:
       url: http://stannis:8203
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - contract_review
-      - compliance_guidance
-      - risk_assessment
-      - policy_recommendations
-
+    - contract_review
+    - compliance_guidance
+    - risk_assessment
+    - policy_recommendations
     actions:
-
       review-contract:
         endpoint: /review
         method: POST
-        description: "Review contract for issues"
+        description: Review contract for issues
         timeout_ms: 60000
         params:
-          - name: contract_text
-            type: string
-            required: true
-          - name: focus_areas
-            type: array
-            required: false
+        - name: contract_text
+          type: string
+          required: true
+        - name: focus_areas
+          type: array
+          required: false
         returns:
           type: object
-          fields: [issues, risks, recommendations]
-
+          fields:
+          - issues
+          - risks
+          - recommendations
       check-compliance:
         endpoint: /compliance
         method: POST
-        description: "Check compliance for situation"
+        description: Check compliance for situation
         timeout_ms: 45000
         params:
-          - name: situation
-            type: string
-            required: true
-          - name: jurisdiction
-            type: string
-            required: false
+        - name: situation
+          type: string
+          required: true
+        - name: jurisdiction
+          type: string
+          required: false
         returns:
           type: object
-          fields: [compliant, issues, remediation]
-
+          fields:
+          - compliant
+          - issues
+          - remediation
   davos:
     name: MENTOR
-    version: "1.0"
-    description: "Business Coach - Mentorship, leadership"
+    version: '1.0'
+    description: Business Coach - Mentorship, leadership
     category: business
     llm_powered: true
-
     connection:
       url: http://davos:8204
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - business_davosship
-      - career_guidance
-      - leadership_development
-      - professional_growth
-
+    - business_davosship
+    - career_guidance
+    - leadership_development
+    - professional_growth
     actions:
-
       davos-session:
         endpoint: /session
         method: POST
-        description: "Get davosship advice"
+        description: Get davosship advice
         timeout_ms: 60000
         params:
-          - name: topic
-            type: string
-            required: true
-          - name: context
-            type: string
-            required: false
+        - name: topic
+          type: string
+          required: true
+        - name: context
+          type: string
+          required: false
         returns:
           type: object
-          fields: [advice, frameworks, action_items]
-
+          fields:
+          - advice
+          - frameworks
+          - action_items
       career-path:
         endpoint: /career
         method: POST
-        description: "Plan career path"
+        description: Plan career path
         timeout_ms: 45000
         params:
-          - name: current_role
-            type: string
-            required: true
-          - name: goal_role
-            type: string
-            required: true
+        - name: current_role
+          type: string
+          required: true
+        - name: goal_role
+          type: string
+          required: true
         returns:
           type: object
-          fields: [path, skills_needed, timeline]
-
+          fields:
+          - path
+          - skills_needed
+          - timeline
   littlefinger:
     name: PLUTUS
-    version: "1.0"
-    description: "Financial Analyst - Budgets, ROI, analysis"
+    version: '1.0'
+    description: Financial Analyst - Budgets, ROI, analysis
     category: business
     llm_powered: true
-
     connection:
       url: http://littlefinger:8205
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - financial_analysis
-      - budget_planning
-      - investment_guidance
-      - roi_calculations
-
+    - financial_analysis
+    - budget_planning
+    - investment_guidance
+    - roi_calculations
     actions:
-
       analyze-financials:
         endpoint: /analyze
         method: POST
-        description: "Analyze financial data"
+        description: Analyze financial data
         timeout_ms: 60000
         params:
-          - name: data
-            type: object
-            required: true
-          - name: focus
-            type: string
-            required: false
+        - name: data
+          type: object
+          required: true
+        - name: focus
+          type: string
+          required: false
         returns:
           type: object
-          fields: [analysis, insights, recommendations]
-
+          fields:
+          - analysis
+          - insights
+          - recommendations
       calculate-roi:
         endpoint: /roi
         method: POST
-        description: "Calculate ROI for investment"
+        description: Calculate ROI for investment
         timeout_ms: 30000
         params:
-          - name: investment
-            type: number
-            required: true
-          - name: returns
-            type: object
-            required: true
+        - name: investment
+          type: number
+          required: true
+        - name: returns
+          type: object
+          required: true
         returns:
           type: object
-          fields: [roi, payback_period, analysis]
-
+          fields:
+          - roi
+          - payback_period
+          - analysis
   bronn:
     name: PROCUREMENT
-    version: "1.0"
-    description: "Procurement Expert - Vendors, costs"
+    version: '1.0'
+    description: Procurement Expert - Vendors, costs
     category: business
     llm_powered: true
-
     connection:
       url: http://bronn:8206
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - vendor_evaluation
-      - purchase_recommendations
-      - contract_negotiation
-      - cost_optimization
-
+    - vendor_evaluation
+    - purchase_recommendations
+    - contract_negotiation
+    - cost_optimization
     actions:
-
       evaluate-vendor:
         endpoint: /evaluate
         method: POST
-        description: "Evaluate vendor options"
+        description: Evaluate vendor options
         timeout_ms: 60000
         params:
-          - name: vendors
-            type: array
-            required: true
-          - name: criteria
-            type: array
-            required: false
+        - name: vendors
+          type: array
+          required: true
+        - name: criteria
+          type: array
+          required: false
         returns:
           type: object
-          fields: [evaluation, ranking, recommendation]
-
+          fields:
+          - evaluation
+          - ranking
+          - recommendation
       negotiate-tips:
         endpoint: /negotiate
         method: POST
-        description: "Get negotiation strategies"
+        description: Get negotiation strategies
         timeout_ms: 30000
         params:
-          - name: context
-            type: string
-            required: true
-          - name: target_price
-            type: number
-            required: false
+        - name: context
+          type: string
+          required: true
+        - name: target_price
+          type: number
+          required: false
         returns:
           type: object
-          fields: [strategies, talking_points]
-
+          fields:
+          - strategies
+          - talking_points
   hephaestus-server:
     name: HEPHAESTUS-SERVER
-    version: "1.0"
-    description: "Server Admin - Infrastructure management"
+    version: '1.0'
+    description: Server Admin - Infrastructure management
     category: business
     llm_powered: true
-
     connection:
       url: http://hephaestus-server:8207
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - server_management
-      - infrastructure_recommendations
-      - devops_practices
-      - system_administration
-
+    - server_management
+    - infrastructure_recommendations
+    - devops_practices
+    - system_administration
     actions:
-
       diagnose:
         endpoint: /diagnose
         method: POST
-        description: "Diagnose server issue"
+        description: Diagnose server issue
         timeout_ms: 60000
         params:
-          - name: symptoms
-            type: string
-            required: true
-          - name: logs
-            type: string
-            required: false
+        - name: symptoms
+          type: string
+          required: true
+        - name: logs
+          type: string
+          required: false
         returns:
           type: object
-          fields: [diagnosis, solutions, prevention]
-
+          fields:
+          - diagnosis
+          - solutions
+          - prevention
       recommend-setup:
         endpoint: /recommend
         method: POST
-        description: "Recommend server setup"
+        description: Recommend server setup
         timeout_ms: 45000
         params:
-          - name: requirements
-            type: object
-            required: true
+        - name: requirements
+          type: object
+          required: true
         returns:
           type: object
-          fields: [setup, specs, cost_estimate]
-
+          fields:
+          - setup
+          - specs
+          - cost_estimate
   atlas-infra:
     name: ATLAS-INFRA
-    version: "1.0"
-    description: "Infrastructure Advisor - Cloud architecture, scaling"
+    version: '1.0'
+    description: Infrastructure Advisor - Cloud architecture, scaling
     category: business
     llm_powered: true
-
     connection:
       url: http://atlas-infra:8208
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - cloud_architecture
-      - infrastructure_planning
-      - scaling_recommendations
-      - cost_optimization
-
+    - cloud_architecture
+    - infrastructure_planning
+    - scaling_recommendations
+    - cost_optimization
     actions:
-
       design-architecture:
         endpoint: /design
         method: POST
-        description: "Design cloud architecture"
+        description: Design cloud architecture
         timeout_ms: 90000
         params:
-          - name: requirements
-            type: object
-            required: true
-          - name: constraints
-            type: object
-            required: false
+        - name: requirements
+          type: object
+          required: true
+        - name: constraints
+          type: object
+          required: false
         returns:
           type: object
-          fields: [architecture, components, diagram]
-
+          fields:
+          - architecture
+          - components
+          - diagram
       optimize-costs:
         endpoint: /optimize
         method: POST
-        description: "Optimize infrastructure costs"
+        description: Optimize infrastructure costs
         timeout_ms: 60000
         params:
-          - name: current_setup
-            type: object
-            required: true
+        - name: current_setup
+          type: object
+          required: true
         returns:
           type: object
-          fields: [recommendations, savings, tradeoffs]
-
+          fields:
+          - recommendations
+          - savings
+          - tradeoffs
   raven:
     name: IRIS
-    version: "1.0"
-    description: "World Events Reporter - News, trends"
+    version: '1.0'
+    description: World Events Reporter - News, trends
     category: business
     llm_powered: true
-
     connection:
       url: http://raven:8209
       health_endpoint: /health
       timeout_ms: 60000
-
     capabilities:
-      - news_reporting
-      - trend_analysis
-      - market_updates
-      - competitive_intelligence
-
+    - news_reporting
+    - trend_analysis
+    - market_updates
+    - competitive_intelligence
     actions:
-
       get-news:
         endpoint: /news
         method: POST
-        description: "Get relevant news"
+        description: Get relevant news
         timeout_ms: 45000
         params:
-          - name: topics
-            type: array
-            required: true
-          - name: timeframe
-            type: string
-            required: false
+        - name: topics
+          type: array
+          required: true
+        - name: timeframe
+          type: string
+          required: false
         returns:
           type: object
-          fields: [news, summaries, sources]
-
+          fields:
+          - news
+          - summaries
+          - sources
       analyze-trends:
         endpoint: /trends
         method: POST
-        description: "Analyze industry trends"
+        description: Analyze industry trends
         timeout_ms: 60000
         params:
-          - name: industry
-            type: string
-            required: true
+        - name: industry
+          type: string
+          required: true
         returns:
           type: object
-          fields: [trends, implications, opportunities]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # SOLON - Legal Advisor
-  # ─────────────────────────────────────────────────────────────────────────────
-  magistrate:
-    name: SOLON
-    version: "1.0"
-    description: "Legal Advisor - Legal research, contract review, compliance"
-    category: professional
-    llm_powered: true
-
-    connection:
-      url: http://magistrate:8210
-      health_endpoint: /health
-      timeout_ms: 90000
-
-    capabilities:
-      - legal_research
-      - contract_review
-      - compliance_checking
-      - jurisdiction_guidance
-
-    aria_reporting:
-      enabled: true
-      domains: [legal, compliance]
-      importance_threshold: low
-
-    actions:
-
-      question:
-        endpoint: /legal/question
-        method: POST
-        description: "Ask a legal question"
-        timeout_ms: 60000
-        params:
-          - name: question
-            type: string
-            required: true
-          - name: jurisdiction
-            type: string
-            required: false
-            enum: [CA, NV, US, FEDERAL]
-          - name: context
-            type: string
-            required: false
-        returns:
-          type: object
-          fields: [answer, confidence_score, confidence_level, citations, disclaimer]
-
-      contract-review:
-        endpoint: /legal/contract-review
-        method: POST
-        description: "Analyze a contract for risks and key terms"
-        timeout_ms: 90000
-        params:
-          - name: contract_text
-            type: string
-            required: true
-          - name: contract_type
-            type: string
-            required: false
-          - name: focus_areas
-            type: array
-            required: false
-          - name: jurisdiction
-            type: string
-            required: false
-        returns:
-          type: object
-          fields: [summary, risk_assessment, flagged_clauses, recommendations, disclaimer]
-
-      compliance-check:
-        endpoint: /legal/compliance-check
-        method: POST
-        description: "Check business compliance with legal requirements"
-        timeout_ms: 60000
-        params:
-          - name: business_type
-            type: string
-            required: true
-            enum: [LLC, Corp, Sole_Prop]
-          - name: jurisdiction
-            type: string
-            required: true
-          - name: check_types
-            type: array
-            required: true
-        returns:
-          type: object
-          fields: [overall_status, checks, action_items, disclaimer]
-
-      research:
-        endpoint: /legal/research
-        method: POST
-        description: "Deep legal research on a topic"
-        timeout_ms: 120000
-        cost_tier: high
-        params:
-          - name: topic
-            type: string
-            required: true
-          - name: jurisdiction
-            type: string
-            required: false
-          - name: research_depth
-            type: string
-            required: false
-            enum: [quick, standard, comprehensive]
-        returns:
-          type: object
-          fields: [research_memo, statutes, cases, confidence_score, disclaimer]
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # CROESUS - Tax & Wealth Advisor
-  # ─────────────────────────────────────────────────────────────────────────────
-  exchequer:
-    name: CROESUS
-    version: "1.0"
-    description: "Tax & Wealth Advisor - Tax planning, deductions, wealth building"
-    category: professional
-    llm_powered: true
-
-    connection:
-      url: http://exchequer:8211
-      health_endpoint: /health
-      timeout_ms: 60000
-
-    capabilities:
-      - tax_planning
-      - deduction_identification
-      - tax_estimation
-      - wealth_building
-      - deadline_tracking
-
-    aria_reporting:
-      enabled: true
-      domains: [tax, finance, wealth]
-      importance_threshold: low
-
-    coordination:
-      magistrate: "legal/tax overlap"
-      littlefinger: "investment tax implications"
-
-    actions:
-
-      question:
-        endpoint: /tax/question
-        method: POST
-        description: "Ask a tax question"
-        timeout_ms: 45000
-        params:
-          - name: question
-            type: string
-            required: true
-          - name: jurisdiction
-            type: string
-            required: false
-            enum: [federal, CA, NV]
-          - name: context
-            type: object
-            required: false
-        returns:
-          type: object
-          fields: [answer, confidence_score, citations, disclaimer]
-
-      estimate:
-        endpoint: /tax/estimate
-        method: POST
-        description: "Estimate tax liability"
-        timeout_ms: 30000
-        params:
-          - name: tax_year
-            type: integer
-            required: true
-          - name: gross_income
-            type: number
-            required: true
-          - name: deductions
-            type: object
-            required: false
-          - name: filing_status
-            type: string
-            required: true
-          - name: state
-            type: string
-            required: true
-          - name: business_type
-            type: string
-            required: false
-        returns:
-          type: object
-          fields: [estimate, breakdown, quarterly_payments, disclaimer]
-
-      deductions:
-        endpoint: /tax/deductions
-        method: POST
-        description: "Find potential tax deductions"
-        timeout_ms: 45000
-        params:
-          - name: business_type
-            type: string
-            required: true
-          - name: industry
-            type: string
-            required: false
-          - name: work_from_home
-            type: boolean
-            required: false
-          - name: current_deductions
-            type: array
-            required: false
-        returns:
-          type: object
-          fields: [potential_deductions, commonly_missed, documentation_checklist]
-
-      planning:
-        endpoint: /tax/planning
-        method: POST
-        description: "Get tax planning strategies"
-        timeout_ms: 60000
-        cost_tier: medium
-        params:
-          - name: current_situation
-            type: object
-            required: true
-          - name: goals
-            type: array
-            required: false
-          - name: planning_horizon
-            type: string
-            required: false
-            enum: [annual, multi_year]
-        returns:
-          type: object
-          fields: [strategies, recommended_actions, timeline, disclaimer]
-
-      deadlines:
-        endpoint: /tax/deadlines
-        method: GET
-        description: "Get upcoming tax deadlines"
-        timeout_ms: 10000
-        params:
-          - name: days_ahead
-            type: integer
-            required: false
-            default: 90
-        returns:
-          type: object
-          fields: [deadlines, next_deadline, alerts]
-
-      wealth-strategy:
-        endpoint: /wealth/strategy
-        method: POST
-        description: "Get wealth building guidance"
-        timeout_ms: 45000
-        params:
-          - name: current_income
-            type: number
-            required: true
-          - name: savings_rate
-            type: number
-            required: false
-          - name: existing_accounts
-            type: array
-            required: false
-          - name: goals
-            type: array
-            required: false
-        returns:
-          type: object
-          fields: [recommendations, account_comparison, milestones, disclaimer]
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# CHAIN DEFINITIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
+          fields:
+          - trends
+          - implications
+          - opportunities
 chains:
-
-  # ─────────────────────────────────────────────────────────────────────────────
-  # RESEARCH CHAINS
-  # ─────────────────────────────────────────────────────────────────────────────
-  
   research-and-plan:
-    name: "Research & Plan"
-    description: "Research a topic, then create an actionable plan"
+    name: Research & Plan
+    description: Research a topic, then create an actionable plan
     complexity: simple
     estimated_cost: 0.25
     estimated_time_ms: 180000
-    
     triggers:
-      - "research .+ (then|and) .*(plan|create|make)"
-      - "find out .+ (then|and) .*(plan|recommend)"
-      - "look up .+ (then|and) .*(plan|strategy)"
-      
+    - research .+ (then|and) .*(plan|create|make)
+    - find out .+ (then|and) .*(plan|recommend)
+    - look up .+ (then|and) .*(plan|strategy)
     steps:
-      - id: research
-        agent: scholar
-        action: deep-research
-        params:
-          question: "{{input.topic}}"
-          
-      - id: plan
-        agent: chiron
-        action: chat
-        input_template: |
-          Based on this comprehensive research:
-          
-          {{steps.research.output.research}}
-          
-          Create a detailed, actionable plan with:
-          1. Key insights from the research
-          2. Recommended actions (prioritized)
-          3. Potential obstacles and mitigations
-          4. Timeline and milestones
-          
-          Make it ADHD-friendly: clear steps, one priority per phase.
-          
-    output_template: |
-      ## Research Summary
-      
+    - id: research
+      agent: scholar
+      action: deep-research
+      params:
+        question: '{{input.topic}}'
+    - id: plan
+      agent: chiron
+      action: chat
+      input_template: 'Based on this comprehensive research:
+
+
+        {{steps.research.output.research}}
+
+
+        Create a detailed, actionable plan with:
+
+        1. Key insights from the research
+
+        2. Recommended actions (prioritized)
+
+        3. Potential obstacles and mitigations
+
+        4. Timeline and milestones
+
+
+        Make it ADHD-friendly: clear steps, one priority per phase.
+
+        '
+    output_template: '## Research Summary
+
+
       {{steps.research.output.research}}
-      
+
+
       ---
-      
+
+
       ## Action Plan
-      
+
+
       {{steps.plan.output.response}}
-      
+
+      '
   validate-and-decide:
-    name: "Validate & Decide"
-    description: "Validate an assumption, then decide next steps"
+    name: Validate & Decide
+    description: Validate an assumption, then decide next steps
     complexity: simple
     estimated_cost: 0.25
     estimated_time_ms: 150000
-    
     triggers:
-      - "validate .+ (then|and) .*(decide|plan|recommend)"
-      - "is it true .+ (then|what should)"
-      - "check if .+ (then|and) .*(advise|suggest)"
-      
+    - validate .+ (then|and) .*(decide|plan|recommend)
+    - is it true .+ (then|what should)
+    - check if .+ (then|and) .*(advise|suggest)
     steps:
-      - id: validate
-        agent: scholar
-        action: validate-assumption
-        params:
-          assumption: "{{input.assumption}}"
-          importance: high
-          
-      - id: decide
-        agent: chiron
-        action: chat
-        input_template: |
-          I need to validate this assumption: "{{input.assumption}}"
-          
-          Validation results:
-          - Verdict: {{steps.validate.output.verdict}}
-          - Evidence FOR: {{steps.validate.output.evidence_for}}
-          - Evidence AGAINST: {{steps.validate.output.evidence_against}}
-          - Confidence: {{steps.validate.output.confidence}}
-          
-          Based on this validation, what should I do next?
-          Consider both scenarios: if the assumption holds AND if it doesn't.
-          
-    output_template: |
-      ## Assumption Validation
-      
+    - id: validate
+      agent: scholar
+      action: validate-assumption
+      params:
+        assumption: '{{input.assumption}}'
+        importance: high
+    - id: decide
+      agent: chiron
+      action: chat
+      input_template: 'I need to validate this assumption: "{{input.assumption}}"
+
+
+        Validation results:
+
+        - Verdict: {{steps.validate.output.verdict}}
+
+        - Evidence FOR: {{steps.validate.output.evidence_for}}
+
+        - Evidence AGAINST: {{steps.validate.output.evidence_against}}
+
+        - Confidence: {{steps.validate.output.confidence}}
+
+
+        Based on this validation, what should I do next?
+
+        Consider both scenarios: if the assumption holds AND if it doesn''t.
+
+        '
+    output_template: '## Assumption Validation
+
+
       **Assumption:** {{input.assumption}}
-      **Verdict:** {{steps.validate.output.verdict}} ({{steps.validate.output.confidence}} confidence)
-      
+
+      **Verdict:** {{steps.validate.output.verdict}} ({{steps.validate.output.confidence}}
+      confidence)
+
+
       ### Evidence
+
       **For:** {{steps.validate.output.evidence_for}}
+
       **Against:** {{steps.validate.output.evidence_against}}
-      
+
+
       ---
-      
+
+
       ## Decision & Next Steps
-      
+
+
       {{steps.decide.output.response}}
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # COMPREHENSIVE ANALYSIS CHAINS
-  # ─────────────────────────────────────────────────────────────────────────────
-  
+      '
   comprehensive-market-analysis:
-    name: "Comprehensive Market Analysis"
-    description: "Parallel research on competitors, market size, and pain points, then strategic synthesis"
+    name: Comprehensive Market Analysis
+    description: Parallel research on competitors, market size, and pain points, then
+      strategic synthesis
     complexity: complex
     estimated_cost: 0.75
     estimated_time_ms: 300000
-    
     triggers:
-      - "(comprehensive|full|complete) .*(analysis|research|report)"
-      - "analyze .*(market|industry|niche) .*(thoroughly|completely)"
-      - "give me everything on"
-      
+    - (comprehensive|full|complete) .*(analysis|research|report)
+    - analyze .*(market|industry|niche) .*(thoroughly|completely)
+    - give me everything on
     steps:
-      - id: parallel_research
-        type: parallel
-        substeps:
-          - id: competitors
-            agent: scholar
-            action: competitors
-            params:
-              niche: "{{input.market}}"
-              
-          - id: market_size
-            agent: scholar
-            action: market-size
-            params:
-              market: "{{input.market}}"
-              
-          - id: pain_points
-            agent: scholar
-            action: pain-discovery
-            params:
-              role: "{{input.target_role | default: 'decision maker'}}"
-              industry: "{{input.market}}"
-              
-      - id: synthesis
-        agent: chiron
-        action: chat
-        input_template: |
-          I've gathered comprehensive market intelligence on "{{input.market}}":
-          
-          ## COMPETITOR ANALYSIS
-          {{steps.parallel_research.competitors.output.competitors}}
-          
-          ## MARKET SIZE (TAM/SAM/SOM)
-          {{steps.parallel_research.market_size.output}}
-          
-          ## PAIN POINTS
-          {{steps.parallel_research.pain_points.output.pain_points}}
-          
-          Synthesize this into:
-          1. **Executive Summary** (3-5 bullet points)
-          2. **Market Opportunity Assessment** (Go/No-Go with reasoning)
-          3. **Competitive Positioning Recommendation**
-          4. **Top 3 Pain Points to Address** (with value quantification)
-          5. **Recommended Entry Strategy**
-          6. **Key Risks & Mitigations**
-          
-    output_template: |
-      # Comprehensive Market Analysis: {{input.market}}
-      
+    - id: parallel_research
+      type: parallel
+      substeps:
+      - id: competitors
+        agent: scholar
+        action: competitors
+        params:
+          niche: '{{input.market}}'
+      - id: market_size
+        agent: scholar
+        action: market-size
+        params:
+          market: '{{input.market}}'
+      - id: pain_points
+        agent: scholar
+        action: pain-discovery
+        params:
+          role: '{{input.target_role | default: ''decision maker''}}'
+          industry: '{{input.market}}'
+    - id: synthesis
+      agent: chiron
+      action: chat
+      input_template: 'I''ve gathered comprehensive market intelligence on "{{input.market}}":
+
+
+        ## COMPETITOR ANALYSIS
+
+        {{steps.parallel_research.competitors.output.competitors}}
+
+
+        ## MARKET SIZE (TAM/SAM/SOM)
+
+        {{steps.parallel_research.market_size.output}}
+
+
+        ## PAIN POINTS
+
+        {{steps.parallel_research.pain_points.output.pain_points}}
+
+
+        Synthesize this into:
+
+        1. **Executive Summary** (3-5 bullet points)
+
+        2. **Market Opportunity Assessment** (Go/No-Go with reasoning)
+
+        3. **Competitive Positioning Recommendation**
+
+        4. **Top 3 Pain Points to Address** (with value quantification)
+
+        5. **Recommended Entry Strategy**
+
+        6. **Key Risks & Mitigations**
+
+        '
+    output_template: '# Comprehensive Market Analysis: {{input.market}}
+
+
       ## Competitor Landscape
+
       {{steps.parallel_research.competitors.output}}
-      
+
+
       ## Market Size
+
       {{steps.parallel_research.market_size.output}}
-      
+
+
       ## Customer Pain Points
+
       {{steps.parallel_research.pain_points.output}}
-      
+
+
       ---
-      
+
+
       ## Strategic Synthesis
+
       {{steps.synthesis.output.response}}
 
+      '
   niche-evaluation:
-    name: "Niche Evaluation"
-    description: "Compare multiple niches and recommend best option"
+    name: Niche Evaluation
+    description: Compare multiple niches and recommend best option
     complexity: complex
-    estimated_cost: 0.60
+    estimated_cost: 0.6
     estimated_time_ms: 240000
-    
     triggers:
-      - "compare .*(niches|markets|industries)"
-      - "which (niche|market) should"
-      - "evaluate .*(options|niches)"
-      
+    - compare .*(niches|markets|industries)
+    - which (niche|market) should
+    - evaluate .*(options|niches)
     steps:
-      - id: compare
-        agent: scholar
-        action: compare
-        params:
-          niches: "{{input.niches}}"
-          
-      - id: recommend
-        agent: chiron
-        action: decide
-        params:
-          decision: "Which niche should I focus on for my AI automation agency?"
-          options: "{{input.niches}}"
-        input_template: |
-          I need to choose a niche for my AI automation agency.
-          
-          Here's the comparison research:
-          {{steps.compare.output.comparison_matrix}}
-          
-          SCHOLAR's recommendation: {{steps.compare.output.recommendation}}
-          
-          My constraints:
-          - 44 days to launch (March 1, 2026)
-          - Background in civil engineering + law + government compliance
-          - Goal: $30K MRR to quit government job
-          - Need to close first client fast
-          
-          Analyze and give me a final recommendation.
-          
-    output_template: |
-      # Niche Evaluation
-      
+    - id: compare
+      agent: scholar
+      action: compare
+      params:
+        niches: '{{input.niches}}'
+    - id: recommend
+      agent: chiron
+      action: decide
+      params:
+        decision: Which niche should I focus on for my AI automation agency?
+        options: '{{input.niches}}'
+      input_template: 'I need to choose a niche for my AI automation agency.
+
+
+        Here''s the comparison research:
+
+        {{steps.compare.output.comparison_matrix}}
+
+
+        SCHOLAR''s recommendation: {{steps.compare.output.recommendation}}
+
+
+        My constraints:
+
+        - 44 days to launch (March 1, 2026)
+
+        - Background in civil engineering + law + government compliance
+
+        - Goal: $30K MRR to quit government job
+
+        - Need to close first client fast
+
+
+        Analyze and give me a final recommendation.
+
+        '
+    output_template: '# Niche Evaluation
+
+
       ## Comparison Matrix
+
       {{steps.compare.output.comparison_matrix}}
-      
-      ## SCHOLAR's Analysis
+
+
+      ## SCHOLAR''s Analysis
+
       {{steps.compare.output.rationale}}
-      
+
+
       ---
-      
-      ## CHIRON's Recommendation
+
+
+      ## CHIRON''s Recommendation
+
       {{steps.recommend.output.response}}
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # PLANNING CHAINS
-  # ─────────────────────────────────────────────────────────────────────────────
-  
+      '
   weekly-planning:
-    name: "Weekly Planning"
-    description: "Review last week, research blockers, plan next week"
+    name: Weekly Planning
+    description: Review last week, research blockers, plan next week
     complexity: moderate
-    estimated_cost: 0.40
+    estimated_cost: 0.4
     estimated_time_ms: 180000
-    
     triggers:
-      - "plan (my|the|this) week"
-      - "weekly planning"
-      - "what should i do this week"
-      
+    - plan (my|the|this) week
+    - weekly planning
+    - what should i do this week
     steps:
-      - id: review
-        agent: chiron
-        action: weekly-review
-        params:
-          wins: "{{input.wins | default: []}}"
-          losses: "{{input.losses | default: []}}"
-          lessons: "{{input.lessons | default: []}}"
-          
-      - id: research_blockers
-        agent: scholar
-        action: deep-research
-        condition:
-          field: input.blockers
-          operator: exists
-        params:
-          question: "How to overcome: {{input.blockers | join: ', '}}"
-          
-      - id: sprint_plan
-        agent: chiron
-        action: sprint-plan
-        input_template: |
-          Weekly review insights:
-          {{steps.review.output}}
-          
-          {{#if steps.research_blockers}}
-          Research on blockers:
-          {{steps.research_blockers.output.research}}
-          {{/if}}
-          
-          Create my sprint plan for this week.
-        params:
-          goals: "{{input.goals | default: ['Launch progress']}}"
-          time_available: "this week"
-          energy_level: "{{input.energy | default: 'medium'}}"
-          blockers: "{{input.blockers | default: []}}"
-          
-    output_template: |
-      # Weekly Planning Session
-      
+    - id: review
+      agent: chiron
+      action: weekly-review
+      params:
+        wins: '{{input.wins | default: []}}'
+        losses: '{{input.losses | default: []}}'
+        lessons: '{{input.lessons | default: []}}'
+    - id: research_blockers
+      agent: scholar
+      action: deep-research
+      condition:
+        field: input.blockers
+        operator: exists
+      params:
+        question: 'How to overcome: {{input.blockers | join: '', ''}}'
+    - id: sprint_plan
+      agent: chiron
+      action: sprint-plan
+      input_template: 'Weekly review insights:
+
+        {{steps.review.output}}
+
+
+        {{#if steps.research_blockers}}
+
+        Research on blockers:
+
+        {{steps.research_blockers.output.research}}
+
+        {{/if}}
+
+
+        Create my sprint plan for this week.
+
+        '
+      params:
+        goals: '{{input.goals | default: [''Launch progress'']}}'
+        time_available: this week
+        energy_level: '{{input.energy | default: ''medium''}}'
+        blockers: '{{input.blockers | default: []}}'
+    output_template: '# Weekly Planning Session
+
+
       ## Last Week Review
+
       {{steps.review.output}}
-      
+
+
       {{#if steps.research_blockers}}
+
       ## Blocker Research
+
       {{steps.research_blockers.output.research}}
+
       {{/if}}
-      
-      ## This Week's Sprint Plan
+
+
+      ## This Week''s Sprint Plan
+
       {{steps.sprint_plan.output}}
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # FEAR & MOTIVATION CHAINS
-  # ─────────────────────────────────────────────────────────────────────────────
-  
+      '
   fear-to-action:
-    name: "Fear to Action"
-    description: "Analyze fear, research evidence against it, create action plan"
+    name: Fear to Action
+    description: Analyze fear, research evidence against it, create action plan
     complexity: simple
-    estimated_cost: 0.30
+    estimated_cost: 0.3
     estimated_time_ms: 120000
-    
     triggers:
-      - "i'm (afraid|scared|nervous|anxious) .*(about|of|to)"
-      - "help me overcome"
-      - "i keep avoiding"
-      
+    - i'm (afraid|scared|nervous|anxious) .*(about|of|to)
+    - help me overcome
+    - i keep avoiding
     steps:
-      - id: fear_analysis
-        agent: chiron
-        action: fear-check
-        params:
-          situation: "{{input.situation}}"
-          what_im_avoiding: "{{input.avoiding}}"
-          
-      - id: evidence
-        agent: scholar
-        action: deep-research
-        params:
-          question: "Success stories and strategies for: {{input.situation}}"
-          
-      - id: action_plan
-        agent: chiron
-        action: sprint-plan
-        input_template: |
-          Fear analysis:
-          {{steps.fear_analysis.output}}
-          
-          Evidence and strategies from research:
-          {{steps.evidence.output.research}}
-          
-          Create a "smallest experiment" action plan to overcome this fear.
-          Make it ADHD-friendly: tiny steps, immediate wins.
-        params:
-          goals:
-            - "Overcome fear: {{input.situation}}"
-          time_available: "next 3 days"
-          energy_level: high
-          
-    output_template: |
-      # Fear → Action Transformation
-      
-      ## The Fear
-      **Situation:** {{input.situation}}
-      
-      ## Analysis
-      {{steps.fear_analysis.output}}
-      
-      ## Evidence Against Your Fear
-      {{steps.evidence.output.research}}
-      
-      ## Your Action Plan
-      {{steps.action_plan.output}}
+    - id: fear_analysis
+      agent: chiron
+      action: fear-check
+      params:
+        situation: '{{input.situation}}'
+        what_im_avoiding: '{{input.avoiding}}'
+    - id: evidence
+      agent: scholar
+      action: deep-research
+      params:
+        question: 'Success stories and strategies for: {{input.situation}}'
+    - id: action_plan
+      agent: chiron
+      action: sprint-plan
+      input_template: 'Fear analysis:
 
-  # ─────────────────────────────────────────────────────────────────────────────
-  # INFRASTRUCTURE CHAINS
-  # ─────────────────────────────────────────────────────────────────────────────
-  
+        {{steps.fear_analysis.output}}
+
+
+        Evidence and strategies from research:
+
+        {{steps.evidence.output.research}}
+
+
+        Create a "smallest experiment" action plan to overcome this fear.
+
+        Make it ADHD-friendly: tiny steps, immediate wins.
+
+        '
+      params:
+        goals:
+        - 'Overcome fear: {{input.situation}}'
+        time_available: next 3 days
+        energy_level: high
+    output_template: "# Fear \u2192 Action Transformation\n\n## The Fear\n**Situation:**\
+      \ {{input.situation}}\n\n## Analysis\n{{steps.fear_analysis.output}}\n\n## Evidence\
+      \ Against Your Fear\n{{steps.evidence.output.research}}\n\n## Your Action Plan\n\
+      {{steps.action_plan.output}}\n"
   safe-deployment:
-    name: "Safe Deployment"
-    description: "Backup, deploy, verify, rollback if needed"
+    name: Safe Deployment
+    description: Backup, deploy, verify, rollback if needed
     complexity: moderate
     estimated_cost: 0.05
     estimated_time_ms: 600000
-    
     triggers:
-      - "deploy .* safely"
-      - "safe deployment"
-      
+    - deploy .* safely
+    - safe deployment
     steps:
-      - id: backup
-        agent: chronos
-        action: backup
-        params:
-          target: "{{input.target | default: 'all'}}"
-          tag: "pre-deploy-{{timestamp}}"
-          
-      - id: notify_start
-        agent: hermes
-        action: notify
-        params:
-          channel: telegram
-          message: "🚀 Starting deployment of {{input.component}}. Backup: {{steps.backup.output.backup_id}}"
-          priority: normal
-          
-      - id: deploy
-        type: external
-        description: "Actual deployment happens via GSD/Claude Code"
-        pass_through: true
-        
-      - id: verify
-        agent: argus
-        action: status
-        
-      - id: notify_complete
-        agent: hermes
-        action: notify
-        condition:
-          field: steps.verify.output.healthy
-          operator: eq
-          value: true
-        params:
-          channel: telegram
-          message: "✅ Deployment complete. All systems healthy."
-          priority: normal
-          
-      - id: rollback
-        agent: hades
-        action: rollback
-        condition:
-          field: steps.verify.output.healthy
-          operator: eq
-          value: false
-        params:
-          target: "{{input.target}}"
-          backup_id: "{{steps.backup.output.backup_id}}"
-          confirm: true
-          
-      - id: notify_rollback
-        agent: hermes
-        action: notify
-        condition:
-          field: steps.verify.output.healthy
-          operator: eq
-          value: false
-        params:
-          channel: telegram
-          message: "⚠️ Deployment failed. Rolled back to {{steps.backup.output.backup_id}}"
-          priority: critical
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ROUTING RULES
-# ═══════════════════════════════════════════════════════════════════════════════
-
+    - id: backup
+      agent: chronos
+      action: backup
+      params:
+        target: '{{input.target | default: ''all''}}'
+        tag: pre-deploy-{{timestamp}}
+    - id: notify_start
+      agent: hermes
+      action: notify
+      params:
+        channel: telegram
+        message: "\U0001F680 Starting deployment of {{input.component}}. Backup: {{steps.backup.output.backup_id}}"
+        priority: normal
+    - id: deploy
+      type: external
+      description: Actual deployment happens via GSD/Claude Code
+      pass_through: true
+    - id: verify
+      agent: argus
+      action: status
+    - id: notify_complete
+      agent: hermes
+      action: notify
+      condition:
+        field: steps.verify.output.healthy
+        operator: eq
+        value: true
+      params:
+        channel: telegram
+        message: "\u2705 Deployment complete. All systems healthy."
+        priority: normal
+    - id: rollback
+      agent: hades
+      action: rollback
+      condition:
+        field: steps.verify.output.healthy
+        operator: eq
+        value: false
+      params:
+        target: '{{input.target}}'
+        backup_id: '{{steps.backup.output.backup_id}}'
+        confirm: true
+    - id: notify_rollback
+      agent: hermes
+      action: notify
+      condition:
+        field: steps.verify.output.healthy
+        operator: eq
+        value: false
+      params:
+        channel: telegram
+        message: "\u26A0\uFE0F Deployment failed. Rolled back to {{steps.backup.output.backup_id}}"
+        priority: critical
 routing:
-  
-  # Which implementation handles which complexity
   engine_selection:
     simple:
       preferred: n8n
@@ -3648,136 +3567,108 @@ routing:
     complex:
       preferred: fastapi
       fallback: n8n
-      
-  # Direct agent routing (single calls - skip ATLAS)
   direct_routing:
     enabled: true
-    threshold_ms: 100  # If ATLAS adds more than this latency, go direct
-    
-  # Health-based routing
+    threshold_ms: 100
   health_routing:
     enabled: true
-    unhealthy_threshold: 3  # Consecutive failures before marking unhealthy
+    unhealthy_threshold: 3
     recovery_check_ms: 30000
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# INTENT PATTERNS (for ARIA intent extraction)
-# ═══════════════════════════════════════════════════════════════════════════════
-
 intent_patterns:
-  
-  # Chain detection
   chains:
-    - pattern: "research .+ (then|and then|,\\s*then|,\\s*and) .*(plan|analyze|recommend|decide)"
-      chain: research-and-plan
-      extract:
-        topic: "research (.+?) (then|and)"
-        
-    - pattern: "validate .+ (then|and) .*(decide|plan|recommend)"
-      chain: validate-and-decide
-      extract:
-        assumption: "validate (.+?) (then|and)"
-        
-    - pattern: "(comprehensive|full|complete) .*(analysis|research|report)"
-      chain: comprehensive-market-analysis
-      extract:
-        market: "(analysis|research|report) .*(on|of|about) (.+)"
-        
-    - pattern: "compare .*(niches|markets|industries)"
-      chain: niche-evaluation
-      extract:
-        niches: "compare (.+)"
-        
-    - pattern: "plan (my|the|this) week"
-      chain: weekly-planning
-      
-    - pattern: "i'm (afraid|scared|nervous|anxious)"
-      chain: fear-to-action
-      extract:
-        situation: "(?:afraid|scared|nervous|anxious) (?:of |about |to )?(.+)"
-        
-  # Direct agent routing
+  - pattern: research .+ (then|and then|,\s*then|,\s*and) .*(plan|analyze|recommend|decide)
+    chain: research-and-plan
+    extract:
+      topic: research (.+?) (then|and)
+  - pattern: validate .+ (then|and) .*(decide|plan|recommend)
+    chain: validate-and-decide
+    extract:
+      assumption: validate (.+?) (then|and)
+  - pattern: (comprehensive|full|complete) .*(analysis|research|report)
+    chain: comprehensive-market-analysis
+    extract:
+      market: (analysis|research|report) .*(on|of|about) (.+)
+  - pattern: compare .*(niches|markets|industries)
+    chain: niche-evaluation
+    extract:
+      niches: compare (.+)
+  - pattern: plan (my|the|this) week
+    chain: weekly-planning
+  - pattern: i'm (afraid|scared|nervous|anxious)
+    chain: fear-to-action
+    extract:
+      situation: (?:afraid|scared|nervous|anxious) (?:of |about |to )?(.+)
   agents:
     chiron:
-      - "sprint plan"
-      - "plan my (day|week)"
-      - "pricing"
-      - "fear check"
-      - "weekly review"
-      - "accountability"
-      - "business strategy"
-      - "adhd"
-      - "overwhelmed"
-      
+    - sprint plan
+    - plan my (day|week)
+    - pricing
+    - fear check
+    - weekly review
+    - accountability
+    - business strategy
+    - adhd
+    - overwhelmed
     scholar:
-      - "research"
-      - "competitor"
-      - "market size"
-      - "tam|sam|som"
-      - "icp"
-      - "niche"
-      - "pain point"
-      - "validate"
-
-    # Creative Fleet routing
+    - research
+    - competitor
+    - market size
+    - tam|sam|som
+    - icp
+    - niche
+    - pain point
+    - validate
     muse:
-      - "create (presentation|deck|slides)"
-      - "make (a|me) (video|presentation|document)"
-      - "design"
-      - "creative project"
-      - "content (for|about)"
-      - "social (post|content)"
-
+    - create (presentation|deck|slides)
+    - make (a|me) (video|presentation|document)
+    - design
+    - creative project
+    - content (for|about)
+    - social (post|content)
     calliope:
-      - "write (content|copy|article|report)"
-      - "script (for|about)"
-      - "rewrite"
-      - "expand (bullets|points)"
-      - "copywriting"
-      - "blog post"
-      - "case study"
-
+    - write (content|copy|article|report)
+    - script (for|about)
+    - rewrite
+    - expand (bullets|points)
+    - copywriting
+    - blog post
+    - case study
     thalia:
-      - "format (presentation|document)"
-      - "create (chart|graph)"
-      - "design (thumbnail|layout)"
-      - "brand (template|styling)"
-
+    - format (presentation|document)
+    - create (chart|graph)
+    - design (thumbnail|layout)
+    - brand (template|styling)
     erato:
-      - "generate (image|video|avatar)"
-      - "create (voiceover|audio)"
-      - "find stock (footage|photos)"
-      - "assemble video"
-
+    - generate (image|video|avatar)
+    - create (voiceover|audio)
+    - find stock (footage|photos)
+    - assemble video
     clio:
-      - "review (content|video|document)"
-      - "check (brand|quality|compliance)"
-      - "fact.check"
-      - "proofread"
-
-    # Professional Fleet routing
+    - review (content|video|document)
+    - check (brand|quality|compliance)
+    - fact.check
+    - proofread
     magistrate:
-      - "legal (question|advice|info)"
-      - "contract (review|analysis)"
-      - "compliance (check|requirement)"
-      - "is it legal"
-      - "llc|corporation|business formation"
-      - "employment (law|regulation)"
-      - "can i (legally|sue|do)"
-      - "what are my (rights|obligations)"
-      - "california (law|regulation)"
-      - "nevada (law|regulation)"
-
+    - legal (question|advice|info)
+    - contract (review|analysis)
+    - compliance (check|requirement)
+    - is it legal
+    - llc|corporation|business formation
+    - employment (law|regulation)
+    - can i (legally|sue|do)
+    - what are my (rights|obligations)
+    - california (law|regulation)
+    - nevada (law|regulation)
     exchequer:
-      - "tax (question|planning|strategy)"
-      - "deduction"
-      - "estimated tax"
-      - "quarterly (payment|tax)"
-      - "s.?corp"
-      - "llc tax"
-      - "retirement (account|planning|contribution)"
-      - "sep.?ira|solo 401k"
-      - "wealth (building|strategy)"
-      - "how much tax"
-      - "california tax"
-      - "nevada tax"
+    - tax (question|planning|strategy)
+    - deduction
+    - estimated tax
+    - quarterly (payment|tax)
+    - s.?corp
+    - llc tax
+    - retirement (account|planning|contribution)
+    - sep.?ira|solo 401k
+    - wealth (building|strategy)
+    - how much tax
+    - california tax
+    - nevada tax
