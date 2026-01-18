@@ -1,0 +1,65 @@
+{
+  "name": "AEGIS-Rotation-Scheduler",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "cronExpression", "expression": "30 * * * *" }]
+        }
+      },
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8012/rotation/run-scheduled",
+        "options": {}
+      },
+      "name": "Run Scheduled Rotations",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.failed }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "Has Failures?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8014/notify",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"telegram\",\n  \"message\": \"🔴 AEGIS Rotation FAILED\\n\\nFailed rotations: {{ $json.failed }}\\nSuccessful: {{ $json.successful }}\\n\\nImmediate attention required!\",\n  \"priority\": \"critical\"\n}"
+      },
+      "name": "Notify Critical",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 250]
+    }
+  ],
+  "connections": {
+    "Schedule": { "main": [[{ "node": "Run Scheduled Rotations", "type": "main", "index": 0 }]] },
+    "Run Scheduled Rotations": { "main": [[{ "node": "Has Failures?", "type": "main", "index": 0 }]] },
+    "Has Failures?": { "main": [[{ "node": "Notify Critical", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [{ "name": "aegis" }, { "name": "rotation" }]
+}

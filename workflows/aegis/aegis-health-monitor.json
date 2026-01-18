@@ -1,0 +1,65 @@
+{
+  "name": "AEGIS-Health-Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "hours", "hoursInterval": 1 }]
+        }
+      },
+      "name": "Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8012/health/check-all",
+        "options": {}
+      },
+      "name": "Check All Credentials",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.unhealthy }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "Has Unhealthy?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8014/notify",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"channel\": \"telegram\",\n  \"message\": \"🔴 AEGIS Health Alert\\n\\nUnhealthy credentials: {{ $json.unhealthy }}\\nExpiring soon: {{ $json.expiring }}\\n\\nCheck AEGIS dashboard for details.\",\n  \"priority\": \"high\"\n}"
+      },
+      "name": "Notify HERMES",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [800, 250]
+    }
+  ],
+  "connections": {
+    "Schedule": { "main": [[{ "node": "Check All Credentials", "type": "main", "index": 0 }]] },
+    "Check All Credentials": { "main": [[{ "node": "Has Unhealthy?", "type": "main", "index": 0 }]] },
+    "Has Unhealthy?": { "main": [[{ "node": "Notify HERMES", "type": "main", "index": 0 }], []] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "staticData": null,
+  "tags": [{ "name": "aegis" }, { "name": "monitoring" }]
+}
