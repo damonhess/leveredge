@@ -1970,6 +1970,90 @@ agents:
           fields: [conflicts, recommendations]
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # PANOPTES - Integrity Guardian
+  # ─────────────────────────────────────────────────────────────────────────────
+  panoptes:
+    name: PANOPTES
+    version: "1.0"
+    description: "The All-Seeing Integrity Guardian - system verification and audit"
+    category: security
+    llm_powered: false
+
+    connection:
+      url: http://panoptes:8023
+      health_endpoint: /health
+      timeout_ms: 30000
+
+    capabilities:
+      - registry_validation
+      - port_scanning
+      - identity_verification
+      - code_scanning
+      - integrity_reporting
+
+    actions:
+
+      scan:
+        endpoint: /scan
+        method: POST
+        description: "Run full integrity scan"
+        timeout_ms: 60000
+        params: []
+        returns:
+          type: object
+          fields: [report_id, total_checks, passed_checks, issues, health_score]
+
+      status:
+        endpoint: /status
+        method: GET
+        description: "Quick status overview"
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: object
+          fields: [status, critical_issues, high_issues, total_issues]
+
+      dashboard:
+        endpoint: /dashboard
+        method: GET
+        description: "Dashboard view with key metrics"
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: object
+          fields: [system_status, registered_agents, critical_issues, health_score]
+
+      ports:
+        endpoint: /ports
+        method: GET
+        description: "Scan for port conflicts"
+        timeout_ms: 30000
+        params: []
+        returns:
+          type: object
+          fields: [checks, issues, conflicts]
+
+      verify-agents:
+        endpoint: /agents/verify
+        method: GET
+        description: "Verify agent identities"
+        timeout_ms: 60000
+        params: []
+        returns:
+          type: object
+          fields: [checks, issues, mismatches]
+
+      validate-registry:
+        endpoint: /registry/validate
+        method: GET
+        description: "Validate registry file"
+        timeout_ms: 10000
+        params: []
+        returns:
+          type: object
+          fields: [checks, valid, issues]
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # PERSONAL FLEET AGENTS (Life Management)
   # ─────────────────────────────────────────────────────────────────────────────
 

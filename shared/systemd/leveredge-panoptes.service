@@ -1,0 +1,21 @@
+[Unit]
+Description=LeverEdge PANOPTES Integrity Guardian
+After=network.target leveredge-atlas.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/leveredge/control-plane/agents/panoptes
+Environment=PYTHONUNBUFFERED=1
+Environment=REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml
+Environment=AGENTS_PATH=/opt/leveredge/control-plane/agents
+Environment=EVENT_BUS_URL=http://localhost:8099
+Environment=HERMES_URL=http://localhost:8014
+ExecStart=/opt/leveredge/shared/venv/bin/python panoptes.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
