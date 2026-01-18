@@ -2054,6 +2054,89 @@ agents:
           fields: [checks, valid, issues]
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # ASCLEPIUS - Divine Physician
+  # ─────────────────────────────────────────────────────────────────────────────
+  asclepius:
+    name: ASCLEPIUS
+    version: "1.0"
+    description: "The Divine Physician - automated healing and remediation"
+    category: infrastructure
+    llm_powered: false
+
+    connection:
+      url: http://asclepius:8024
+      health_endpoint: /health
+      timeout_ms: 60000
+
+    capabilities:
+      - service_healing
+      - port_healing
+      - registry_healing
+      - filesystem_healing
+      - database_healing
+      - network_healing
+      - emergency_protocols
+
+    actions:
+
+      plan-generate:
+        endpoint: /plan/generate
+        method: POST
+        description: "Generate healing plan from PANOPTES issues"
+        timeout_ms: 30000
+        params: []
+        returns:
+          type: object
+          fields: [plan_id, actions, requires_approval]
+
+      plan-execute:
+        endpoint: /plan/{plan_id}/execute
+        method: POST
+        description: "Execute a healing plan"
+        timeout_ms: 300000
+        params:
+          - name: plan_id
+            type: string
+            required: true
+        returns:
+          type: object
+          fields: [plan_id, overall_status, success_count]
+
+      restart-service:
+        endpoint: /heal/service/restart/{service_name}
+        method: POST
+        description: "Restart a service"
+        timeout_ms: 30000
+        params:
+          - name: service_name
+            type: string
+            required: true
+
+      emergency-full:
+        endpoint: /emergency/full
+        method: POST
+        description: "Full system healing"
+        timeout_ms: 600000
+        params: []
+
+      emergency-auto:
+        endpoint: /emergency/auto
+        method: POST
+        description: "Auto-heal from PANOPTES issues"
+        timeout_ms: 300000
+        params: []
+
+      emergency-nuclear:
+        endpoint: /emergency/nuclear
+        method: POST
+        description: "Nuclear restart - requires confirmation"
+        timeout_ms: 600000
+        params:
+          - name: confirm
+            type: boolean
+            required: true
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # PERSONAL FLEET AGENTS (Life Management)
   # ─────────────────────────────────────────────────────────────────────────────
 

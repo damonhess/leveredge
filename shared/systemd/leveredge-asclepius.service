@@ -1,0 +1,25 @@
+[Unit]
+Description=LeverEdge ASCLEPIUS - Divine Physician
+After=network.target leveredge-panoptes.service
+Wants=leveredge-panoptes.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/leveredge/control-plane/agents/asclepius
+Environment=PYTHONUNBUFFERED=1
+Environment=REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml
+Environment=AGENTS_PATH=/opt/leveredge/control-plane/agents
+Environment=EVENT_BUS_URL=http://localhost:8099
+Environment=HERMES_URL=http://localhost:8014
+Environment=CHRONOS_URL=http://localhost:8010
+Environment=HADES_URL=http://localhost:8008
+Environment=PANOPTES_URL=http://localhost:8023
+ExecStart=/opt/leveredge/shared/venv/bin/python asclepius.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
