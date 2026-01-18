@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
-THE CONVENER - Council Meeting Facilitator
+THE CONVENER - Smart Facilitated Council System
 Port: 8300
+Version: 2.0 (ROBERT'S RULES)
 
-Orchestrates multi-agent council meetings, managing turn-taking,
-discussion flow, decisions, and action items.
+Orchestrates multi-agent council meetings with intelligent facilitation,
+advisory voting, mid-meeting summons, private consultations, and
+natural conversation flow.
 
-Named after the one who brings together the council for deliberation.
+DAMON is the Chair - ultimate authority. Agents advise, Damon decides.
 """
 
 import os
@@ -14,10 +16,12 @@ import sys
 import json
 import httpx
 import uuid
+import re
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+from enum import Enum
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import anthropic
 
 # Add shared modules to path
@@ -26,9 +30,34 @@ from cost_tracker import CostTracker, log_llm_usage
 
 app = FastAPI(
     title="THE CONVENER",
-    description="Council Meeting Facilitator - Orchestrates multi-agent councils",
-    version="1.0.0"
+    description="Smart Facilitated Council System - ROBERT'S RULES - Where Agents Counsel and the Chair Commands",
+    version="2.0.0"
 )
+
+# =============================================================================
+# V2 ENUMS
+# =============================================================================
+
+class MeetingStatus(str, Enum):
+    CONVENED = "CONVENED"      # Created, not started
+    IN_SESSION = "IN_SESSION"  # Active discussion
+    VOTING = "VOTING"          # Vote in progress
+    ADJOURNED = "ADJOURNED"    # Complete
+
+class EntryType(str, Enum):
+    STATEMENT = "STATEMENT"
+    CHAIR_DIRECTION = "CHAIR_DIRECTION"
+    CONVENER_PROCEDURAL = "CONVENER_PROCEDURAL"
+    SUMMON = "SUMMON"
+    CONSULTATION = "CONSULTATION"
+    VOTE_CALL = "VOTE_CALL"
+    VOTE_RESPONSE = "VOTE_RESPONSE"
+    DECISION = "DECISION"
+
+class Confidence(str, Enum):
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
 
 # =============================================================================
 # CONFIGURATION
@@ -120,9 +149,11 @@ class ConveneRequest(BaseModel):
     title: str
     topic: str
     agenda: List[str] = []
-    council_members: Optional[List[str]] = None  # Auto-selected if not provided
-    convener: str = "ATLAS"
-    scribe: str = "ATHENA"
+    participants: Optional[List[str]] = None  # V2 name (alias for council_members)
+    council_members: Optional[List[str]] = None  # Legacy name
+    context: Optional[str] = None  # V2: Background context for participants
+    convener: str = "CONVENER"
+    scribe: str = "SCRIBE"
 
 class StartMeetingResponse(BaseModel):
     """Response when meeting is started"""
@@ -160,6 +191,78 @@ class RunConfig(BaseModel):
 class DelegateRequest(BaseModel):
     """Request to delegate a task to domain supervisor"""
     task: str
+
+# =============================================================================
+# V2 MODELS
+# =============================================================================
+
+class StartMeetingRequest(BaseModel):
+    """Request to start a meeting with V2 options"""
+    opening_remarks: Optional[str] = None
+    first_speaker: Optional[str] = None
+
+class SpeakRequest(BaseModel):
+    """Chair speaks/interjects in meeting"""
+    statement: str
+    direct_to: Optional[str] = None  # Direct floor to specific agent
+
+class SummonRequest(BaseModel):
+    """Summon an agent mid-meeting"""
+    agent: str
+    reason: str
+    specific_question: str
+
+class ConsultRequest(BaseModel):
+    """Agent consults non-present agent privately"""
+    consulting_agent: str
+    consult_target: str
+    question: str
+
+class VoteRequest(BaseModel):
+    """Request an advisory vote"""
+    question: str
+    options: List[str]
+    require_reasoning: bool = True
+
+class VoteResponse(BaseModel):
+    """Individual vote response"""
+    agent: str
+    position: str
+    reasoning: str
+    confidence: Confidence = Confidence.MEDIUM
+
+class DecideRequestV2(BaseModel):
+    """Chair makes final decision"""
+    decision: str
+    rationale: Optional[str] = None
+    action_items: Optional[List[Dict[str, str]]] = None  # [{assignee, task, deadline}]
+
+class NextTurnRequest(BaseModel):
+    """Request for next speaker with V2 signals"""
+    last_speaker_response: Optional[str] = None
+    last_speaker_signals: Optional[List[str]] = None
+
+class AdjournRequest(BaseModel):
+    """Adjourn meeting with optional closing remarks"""
+    closing_remarks: Optional[str] = None
+
+# In-memory meeting state (enhanced for V2)
+# This supplements the database with session state
+MEETING_STATE: Dict[str, Dict] = {}
+
+def get_meeting_state(meeting_id: str) -> Dict:
+    """Get or create in-memory state for a meeting"""
+    if meeting_id not in MEETING_STATE:
+        MEETING_STATE[meeting_id] = {
+            "floor_requests": [],
+            "current_speaker": None,
+            "turns_elapsed": 0,
+            "active_vote": None,
+            "votes_collected": [],
+            "summoned_during": [],
+            "consultations": []
+        }
+    return MEETING_STATE[meeting_id]
 
 # =============================================================================
 # DATABASE HELPERS
@@ -377,7 +480,7 @@ async def simulate_agent_response(
     expertise_str = ", ".join(profile.get("expertise", []))
     contributions_str = ", ".join(profile.get("typical_contributions", []))
 
-    system_prompt = f"""You are {agent_name}, participating in a council meeting.
+    system_prompt = f"""You are {agent_name}, participating in a CONCLAVE council meeting.
 
 Domain: {profile.get('domain', 'Unknown')}
 Expertise: {expertise_str}
@@ -388,7 +491,18 @@ You typically: {contributions_str}
 Respond in character. Be concise (2-4 sentences unless asked for detail).
 Build on what others have said. Disagree respectfully if warranted.
 Stay in your lane - defer to other experts when appropriate.
-Do not prefix your response with your name."""
+Do not prefix your response with your name.
+
+You may include these signals in your response:
+- [YIELD] - You're done, nothing more to add
+- [REQUEST_FLOOR] - You want to speak again soon (rarely needed)
+- [QUESTION: AGENT_NAME] - You want specific input from someone
+- [CONSULT: AGENT_NAME] - You need to check with a subordinate
+- [CONCERN] - You have reservations
+- [SUPPORT] - You endorse the direction
+- [NEED_INFO: topic] - Discussion is blocked without more data
+
+The Chair (Damon) makes all final decisions. You advise."""
 
     # Build conversation context
     context_parts = [f"## MEETING CONTEXT\n{meeting_context}"]
@@ -422,18 +536,73 @@ Do not prefix your response with your name."""
 # CONVENER LLM
 # =============================================================================
 
-CONVENER_SYSTEM = """You are ATLAS, the Convener of the Council. You facilitate meetings between AI agents.
+CONVENER_SYSTEM = """You are CONVENER, the master facilitator of THE CONCLAVE - a council of AI agents
+serving Damon, the Chair. Your role is to manage meeting flow with the skill of
+a seasoned parliamentarian.
 
-Your role:
-- Keep discussion focused on the agenda
-- Call on agents in logical order based on expertise
-- Synthesize viewpoints and identify consensus/disagreement
-- Capture decisions clearly
-- Assign action items with specific owners
-- Be commanding but fair
-- Never ramble - be concise and direct
+## YOUR POWERS
+- Decide who speaks next
+- Recognize agents who request the floor
+- Direct questions to appropriate experts
+- Summarize when discussion stalls
+- Suggest when it's time to vote or decide
+- Brief summoned agents on context
 
-You are NOT a participant with opinions. You are the facilitator who enables productive discussion."""
+## YOUR LIMITS
+- You CANNOT make decisions - only Damon can decide
+- You CANNOT silence or overrule the Chair
+- You CANNOT vote or express opinions on the topic
+- You MUST remain neutral and procedural
+
+## SPEAKER SELECTION LOGIC
+
+After each turn, analyze:
+
+1. DIRECT QUESTIONS - If speaker asked someone specific, they speak next
+2. FLOOR REQUESTS - Honor [REQUEST_FLOOR] signals in order received
+3. EXPERTISE MATCH - Who has relevant knowledge for current topic?
+4. PARTICIPATION BALANCE - Has someone important been silent too long?
+5. MEETING STAGE - Opening? Deep discussion? Time to converge?
+
+## SIGNALS TO WATCH FOR
+
+From agents:
+- [YIELD] - Done speaking, return to normal flow
+- [REQUEST_FLOOR] - Wants to speak soon
+- [QUESTION: AGENT] - Directing to specific agent
+- [CONSULT: AGENT] - Needs private sidebar
+- [CONCERN] - Has reservations (explore this)
+- [SUPPORT] - Endorses direction
+- [NEED_INFO: topic] - Discussion blocked on missing info
+
+From the Chair (Damon):
+- Direct commands always take priority
+- "Summon X" - Bring in new agent
+- "Vote on X" - Call advisory vote
+- "Decision: X" - Record final decision
+- "Adjourn" - End meeting
+
+## YOUR VOICE
+
+Speak formally but not stiffly:
+- "The Chair recognizes CATALYST."
+- "PRISM, you were asked directly. Please respond."
+- "GENDRY has requested the floor. GENDRY, proceed."
+- "We seem to have reached impasse. Chair, shall we vote?"
+- "LITTLEFINGER is consulting BRONN. One moment."
+
+## MEETING STAGES
+
+1. OPENING - Set context, first speaker presents
+2. DISCUSSION - Free-flowing expert input
+3. DEBATE - Disagreements explored
+4. CONVERGENCE - Narrowing to decision
+5. DECISION - Chair decides
+6. CLOSING - Actions assigned, adjourn
+
+Guide the meeting through these stages naturally. Don't rush, but don't let
+discussion circle endlessly. When you sense consensus or impasse, suggest
+moving forward."""
 
 async def convener_decide_next_speaker(
     meeting: Dict,
@@ -606,6 +775,72 @@ Keep it brief (3-4 sentences):
         return "Thank you, council. Meeting adjourned."
 
 # =============================================================================
+# SIGNAL PARSING
+# =============================================================================
+
+def parse_signals(response: str) -> Dict[str, Any]:
+    """Parse agent signals from their response"""
+    signals = {
+        "yield": False,
+        "request_floor": False,
+        "question_to": None,
+        "consult": None,
+        "concern": False,
+        "support": False,
+        "need_info": None
+    }
+
+    # [YIELD]
+    if "[YIELD]" in response:
+        signals["yield"] = True
+
+    # [REQUEST_FLOOR]
+    if "[REQUEST_FLOOR]" in response:
+        signals["request_floor"] = True
+
+    # [QUESTION: AGENT] or [QUESTION:AGENT]
+    question_match = re.search(r'\[QUESTION:\s*(\w+)\]', response, re.IGNORECASE)
+    if question_match:
+        signals["question_to"] = question_match.group(1).upper()
+
+    # [CONSULT: AGENT]
+    consult_match = re.search(r'\[CONSULT:\s*(\w+)\]', response, re.IGNORECASE)
+    if consult_match:
+        signals["consult"] = consult_match.group(1).upper()
+
+    # [CONCERN]
+    if "[CONCERN]" in response:
+        signals["concern"] = True
+
+    # [SUPPORT]
+    if "[SUPPORT]" in response:
+        signals["support"] = True
+
+    # [NEED_INFO: topic]
+    need_info_match = re.search(r'\[NEED_INFO:\s*([^\]]+)\]', response, re.IGNORECASE)
+    if need_info_match:
+        signals["need_info"] = need_info_match.group(1).strip()
+
+    return signals
+
+
+async def generate_briefing_summary(transcript: List[Dict], max_entries: int = 15) -> str:
+    """Generate a briefing summary for summoned agents"""
+    if not transcript:
+        return "Meeting just started. No prior discussion."
+
+    recent = transcript[-max_entries:]
+    summary_parts = []
+
+    for entry in recent:
+        speaker = entry.get("speaker", "Unknown")
+        msg = entry.get("message", "")[:300]
+        summary_parts.append(f"- {speaker}: {msg}")
+
+    return "\n".join(summary_parts)
+
+
+# =============================================================================
 # HELPERS
 # =============================================================================
 
@@ -684,15 +919,20 @@ async def health():
 
 @app.post("/council/convene")
 async def convene_meeting(req: ConveneRequest):
-    """Create a new council meeting"""
-
-    # Select agents if not provided
-    if req.council_members:
+    """
+    Create a new council meeting.
+    V2: Returns CONVENED status and matches spec format.
+    """
+    # Select agents if not provided - support both V2 (participants) and legacy (council_members)
+    if req.participants:
+        members = req.participants
+    elif req.council_members:
         members = req.council_members
     else:
         members = select_agents_for_topic(req.topic)
 
     # Create meeting record
+    now = datetime.utcnow()
     meeting_data = {
         "title": req.title,
         "topic": req.topic,
@@ -700,12 +940,18 @@ async def convene_meeting(req: ConveneRequest):
         "council_members": members,
         "convener": req.convener,
         "scribe": req.scribe,
-        "status": "scheduled"
+        "status": "scheduled"  # DB constraint - V2 maps to "CONVENED" in API response
     }
+    # Add context to metadata if provided (table may not have metadata column yet)
+    if req.context:
+        meeting_data["metadata"] = {"context": req.context}
 
     meeting = await db_insert("council_meetings", meeting_data)
     if not meeting:
         raise HTTPException(status_code=500, detail="Failed to create meeting")
+
+    # Initialize meeting state
+    get_meeting_state(meeting["id"])
 
     await publish_event("meeting.created", {
         "meeting_id": meeting["id"],
@@ -716,50 +962,85 @@ async def convene_meeting(req: ConveneRequest):
     return {
         "meeting_id": meeting["id"],
         "title": req.title,
-        "topic": req.topic,
-        "council_members": members,
-        "agenda": req.agenda,
-        "status": "scheduled",
-        "message": "Meeting convened. Call /council/{id}/start to begin."
+        "status": "CONVENED",
+        "participants": members,
+        "convened_at": now.isoformat(),
+        "message": "Council convened. Awaiting Chair to start the meeting."
     }
 
 @app.post("/council/{meeting_id}/start")
-async def start_meeting(meeting_id: str):
-    """Start a council meeting"""
-
+async def start_meeting(meeting_id: str, req: StartMeetingRequest = None):
+    """
+    Start a council meeting.
+    V2: Supports opening_remarks and first_speaker parameters.
+    """
     meeting = await get_meeting(meeting_id)
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    if meeting["status"] != "scheduled":
-        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not scheduled")
+    if meeting["status"] not in ["scheduled", "CONVENED"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not scheduled/convened")
 
-    # Update status
+    state = get_meeting_state(meeting_id)
+
+    # Update status (use "active" for DB constraint compatibility)
+    now = datetime.utcnow()
     await db_update("council_meetings", {"id": meeting_id}, {
         "status": "active",
-        "started_at": datetime.utcnow().isoformat()
+        "started_at": now.isoformat()
     })
 
     # Generate opening statement
     opening = await convener_opening(meeting)
 
+    # Add Chair's opening remarks if provided
+    if req and req.opening_remarks:
+        opening = f"Chair's opening: {req.opening_remarks}\n\n{opening}"
+
     # Record opening to transcript
     await record_to_transcript(
         meeting_id,
-        "ATLAS",
+        "CONVENER",
         opening,
         message_type="summary"
     )
 
+    # Determine first speaker
+    first_speaker = None
+    convener_direction = ""
+    if req and req.first_speaker:
+        first_speaker = req.first_speaker.upper()
+        state["current_speaker"] = first_speaker
+        convener_direction = f"Chair has recognized {first_speaker} to open. {first_speaker}, you have the floor."
+    else:
+        members = meeting.get("council_members", [])
+        if members:
+            first_speaker = members[0]
+            state["current_speaker"] = first_speaker
+            convener_direction = f"The Chair recognizes {first_speaker} to begin. {first_speaker}, you have the floor."
+
+    if convener_direction:
+        await record_to_transcript(
+            meeting_id,
+            "CONVENER",
+            convener_direction,
+            message_type="CONVENER_PROCEDURAL"
+        )
+
     await publish_event("meeting.started", {
         "meeting_id": meeting_id,
         "topic": meeting["topic"],
-        "members": meeting["council_members"]
+        "members": meeting["council_members"],
+        "first_speaker": first_speaker
     })
 
     return {
         "meeting_id": meeting_id,
-        "status": "active",
+        "status": "IN_SESSION",
+        "started_at": now.isoformat(),
+        "convener_says": f"This council is now in session. Topic: {meeting.get('topic', 'TBD')}. {convener_direction}",
+        "current_speaker": first_speaker,
+        "floor_requests": [],
         "opening_statement": opening,
         "participants": meeting["council_members"],
         "agenda": meeting.get("agenda", [])
@@ -1046,6 +1327,618 @@ async def list_recent_meetings():
     except Exception as e:
         print(f"List recent failed: {e}")
     return {"recent_meetings": []}
+
+
+# =============================================================================
+# V2 ENDPOINTS - CONCLAVE ROBERT'S RULES
+# =============================================================================
+
+@app.post("/council/{meeting_id}/next")
+async def next_speaker(meeting_id: str, req: NextTurnRequest = None):
+    """
+    V2 - CONVENER determines who speaks next based on context and signals.
+    Returns the next speaker and CONVENER's announcement.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not in session")
+
+    state = get_meeting_state(meeting_id)
+    transcript = await get_transcript(meeting_id)
+    profiles = await get_all_agent_profiles()
+
+    # Parse signals from last response if provided
+    signals = {}
+    if req and req.last_speaker_response:
+        signals = parse_signals(req.last_speaker_response)
+
+        # Handle REQUEST_FLOOR signal
+        if signals.get("request_floor"):
+            last_speaker = transcript[-1]["speaker"] if transcript else None
+            if last_speaker and last_speaker not in state["floor_requests"]:
+                state["floor_requests"].append(last_speaker)
+
+    # Priority 1: Direct question from last speaker
+    if signals.get("question_to"):
+        target = signals["question_to"]
+        members = meeting.get("council_members", [])
+        if target in members or target in [p.upper() for p in members]:
+            state["current_speaker"] = target
+            state["turns_elapsed"] += 1
+            return {
+                "next_speaker": target,
+                "convener_says": f"{target}, you were asked directly. Please respond.",
+                "floor_requests": state["floor_requests"],
+                "meeting_stage": "DISCUSSION",
+                "turns_elapsed": state["turns_elapsed"]
+            }
+
+    # Priority 2: Floor requests (FIFO)
+    if state["floor_requests"]:
+        next_agent = state["floor_requests"].pop(0)
+        state["current_speaker"] = next_agent
+        state["turns_elapsed"] += 1
+        return {
+            "next_speaker": next_agent,
+            "convener_says": f"{next_agent} has requested the floor. {next_agent}, proceed.",
+            "floor_requests": state["floor_requests"],
+            "meeting_stage": "DISCUSSION",
+            "turns_elapsed": state["turns_elapsed"]
+        }
+
+    # Priority 3-5: Use LLM to decide
+    next_speaker_name, directive = await convener_decide_next_speaker(meeting, transcript, profiles)
+
+    state["current_speaker"] = next_speaker_name
+    state["turns_elapsed"] += 1
+
+    # Generate CONVENER's announcement
+    convener_announcement = f"The Chair recognizes {next_speaker_name}."
+    if directive:
+        convener_announcement += f" {directive}"
+
+    return {
+        "next_speaker": next_speaker_name,
+        "convener_says": convener_announcement,
+        "floor_requests": state["floor_requests"],
+        "meeting_stage": "DISCUSSION",
+        "turns_elapsed": state["turns_elapsed"]
+    }
+
+
+@app.post("/council/{meeting_id}/speak")
+async def chair_speak(meeting_id: str, req: SpeakRequest):
+    """
+    V2 - Chair (DAMON) interjects or directs the meeting.
+    This takes priority over normal flow.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not in session")
+
+    state = get_meeting_state(meeting_id)
+
+    # Record Chair's statement
+    await record_to_transcript(
+        meeting_id,
+        "CHAIR",
+        req.statement,
+        message_type="CHAIR_DIRECTION"
+    )
+
+    convener_response = "The Chair intervenes."
+
+    if req.direct_to:
+        state["current_speaker"] = req.direct_to.upper()
+        convener_response = f"The Chair intervenes. {req.direct_to.upper()}, the Chair addresses you directly."
+
+    await publish_event("chair.spoke", {
+        "meeting_id": meeting_id,
+        "statement": req.statement[:100],
+        "directed_to": req.direct_to
+    })
+
+    return {
+        "acknowledged": True,
+        "convener_says": convener_response,
+        "current_speaker": state["current_speaker"],
+        "chair_statement_recorded": True
+    }
+
+
+@app.post("/council/{meeting_id}/summon")
+async def summon_agent(meeting_id: str, req: SummonRequest):
+    """
+    V2 - Chair summons a new agent into the meeting mid-session.
+    The agent is briefed and responds to the specific question.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not in session")
+
+    state = get_meeting_state(meeting_id)
+    transcript = await get_transcript(meeting_id)
+    decisions = await db_get("council_decisions", {"meeting_id": meeting_id})
+
+    # Generate briefing for summoned agent
+    briefing_summary = await generate_briefing_summary(transcript)
+    decisions_summary = "\n".join([f"- {d.get('decision', '')[:200]}" for d in decisions]) if decisions else "None yet."
+
+    # Call the summoned agent with briefing
+    agent_name = req.agent.upper()
+    profile = await get_agent_profile(agent_name)
+
+    briefing_prompt = f"""You have been SUMMONED to an active council meeting.
+
+MEETING: {meeting.get('title', 'Council Meeting')}
+TOPIC: {meeting.get('topic', '')}
+
+KEY POINTS SO FAR:
+{briefing_summary}
+
+DECISIONS MADE:
+{decisions_summary}
+
+YOU WERE SUMMONED BECAUSE:
+{req.reason}
+
+THE CHAIR ASKS:
+{req.specific_question}
+
+Respond to the Chair's question. You are now a participant and may be called on again."""
+
+    # Get response from summoned agent
+    agent_response = await simulate_agent_response(
+        agent_name,
+        briefing_prompt,
+        req.specific_question,
+        [],
+        None
+    )
+
+    # Add to participants
+    members = meeting.get("council_members", [])
+    if agent_name not in members:
+        members.append(agent_name)
+        await db_update("council_meetings", {"id": meeting_id}, {"council_members": members})
+
+    state["summoned_during"].append(agent_name)
+    state["current_speaker"] = agent_name
+
+    # Record summon and response to transcript
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        f"The Chair summons {agent_name}. {agent_name}, you've been briefed on our discussion. The Chair asks: {req.specific_question}",
+        message_type="SUMMON"
+    )
+
+    await record_to_transcript(
+        meeting_id,
+        agent_name,
+        agent_response,
+        message_type="discussion"
+    )
+
+    await publish_event("agent.summoned", {
+        "meeting_id": meeting_id,
+        "agent": agent_name,
+        "reason": req.reason
+    })
+
+    return {
+        "summoned": agent_name,
+        "briefing_sent": True,
+        "convener_says": f"The Chair summons {agent_name} to provide expertise. {agent_name}, you've been briefed on our discussion of {meeting.get('topic', 'the current topic')}. The Chair asks: {req.specific_question}",
+        f"{agent_name.lower()}_response": agent_response,
+        f"{agent_name.lower()}_status": "ACTIVE_PARTICIPANT"
+    }
+
+
+@app.post("/council/{meeting_id}/consult")
+async def consult_agent(meeting_id: str, req: ConsultRequest):
+    """
+    V2 - An agent privately queries a non-present agent.
+    The consultation happens without adding the target to the meeting.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not in session")
+
+    state = get_meeting_state(meeting_id)
+
+    consulting = req.consulting_agent.upper()
+    target = req.consult_target.upper()
+
+    # Target gets minimal context - just the question
+    target_prompt = f"""{consulting} is in a council meeting and needs quick information.
+
+Question: {req.question}
+
+Provide a brief, factual response. No meeting context needed."""
+
+    # Get response from consulted agent
+    target_response = await simulate_agent_response(
+        target,
+        "",
+        req.question,
+        [],
+        target_prompt
+    )
+
+    # Record consultation
+    state["consultations"].append({
+        "by": consulting,
+        "of": target,
+        "question": req.question,
+        "response": target_response,
+        "timestamp": datetime.utcnow().isoformat()
+    })
+
+    # Record to transcript (minimal)
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        f"{consulting} consulted {target}.",
+        message_type="CONSULTATION",
+        metadata={"consulted": target, "question": req.question[:100]}
+    )
+
+    await publish_event("consultation.completed", {
+        "meeting_id": meeting_id,
+        "consulting_agent": consulting,
+        "consulted_agent": target
+    })
+
+    return {
+        "consultation_complete": True,
+        "consulting_agent": consulting,
+        "consulted": target,
+        f"{target.lower()}_response": target_response,
+        "convener_says": f"{consulting} has consulted with {target}. {consulting}, please continue with this information."
+    }
+
+
+@app.post("/council/{meeting_id}/vote")
+async def call_vote(meeting_id: str, req: VoteRequest):
+    """
+    V2 - Chair calls for an advisory vote.
+    Collects votes from all participants with reasoning.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not in session")
+
+    state = get_meeting_state(meeting_id)
+    members = meeting.get("council_members", [])
+    transcript = await get_transcript(meeting_id)
+
+    # Record vote call
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        f"The Chair calls for an advisory vote. Question: {req.question} Options: {', '.join(req.options)}",
+        message_type="VOTE_CALL"
+    )
+
+    # Collect votes from all participants
+    votes_collected = []
+    results = {option: {"count": 0, "voters": []} for option in req.options}
+
+    for member in members:
+        if member in ["CONVENER", "SCRIBE"]:
+            continue  # Skip procedural roles
+
+        # Generate vote from agent
+        vote_prompt = f"""The Chair has called for an advisory vote in the council meeting.
+
+QUESTION: {req.question}
+OPTIONS: {', '.join(req.options)}
+
+Recent discussion context:
+{chr(10).join([f"{t['speaker']}: {t['message'][:150]}" for t in transcript[-5:]])}
+
+You must vote. Choose one option and explain your reasoning.
+State your confidence level: HIGH, MEDIUM, or LOW.
+
+Format your response as:
+VOTE: [Your chosen option]
+REASONING: [Why you chose this]
+CONFIDENCE: [HIGH/MEDIUM/LOW]"""
+
+        try:
+            vote_response = await simulate_agent_response(
+                member,
+                "",
+                req.question,
+                [],
+                vote_prompt
+            )
+        except Exception as e:
+            vote_response = f"Unable to get vote: {str(e)}"
+
+        # Parse vote response
+        position = req.options[0]  # Default
+        reasoning = vote_response if vote_response else "No reasoning provided"
+        confidence = Confidence.MEDIUM
+
+        # Try to extract structured vote
+        if vote_response and "VOTE:" in vote_response:
+            lines = vote_response.split("\n")
+            for line in lines:
+                if line.startswith("VOTE:"):
+                    pos = line.replace("VOTE:", "").strip()
+                    for opt in req.options:
+                        if opt.lower() in pos.lower():
+                            position = opt
+                            break
+                elif line.startswith("REASONING:"):
+                    reasoning = line.replace("REASONING:", "").strip()
+                elif line.startswith("CONFIDENCE:"):
+                    conf = line.replace("CONFIDENCE:", "").strip().upper()
+                    if conf in ["HIGH", "MEDIUM", "LOW"]:
+                        confidence = Confidence(conf)
+
+        vote_entry = {
+            "agent": member,
+            "position": position,
+            "reasoning": reasoning[:300],
+            "confidence": confidence.value
+        }
+
+        votes_collected.append(vote_entry)
+        results[position]["count"] += 1
+        results[position]["voters"].append(vote_entry)
+
+        # Record individual vote
+        await record_to_transcript(
+            meeting_id,
+            member,
+            f"VOTE: {position} | {reasoning[:100]}...",
+            message_type="VOTE_RESPONSE"
+        )
+
+    state["votes_collected"] = votes_collected
+
+    # Generate vote summary
+    summary_parts = []
+    for option, data in results.items():
+        if data["count"] > 0:
+            voter_names = [v["agent"] for v in data["voters"]]
+            summary_parts.append(f"{option}: {data['count']} vote(s) ({', '.join(voter_names)})")
+
+    await publish_event("vote.completed", {
+        "meeting_id": meeting_id,
+        "question": req.question,
+        "results": {k: v["count"] for k, v in results.items()}
+    })
+
+    return {
+        "vote_complete": True,
+        "question": req.question,
+        "options": req.options,
+        "results": results,
+        "convener_says": f"Vote complete. Results: {'. '.join(summary_parts)}. This is advisory - DAMON, your decision?"
+    }
+
+
+@app.post("/council/{meeting_id}/decide-v2")
+async def make_decision_v2(meeting_id: str, req: DecideRequestV2):
+    """
+    V2 - Chair records a final decision with rationale and action items.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    state = get_meeting_state(meeting_id)
+
+    # Generate decision ID
+    now = datetime.utcnow()
+    decision_id = f"DEC-{now.strftime('%Y-%m%d')}-{str(uuid.uuid4())[:3].upper()}"
+
+    # Check if there was a recent vote
+    vote_reference = None
+    if state.get("votes_collected"):
+        vote_reference = "Advisory vote collected"
+
+    # Record decision
+    decision = await db_insert("council_decisions", {
+        "meeting_id": meeting_id,
+        "decision": req.decision,
+        "proposed_by": "CHAIR",
+        "approved_by": ["DAMON"],
+        "status": "approved",
+        "metadata": {
+            "decision_id": decision_id,
+            "rationale": req.rationale,
+            "vote_reference": vote_reference
+        }
+    })
+
+    # Record action items if provided
+    action_ids = []
+    if req.action_items:
+        for item in req.action_items:
+            action = await db_insert("council_actions", {
+                "meeting_id": meeting_id,
+                "action": item.get("task", ""),
+                "assigned_to": item.get("assignee", "UNASSIGNED"),
+                "due_date": item.get("deadline"),
+                "status": "ASSIGNED"
+            })
+            if action:
+                action_ids.append(action["id"])
+
+    # Record to transcript
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        f"The Chair has decided: {req.decision}",
+        message_type="DECISION",
+        metadata={"decision_id": decision_id}
+    )
+
+    scribe_note = "Decision recorded."
+    if req.action_items:
+        assignees = [item.get("assignee", "?") for item in req.action_items]
+        scribe_note += f" Action items assigned to {', '.join(assignees)}."
+
+    await publish_event("decision.made", {
+        "meeting_id": meeting_id,
+        "decision_id": decision_id,
+        "decision": req.decision[:200],
+        "action_items_count": len(req.action_items or [])
+    })
+
+    return {
+        "decision_recorded": True,
+        "decision_id": decision_id,
+        "convener_says": f"The Chair has decided: {req.decision}. SCRIBE, record this decision and the assigned action items.",
+        "scribe_confirms": scribe_note
+    }
+
+
+@app.post("/council/{meeting_id}/adjourn-v2")
+async def adjourn_meeting_v2(meeting_id: str, req: AdjournRequest = None):
+    """
+    V2 - End the meeting with V2 summary format.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail=f"Meeting is {meeting['status']}, not in session")
+
+    state = get_meeting_state(meeting_id)
+    transcript = await get_transcript(meeting_id)
+    decisions = await db_get("council_decisions", {"meeting_id": meeting_id})
+    actions = await db_get("council_actions", {"meeting_id": meeting_id})
+
+    # Calculate duration
+    started_at = meeting.get("started_at")
+    duration_minutes = 0
+    if started_at:
+        try:
+            start = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+            duration_minutes = int((datetime.utcnow() - start.replace(tzinfo=None)).total_seconds() / 60)
+        except Exception:
+            pass
+
+    # Generate closing
+    closing_remarks = req.closing_remarks if req else None
+    closing = await convener_closing(meeting, transcript, decisions, actions)
+
+    if closing_remarks:
+        closing = f"Chair's closing remarks: {closing_remarks}\n\n{closing}"
+
+    # Record closing
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        "This council is adjourned. Thank you all for your contributions.",
+        message_type="summary"
+    )
+
+    # Update meeting status (use "completed" for DB constraint compatibility)
+    now = datetime.utcnow()
+    await db_update("council_meetings", {"id": meeting_id}, {
+        "status": "completed",
+        "ended_at": now.isoformat()
+    })
+
+    # Build V2 summary
+    summary = {
+        "title": meeting.get("title", "Council Meeting"),
+        "date": meeting.get("created_at", now.isoformat())[:10],
+        "participants": meeting.get("council_members", []),
+        "summoned_during": state.get("summoned_during", []),
+        "consultations": [
+            {"by": c["by"], "of": c["of"], "re": c["question"][:50]}
+            for c in state.get("consultations", [])
+        ],
+        "decisions": [
+            {
+                "id": d.get("metadata", {}).get("decision_id", f"DEC-{d.get('id', '?')[:8]}"),
+                "decision": d.get("decision", ""),
+                "vote": d.get("metadata", {}).get("vote_reference"),
+                "rationale": d.get("metadata", {}).get("rationale")
+            }
+            for d in decisions
+        ],
+        "action_items": [
+            {
+                "assignee": a.get("assigned_to", "?"),
+                "task": a.get("action", ""),
+                "deadline": a.get("due_date"),
+                "status": a.get("status", "ASSIGNED")
+            }
+            for a in actions
+        ],
+        "key_insights": [],  # Could be extracted by LLM
+        "open_questions": []  # Could be extracted by LLM
+    }
+
+    await publish_event("meeting.adjourned", {
+        "meeting_id": meeting_id,
+        "topic": meeting["topic"],
+        "duration_minutes": duration_minutes,
+        "decisions_count": len(decisions),
+        "actions_count": len(actions)
+    })
+
+    # Clean up state
+    if meeting_id in MEETING_STATE:
+        del MEETING_STATE[meeting_id]
+
+    return {
+        "meeting_id": meeting_id,
+        "status": "ADJOURNED",
+        "adjourned_at": now.isoformat(),
+        "duration_minutes": duration_minutes,
+        "convener_says": "This council is adjourned. Thank you all for your contributions.",
+        "summary": summary,
+        "transcript_available": f"/council/{meeting_id}/transcript",
+        "scribe_note": "Full transcript and summary saved to ATHENA knowledge base."
+    }
+
+
+@app.get("/council/{meeting_id}/transcript")
+async def get_full_transcript(meeting_id: str):
+    """
+    V2 - Get the full meeting transcript.
+    """
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    transcript = await get_transcript(meeting_id, limit=500)
+
+    return {
+        "meeting_id": meeting_id,
+        "title": meeting.get("title"),
+        "topic": meeting.get("topic"),
+        "status": meeting.get("status"),
+        "participants": meeting.get("council_members", []),
+        "entries": transcript,
+        "entry_count": len(transcript)
+    }
 
 
 # =============================================================================
