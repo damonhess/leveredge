@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-LeverEdge AI launches March 1, 2026. Infrastructure is complete with 40+ agents. This document focuses on post-launch growth and future product development.
+LeverEdge AI launches March 1, 2026. Infrastructure is designed with 40+ agents across 8 themed domains. This document focuses on post-launch growth and future product development.
 
 ---
 
@@ -22,18 +22,32 @@ LeverEdge AI launches March 1, 2026. Infrastructure is complete with 40+ agents.
 
 ---
 
+## Domain Architecture (Finalized)
+
+| Domain | Theme | Supervisor | Purpose |
+|--------|-------|------------|---------|
+| **GAIA** | Primordial Creation | GAIA | Emergency bootstrap |
+| **PANTHEON** | Mount Olympus | ATLAS | System & strategy |
+| **SENTINELS** | Mythic Guardians | GRIFFIN | Security |
+| **THE SHIRE** | LOTR Hobbit | GANDALF | Personal wellness |
+| **THE KEEP** | Game of Thrones | TYRION | Business ops |
+| **CHANCERY** | Royal Court | MAGISTRATE | Legal/financial |
+| **ALCHEMY** | Mystic Workshop | CATALYST | Creative |
+| **ARIA SANCTUM** | Ethereal | ARIA | Personal AI |
+
+---
+
 ## Q2 2026: Post-Launch
 
-### Public Infrastructure (To Build)
+### Public Infrastructure
 | Item | Priority | Notes |
 |------|----------|-------|
 | Website (leveredgeai.com) | High | Marketing site |
 | Sales portal | High | Deal tracking |
-| Chatbot for lead capture | High | Website integration |
+| Lead capture chatbot | High | Website integration |
 | Blog/content area | Medium | Thought leadership |
-| Deployment UI | Medium | Internal tool |
 
-### CRM System (To Build)
+### CRM System
 | Item | Priority | Notes |
 |------|----------|-------|
 | Lead tracking | High | Pipeline visibility |
@@ -78,6 +92,24 @@ ARIA becomes the unified interface for all personal and business operations.
 
 ---
 
+## CONCLAVE Evolution
+
+### V2 (Current Spec)
+- Smart facilitation (LLM-powered CONVENER)
+- Mid-meeting summoning
+- Supervisor consultation
+- Advisory votes
+- Natural meeting flow
+
+### V3 (Future)
+- Persistent meeting memory
+- Cross-meeting context
+- Automated follow-up tracking
+- Meeting templates by type
+- External participant support (clients?)
+
+---
+
 ## Technical Debt (Q2)
 
 | Item | Notes |
@@ -118,7 +150,9 @@ ARIA becomes the unified interface for all personal and business operations.
 5. **Ship over perfect** - Good enough to demo > perfect but hidden
 6. **Document as you go** - Future you will thank present you
 7. **ARIA is the interface, agents are the capability** - Users talk to ARIA
+8. **Damon is Chair** - Agents advise, you decide
 
 ---
 
+*See [LOOSE-ENDS.md](LOOSE-ENDS.md) for current priorities.*
 *See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for what's already built.*

@@ -1028,3 +1028,23 @@ sudo bash /opt/leveredge/control-plane/agents/aegis/install_v2.sh
 - GET /health/dashboard - traffic light status
 - GET /credentials - list all (no values exposed)
 - POST /credentials/{name}/test - health check
+
+### 2026-01-18 01:07 - [CONVENER V2 Upgrade]
+**Context:** Upgraded THE CONVENER to V2 with Smart Facilitated Councils
+**Discovery:** Database status constraints limited valid status values to scheduled/active/completed. V2 spec wanted CONVENED/IN_SESSION/ADJOURNED.
+
+**Solution:** 
+- Map V2 status names in API responses while using DB-compatible values internally
+- CONVENED → stored as "scheduled"
+- IN_SESSION → stored as "active"  
+- ADJOURNED → stored as "completed"
+
+**Key V2 Features Built:**
+- Signal parsing: [YIELD], [REQUEST_FLOOR], [QUESTION: AGENT], [CONCERN], [SUPPORT], [NEED_INFO]
+- Floor request queue with FIFO handling
+- Mid-meeting agent summoning with automatic briefing
+- Private consultations without adding agent to meeting
+- Advisory voting with position/reasoning/confidence
+- Rich meeting summaries
+
+**Prevention:** When designing V2 APIs, check existing DB constraints first and map internally.

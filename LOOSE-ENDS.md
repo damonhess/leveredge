@@ -9,7 +9,7 @@
 
 **Portfolio:** $58,500 - $117,000 (28 wins)
 **Days to Launch:** 43 (March 1, 2026)
-**Agents Built:** 40+ (All fleets operational)
+**Agents Designed:** 40+ (All fleets specified)
 
 See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
@@ -19,8 +19,9 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 1 | Wire cost tracking into ARIA workflow | llm_usage tables built, need to integrate into actual API calls |
-| 2 | Convert agents to native n8n nodes | Currently using Code nodes, need visibility |
+| 1 | Build CONCLAVE V2 | Smart facilitated councils - spec at `/opt/leveredge/specs/conclave-v2-smart-councils.md` |
+| 2 | Wire cost tracking into ARIA workflow | llm_usage tables built, need integration |
+| 3 | Convert agents to native n8n nodes | Currently Code nodes, need visibility |
 
 ---
 
@@ -28,10 +29,10 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 3 | Deploy new agents to containers | 35 services built, need deployment |
-| 4 | Install dependencies for new services | Python/Node packages for new agents |
-| 5 | Test full fleet end-to-end | Integration testing across all agents |
-| 6 | ARIA V4.0 integration | Wire up FILE-PROCESSOR, MEMORY-V2, VOICE into main ARIA workflow |
+| 4 | Deploy new agents to containers | 35 services designed, need deployment |
+| 5 | Build Command Center UI | Garden Atrium theme, portal navigation |
+| 6 | Generate Midjourney assets | 9 domain backgrounds + hub |
+| 7 | Test full fleet end-to-end | Integration testing |
 
 ---
 
@@ -39,12 +40,10 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 7 | Dev credential separation | Google Sheets (9 refs), Telegram (14 refs), Google Drive (4 refs), Pinecone, Fal AI need DEV versions |
-| 8 | Cloudflare Access for Control Plane | Currently basic auth, target: Cloudflare Access with email |
-| 9 | AEGIS expiration alerts | Add credential rotation reminders |
-| 10 | GitHub account consolidation | damonhess vs damonhess-dev cleanup |
-| 11 | GitHub repo audit | Ensure all repos have remotes, proper SSH keys |
-| 12 | ARIA/PA tool routing separation | Create ARIA-specific tool versions |
+| 8 | Dev credential separation | Google Sheets (9 refs), Telegram (14 refs), Google Drive (4 refs) |
+| 9 | Cloudflare Access for Control Plane | Currently basic auth, target: Cloudflare Access |
+| 10 | AEGIS expiration alerts | Credential rotation reminders |
+| 11 | GitHub account consolidation | damonhess vs damonhess-dev cleanup |
 
 ---
 
@@ -52,8 +51,8 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 | # | Item | Notes |
 |---|------|-------|
-| 13 | Geopolitical Intelligence System | Product design - multi-source news with bias detection |
-| 14 | Event feed in ARIA | Wire up Fleet Dashboard visibility |
+| 12 | Geopolitical Intelligence System | Product design - multi-source news with bias detection |
+| 13 | Event feed in ARIA | Wire up Fleet Dashboard visibility |
 
 ---
 
@@ -67,11 +66,16 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 - [ ] Frontend polished (Bolt.new)
 
 ### Jan 31 - Comprehensive Design Complete
-- [ ] All agent specs written
-- [ ] Infrastructure architecture docs
-- [ ] Business domain planned
-- [ ] Personal domain planned
-- [ ] Naming conventions finalized
+- [x] All agent specs written
+- [x] Infrastructure architecture docs
+- [x] Business domain planned (THE KEEP - GoT theme)
+- [x] Personal domain planned (THE SHIRE - LOTR theme)
+- [x] Naming conventions finalized
+- [x] Domain themes approved (8 domains)
+- [x] Council members & supervisors assigned
+- [x] CONCLAVE V2 spec written
+- [ ] Command Center UI designed
+- [ ] Midjourney assets generated
 
 ### Feb 28 - Outreach Complete
 - [ ] Niche selected (via CHIRON/SCHOLAR)
@@ -81,12 +85,25 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 
 ### March 1 - IN BUSINESS
 - [ ] Ready for paying clients
-- [ ] Everything DESIGNED (specs complete)
+- [ ] Core agents deployed
+- [ ] CONCLAVE V2 operational
 
 ### May/June - Scale
-- [ ] All agents BUILT
+- [ ] All agents fully built
 - [ ] $30K+ MRR
 - [ ] Quit government job
+
+---
+
+## Completed This Session (Jan 17)
+
+- [x] Finalized all 8 domain themes
+- [x] Assigned supervisors to each domain
+- [x] Identified 16 council-eligible agents
+- [x] Designed CONCLAVE V2 with smart facilitation
+- [x] Added summoning, consulting, advisory votes
+- [x] Garden Atrium concept for Command Center hub
+- [x] Full agent registry with ports and functions
 
 ---
 
@@ -97,6 +114,7 @@ See [COMPLETED-ARCHIVE.md](COMPLETED-ARCHIVE.md) for full build history.
 | `COMPLETED-ARCHIVE.md` | Historical build record |
 | `FUTURE-VISION.md` | Q2+ roadmap |
 | `ARCHITECTURE.md` | System design |
-| `AGENT-ROUTING.md` | Who does what |
+| `AGENT-ROUTING.md` | Who does what (40+ agents) |
 | `ARIA-VISION.md` | ARIA enhancements |
 | `LESSONS-LEARNED.md` | Knowledge base |
+| `specs/conclave-v2-smart-councils.md` | Council system spec |
