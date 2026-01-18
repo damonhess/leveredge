@@ -30,10 +30,10 @@ from pydantic import BaseModel
 # ═══════════════════════════════════════════════════════════════════════════════
 
 REGISTRY_PATH = Path(os.getenv("REGISTRY_PATH", "/opt/leveredge/config/agent-registry.yaml"))
-EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
-FASTAPI_ATLAS_URL = os.getenv("FASTAPI_ATLAS_URL", "http://atlas:8007")
-N8N_ATLAS_URL = os.getenv("N8N_ATLAS_URL", "http://control-n8n:5679")
-HERMES_URL = os.getenv("HERMES_URL", "http://hermes:8014")
+EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
+FASTAPI_ATLAS_URL = os.getenv("FASTAPI_ATLAS_URL", "http://localhost:8007")
+N8N_ATLAS_URL = os.getenv("N8N_ATLAS_URL", "http://localhost:5679")
+HERMES_URL = os.getenv("HERMES_URL", "http://localhost:8014")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HEALTH TRACKING

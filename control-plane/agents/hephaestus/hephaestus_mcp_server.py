@@ -28,8 +28,8 @@ N8N_API_KEY = os.getenv("N8N_API_KEY", "")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
 
 # OLYMPUS Orchestration URLs
-SENTINEL_URL = os.getenv("SENTINEL_URL", "http://sentinel:8019")
-ATLAS_URL = os.getenv("ATLAS_URL", "http://atlas:8007")
+SENTINEL_URL = os.getenv("SENTINEL_URL", "http://localhost:8019")
+ATLAS_URL = os.getenv("ATLAS_URL", "http://localhost:8007")
 
 def get_n8n_headers():
     """Get headers for n8n API authentication"""
