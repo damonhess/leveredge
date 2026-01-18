@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 
-// https://vitejs.dev/config/
+// Build as app for demo site (aria.leveredgeai.com)
+// For library build, use: npm run build:lib
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -11,21 +12,7 @@ export default defineConfig({
     },
   },
   build: {
-    lib: {
-      entry: resolve(__dirname, 'src/index.js'),
-      name: 'AriaFrontendV2',
-      formats: ['es', 'umd'],
-      fileName: (format) => `aria-frontend-v2.${format}.js`,
-    },
-    rollupOptions: {
-      external: ['react', 'react-dom'],
-      output: {
-        globals: {
-          react: 'React',
-          'react-dom': 'ReactDOM',
-        },
-      },
-    },
+    outDir: 'dist',
     sourcemap: true,
   },
   server: {

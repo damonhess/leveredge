@@ -1,0 +1,20 @@
+[Unit]
+Description=LeverEdge AEGIS - Guardian of Secrets
+After=network.target
+Wants=leveredge-event-bus.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/leveredge/control-plane/agents/aegis
+Environment=PYTHONUNBUFFERED=1
+Environment=REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml
+Environment=EVENT_BUS_URL=http://localhost:8099
+ExecStart=/opt/leveredge/shared/venv/bin/python aegis.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

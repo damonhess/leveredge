@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 CERBERUS - AI-Powered Enterprise Cybersecurity Agent
-Port: 8020
+Port: 8025
 
 Threat detection, intrusion prevention, SSL monitoring,
 fail2ban management, and security auditing.
@@ -367,7 +367,7 @@ async def health():
         "status": "healthy",
         "agent": "CERBERUS",
         "role": "Cybersecurity Agent",
-        "port": 8020,
+        "port": 8025,
         "current_time": time_ctx['current_datetime'],
         "days_to_launch": time_ctx['days_to_launch'],
         "phase": time_ctx['phase']
@@ -946,4 +946,4 @@ async def get_team():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8020)
+    uvicorn.run(app, host="0.0.0.0", port=8025)

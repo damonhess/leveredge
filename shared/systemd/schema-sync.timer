@@ -1,0 +1,9 @@
+[Unit]
+Description=Nightly schema sync DEV to PROD
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

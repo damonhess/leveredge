@@ -1,7 +1,7 @@
 # LEVEREDGE LESSONS LEARNED
 
 *Living document - Update after every session*
-*Last Updated: January 17, 2026 (Evening - HEPHAESTUS SSE/CORS Fix)*
+*Last Updated: January 18, 2026 (Command Center + AEGIS V2)*
 
 ---
 
@@ -527,15 +527,25 @@ Before context clears:
 | ~~n8n chat memory cleanup~~ | ~~Medium~~ | ~~1 hour~~ | ✅ Done - `/opt/leveredge/maintenance/` |
 | ~~Documentation site~~ | ~~Medium~~ | ~~2 hours~~ | ✅ Done - MkDocs at `/opt/leveredge/docs-site/` |
 | ~~Integration test suite~~ | ~~Medium~~ | ~~3 hours~~ | ✅ Done - `/opt/leveredge/tests/` |
+| ~~CONVENER V2 with Robert's Rules~~ | ~~High~~ | ~~3 hours~~ | ✅ Done - smart meeting facilitator |
+| ~~Command Center Dashboard~~ | ~~High~~ | ~~4 hours~~ | ✅ Done - Next.js 14, 8 domains, 40+ agents |
+| ~~AEGIS V2 database schema~~ | ~~High~~ | ~~1 hour~~ | ✅ Done - DEV Supabase tables |
+| ~~Cost tracking library~~ | ~~High~~ | ~~1 hour~~ | ✅ Done - `/opt/leveredge/shared/lib/cost_tracker.py` |
+| ~~Encryption module for AEGIS~~ | ~~High~~ | ~~30 min~~ | ✅ Done - Fernet AES-256 |
+| ~~n8n workflow templates for AEGIS~~ | ~~Medium~~ | ~~30 min~~ | ✅ Done - 3 workflows |
+| ~~GitHub SSH verification~~ | ~~Low~~ | ~~5 min~~ | ✅ Done - damonhess-dev account |
 | **Fix ARIA Supabase credential** | High | 30 min | ⬜ Get User Preferences node failing |
-| **Wire cost tracking into ARIA** | High | 1 hour | ⬜ Cost Dashboard ready, needs n8n integration |
-| **Deploy new agents to production** | High | 2 hours | ⬜ Agents built but not running |
+| **Wire cost tracking into CHIRON/SCHOLAR** | High | 1 hour | ⬜ Library built, needs integration |
+| **Deploy new agents to production** | High | 2 hours | ⬜ 35 services designed, need deployment |
 | **Install agent dependencies** | Medium | 30 min | ⬜ pillow, pptx, etc. for Creative Fleet |
+| **Convert agents to native n8n nodes** | High | 4 hours | ⬜ Currently Code nodes, need visibility |
 | HEPHAESTUS → OLYMPUS bridge | Medium | 30 min | ⬜ Spec ready |
 | DEV supabase-storage-dev fix | Medium | 30 min | ⬜ |
 | DEV supabase-studio-dev fix | Low | 30 min | ⬜ |
-| Cloudflare Access for control plane | Low | 2 hours | ⬜ |
-| Push to GitHub remote | Low | 5 min | ⬜ |
+| Cloudflare Access for control plane | Low | 2 hours | ⬜ Needs manual dashboard config |
+| PROD database schema sync | Medium | 30 min | ⬜ AEGIS V2 tables only in DEV |
+| Import all credentials to AEGIS | Medium | 1 hour | ⬜ 6 registered, need full inventory |
+| Generate Midjourney assets | Medium | 2 hours | ⬜ 9 domain backgrounds + hub |
 | CRM system (lead tracking) | Low | 4 hours | ⬜ |
 | Public website (leveredgeai.com) | Low | 8 hours | ⬜ |
 
@@ -584,6 +594,10 @@ Before context clears:
 | /opt/leveredge/demo/ | Demo environment |
 | /opt/leveredge/aria-frontend-v2/ | React component library |
 | /opt/leveredge/client-portal/ | Next.js client portal |
+| /opt/leveredge/ui/command-center/ | Command Center Dashboard (Next.js 14) |
+| /opt/leveredge/workflows/aegis/ | AEGIS n8n workflow templates |
+| /opt/leveredge/shared/lib/ | Shared Python libraries (cost_tracker) |
+| /opt/leveredge/secrets/ | Encryption keys (aegis_master.key) |
 
 ### Shared Resources
 | Directory | Purpose |
@@ -633,3 +647,81 @@ Build [COMPONENT_NAME] at [PATH]:
 - ~245 files created
 - ~66,600 lines of code
 - Completed while sleeping (overnight)
+
+---
+
+## Session Learnings (Continued)
+
+### January 18, 2026 (Command Center + AEGIS V2)
+**Accomplished:**
+
+| Category | Items Built | Details |
+|----------|-------------|---------|
+| CONVENER V2 | Smart meeting facilitator | Robert's Rules, LLM-powered, signal parsing |
+| Command Center | Next.js 14 dashboard | Hub, 8 domain pages, 40+ agent pages, council UI |
+| AEGIS V2 Schema | PostgreSQL tables | aegis_credentials_v2, aegis_providers (12 providers) |
+| Encryption | Fernet (AES-256) module | Master key generated, encryption.py created |
+| Cost Tracking | Python library + views | cost_tracker.py, llm_cost_summary view |
+| n8n Workflows | 3 AEGIS templates | health-monitor, rotation-scheduler, daily-report |
+
+**Command Center Dashboard:**
+- `/opt/leveredge/ui/command-center/` - Full Next.js 14 App Router implementation
+- Hub with key metrics (agent status, meeting activity)
+- 8 domain pages with agent grids (GAIA, PANTHEON, SENTINELS, THE SHIRE, THE KEEP, CHANCERY, ALCHEMY, ARIA SANCTUM)
+- 40+ agent detail pages with status, actions, API endpoints
+- Council meeting UI (create, run, summon, vote)
+- React Query hooks for real-time data fetching
+
+**Key Errors and Fixes:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Engine "node" incompatible (18.19.1 vs >=20.9.0)` | Next.js 16 requires Node 20+ | Downgraded to Next.js 14.2.21 + React 18 |
+| ESLint peer dependency conflict | eslint ^9 incompatible with Next.js 14 | Downgraded to eslint ^8 |
+| `next.config.ts not supported` | Next.js 14 uses .js/.mjs | Renamed to next.config.mjs |
+| `Unknown font 'geist'` | Geist font not in Next.js 14 | Changed to Inter font |
+| `HealthStatus type mismatch` | Missing status/message fields | Updated types.ts with full interface |
+| `useSearchParams should be wrapped in Suspense` | Next.js 14 requirement | Wrapped NewMeetingContent in Suspense boundary |
+| `params: Promise<{...}>` syntax error | Next.js 14 params not Promise (unlike 15/16) | Changed to `params: {...}`, removed async/await |
+
+**Next.js 14 vs 16 Differences Learned:**
+- Node.js: 14 works with 18.x, 16 requires 20.9+
+- Config: 14 uses .mjs, 16 supports .ts
+- Fonts: 14 uses next/font/google manually, 16 has built-in Geist
+- Params: 14 params are sync objects, 15/16 are Promises
+- ESLint: 14 requires eslint ^8, 16 uses ^9
+
+**AEGIS V2 Implementation:**
+- Database schema in DEV Supabase (port 54323)
+- 12 providers pre-loaded (anthropic, openai, telegram, slack, etc.)
+- Environment column for DEV/PROD credential separation
+- Fernet encryption with master key at `/opt/leveredge/secrets/aegis_master.key`
+
+**Cost Tracking:**
+- Library at `/opt/leveredge/shared/lib/cost_tracker.py`
+- Pricing for claude-3-5-sonnet, gpt-4o, gpt-4o-mini, gpt-3.5-turbo
+- Views: `llm_cost_summary` (by model), `llm_daily_costs` (daily breakdown)
+- Tested successfully with test entry
+
+**Documentation Updates:**
+- LOOSE-ENDS.md - Removed completed items, updated session log
+- FUTURE-VISION.md - Marked CONCLAVE V2 and Command Center as BUILT
+
+**What Worked:**
+- Downgrading Next.js 14 instead of upgrading Node.js (faster)
+- Using React Query for data fetching hooks
+- Fernet encryption for credential security
+- Separating DEV/PROD credentials via environment column
+
+**What Didn't:**
+- Initially tried Next.js 16 without checking Node version
+- Missed Suspense boundary for useSearchParams (Next.js 14 strict)
+- Assumed params were Promises like Next.js 15/16
+
+**CONVENER V2 Database Mapping:**
+When designing V2 APIs, existing DB constraints limit valid values. CONVENER V2 wanted CONVENED/IN_SESSION/ADJOURNED but DB had scheduled/active/completed.
+- **Solution:** Map V2 status names in API responses while using DB-compatible values internally
+- CONVENED → stored as "scheduled"
+- IN_SESSION → stored as "active"
+- ADJOURNED → stored as "completed"
+- **Prevention:** Check existing DB constraints first when designing V2 APIs

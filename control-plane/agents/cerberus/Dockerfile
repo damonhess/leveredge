@@ -13,6 +13,6 @@ COPY shared/ /opt/leveredge/control-plane/shared/
 
 COPY cerberus.py .
 
-EXPOSE 8020
+EXPOSE 8025
 
-CMD ["uvicorn", "cerberus:app", "--host", "0.0.0.0", "--port", "8020"]
+CMD ["uvicorn", "cerberus:app", "--host", "0.0.0.0", "--port", "8025"]

@@ -289,6 +289,25 @@ class IdentityVerifier:
 class CodeScanner:
     """Scan agent code directories for issues."""
 
+    # Patterns that indicate ACTUAL server port declarations (not client references)
+    SERVER_PORT_PATTERNS = [
+        # uvicorn.run(..., port=XXXX) or app.run(..., port=XXXX)
+        r'\.run\([^)]*port\s*=\s*(\d{4})',
+        # Module-level constants: AGENT_PORT = XXXX, PORT = XXXX, XXXX_PORT = XXXX
+        r'^(?:AGENT_PORT|PORT|[A-Z_]+_PORT)\s*=\s*(\d{4})',
+        # Docstring port declaration: Port: XXXX
+        r'^Port:\s*(\d{4})',
+    ]
+
+    # Patterns to IGNORE (client references, URLs, etc.)
+    IGNORE_PATTERNS = [
+        r'_URL\s*=',           # Any URL variable assignment
+        r'http://[^:]+:',      # HTTP URLs
+        r'"url":\s*"http',     # JSON url fields
+        r'"port":\s*\d',       # JSON port fields (config dicts referencing other agents)
+        r'localhost:\d',       # localhost references
+    ]
+
     def scan(self) -> Tuple[List[Issue], int]:
         """Scan code directories."""
         issues = []
@@ -311,13 +330,24 @@ class CodeScanner:
                 checks += 1
                 content = py_file.read_text()
 
-                # Find port declarations
-                port_matches = re.findall(r'(?:port["\s:=]+|Port:\s*)(\d{4})', content)
-                for port_str in port_matches:
-                    port = int(port_str)
-                    if port not in port_files:
-                        port_files[port] = []
-                    port_files[port].append((agent_dir.name, py_file.name))
+                # Check each line for actual server port declarations
+                for line in content.split('\n'):
+                    # Skip lines that match ignore patterns (client references)
+                    should_ignore = any(re.search(pattern, line) for pattern in self.IGNORE_PATTERNS)
+                    if should_ignore:
+                        continue
+
+                    # Check for actual server port declarations
+                    for pattern in self.SERVER_PORT_PATTERNS:
+                        matches = re.findall(pattern, line, re.MULTILINE)
+                        for port_str in matches:
+                            port = int(port_str)
+                            if port not in port_files:
+                                port_files[port] = []
+                            # Only add if not already recorded for this dir/file
+                            entry = (agent_dir.name, py_file.name)
+                            if entry not in port_files[port]:
+                                port_files[port].append(entry)
 
         # Check for code-level port conflicts
         for port, files in port_files.items():
@@ -367,6 +397,27 @@ class CodeScanner:
 class SystemdScanner:
     """Scan systemd services."""
 
+    def _check_agent_health(self, name: str, agents: Dict) -> bool:
+        """Check if agent is responding via HTTP health check."""
+        agent_config = agents.get(name, {})
+        connection = agent_config.get('connection', {})
+        url = connection.get('url', '')
+        health_endpoint = connection.get('health_endpoint', '/health')
+
+        if not url:
+            return False
+
+        # Convert docker hostname to localhost for local check
+        health_url = url.replace(f"http://{name}:", "http://localhost:")
+        health_url = f"{health_url.rstrip('/')}{health_endpoint}"
+
+        try:
+            import httpx
+            response = httpx.get(health_url, timeout=3.0)
+            return response.status_code == 200
+        except Exception:
+            return False
+
     def scan(self) -> Tuple[List[Issue], int]:
         """Check systemd service status."""
         issues = []
@@ -406,15 +457,30 @@ class SystemdScanner:
                 )
 
                 if result.returncode != 0:
-                    issues.append(Issue(
-                        id=f"service-not-running-{name}",
-                        category="service_down",
-                        severity=Severity.HIGH,
-                        title=f"Systemd service {service_name} not running",
-                        description=f"Service exists but is not active",
-                        affected=[name],
-                        recommendation=f"Run: sudo systemctl start {service_name}"
-                    ))
+                    # Service not running via systemd - but check if agent is healthy anyway
+                    # (might be running via docker, manual process, etc.)
+                    if self._check_agent_health(name, agents):
+                        # Agent is healthy, just not via systemd - lower severity
+                        issues.append(Issue(
+                            id=f"service-not-systemd-{name}",
+                            category="service_management",
+                            severity=Severity.LOW,
+                            title=f"Agent {name} not running via systemd",
+                            description=f"Agent is healthy but not managed by systemd",
+                            affected=[name],
+                            recommendation=f"Consider migrating to systemd for auto-restart"
+                        ))
+                    else:
+                        # Agent is not healthy - this is a real problem
+                        issues.append(Issue(
+                            id=f"service-not-running-{name}",
+                            category="service_down",
+                            severity=Severity.HIGH,
+                            title=f"Systemd service {service_name} not running",
+                            description=f"Service exists but is not active",
+                            affected=[name],
+                            recommendation=f"Run: sudo systemctl start {service_name}"
+                        ))
             except Exception as e:
                 pass
 

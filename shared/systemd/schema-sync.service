@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync database schema from DEV to PROD
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/opt/leveredge/shared/scripts/sync-schema-dev-to-prod.sh
+StandardOutput=append:/opt/leveredge/logs/schema-sync.log
+StandardError=append:/opt/leveredge/logs/schema-sync.log

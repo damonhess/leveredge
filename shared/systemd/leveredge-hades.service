@@ -1,0 +1,22 @@
+[Unit]
+Description=LeverEdge HADES - Lord of Rollback
+After=network.target leveredge-chronos.service
+Wants=leveredge-event-bus.service leveredge-hermes.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/leveredge/control-plane/agents/hades
+Environment=PYTHONUNBUFFERED=1
+Environment=REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml
+Environment=EVENT_BUS_URL=http://localhost:8099
+Environment=HERMES_URL=http://localhost:8014
+Environment=CHRONOS_URL=http://localhost:8010
+ExecStart=/opt/leveredge/shared/venv/bin/python hades.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

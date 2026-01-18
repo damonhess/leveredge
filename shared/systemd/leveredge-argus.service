@@ -1,0 +1,21 @@
+[Unit]
+Description=LeverEdge ARGUS - All-Seeing Monitor
+After=network.target
+Wants=leveredge-event-bus.service leveredge-hermes.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/leveredge/control-plane/agents/argus
+Environment=PYTHONUNBUFFERED=1
+Environment=REGISTRY_PATH=/opt/leveredge/config/agent-registry.yaml
+Environment=EVENT_BUS_URL=http://localhost:8099
+Environment=HERMES_URL=http://localhost:8014
+ExecStart=/opt/leveredge/shared/venv/bin/python argus.py
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
