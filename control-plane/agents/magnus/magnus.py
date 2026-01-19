@@ -4,6 +4,11 @@ Port: 8017
 Domain: CHANCERY
 
 Every move calculated. Every piece in position. Checkmate is inevitable.
+
+COUNCIL INTEGRATION:
+- MAGNUS is a PERMANENT council member (auto-joins ALL meetings)
+- Takes notes, tracks action items, creates tasks from decisions
+- Follows up on commitments and monitors deadlines
 """
 
 from fastapi import FastAPI, HTTPException, Query
@@ -12,12 +17,17 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
 import os
 import asyncpg
+import anthropic
 
 app = FastAPI(
     title="MAGNUS - Universal Project Master",
     description="Every move calculated. Every piece in position. Checkmate is inevitable.",
     version="1.0.0"
 )
+
+# Initialize Anthropic client for council responses
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY) if ANTHROPIC_API_KEY else None
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 pool: asyncpg.Pool = None
@@ -608,6 +618,157 @@ async def get_agent_workloads():
             ORDER BY w.agent
         """)
         return [dict(row) for row in rows]
+
+
+# ============ COUNCIL INTEGRATION ============
+# MAGNUS is a PERMANENT council member - auto-joins ALL meetings
+
+MAGNUS_COUNCIL_SYSTEM_PROMPT = """You are MAGNUS, the Universal Project Master, participating in a council meeting.
+
+## YOUR IDENTITY
+Domain: CHANCERY (Royal Court)
+Expertise: Project management, task tracking, deadline monitoring, action item management, resource allocation
+Personality: Calculating, patient, precise, quietly confident - like a chess grandmaster
+Speaking Style: Strategic metaphors, chess references, calm authority
+
+## YOUR SPECIAL ROLE IN COUNCILS
+As a PERMANENT council member, you attend EVERY meeting with specific duties:
+1. **Track Action Items** - Note when tasks are assigned or commitments made
+2. **Monitor Deadlines** - Flag timeline implications of decisions
+3. **Identify Dependencies** - Spot blockers and prerequisites
+4. **Create Tasks** - Mentally note what needs to become formal tasks
+5. **Follow Up** - Remember commitments for future accountability
+
+## HOW YOU CONTRIBUTE
+- Speak when you notice project management implications
+- Raise concerns about scope creep or unrealistic timelines
+- Suggest task breakdowns for complex decisions
+- Offer to track action items when decisions are made
+- Use chess metaphors: "That move opens a line we'll need to protect..."
+- Keep responses concise unless detailing a project plan
+
+## COUNCIL MEETING RULES
+1. Be concise (2-4 sentences unless detailing tasks/timelines)
+2. Build on what others have said
+3. Disagree respectfully if a plan seems flawed
+4. If asked directly, answer directly
+5. Add value - don't just agree
+
+## YOUR VOICE
+> "I've calculated 3 paths to completion. Path A takes 2 weeks with ATHENA on design. Path B..."
+> "That decision creates 4 action items. Shall I track them?"
+> "The timeline has shifted. We need to re-evaluate the board."
+> "Scope creep detected. That's a flanking maneuver we should decline."
+
+Speak as MAGNUS. No name prefix needed."""
+
+
+class CouncilRespondRequest(BaseModel):
+    """Request for council meeting response"""
+    meeting_context: str
+    current_topic: str
+    previous_statements: List[Dict[str, str]] = []
+    directive: Optional[str] = None
+
+
+class CouncilRespondResponse(BaseModel):
+    """Response from council meeting"""
+    agent: str = "MAGNUS"
+    response: str
+    domain: str = "CHANCERY"
+    expertise: List[str] = ["project management", "task tracking", "timeline planning", "action items"]
+
+
+@app.post("/council/respond", response_model=CouncilRespondResponse)
+async def council_respond(req: CouncilRespondRequest):
+    """
+    MAGNUS responds to council meeting discussions.
+    As a PERMANENT member, MAGNUS focuses on:
+    - Tracking action items
+    - Monitoring timeline implications
+    - Identifying dependencies and blockers
+    - Suggesting task breakdowns
+    """
+    if not anthropic_client:
+        return CouncilRespondResponse(
+            response="[MAGNUS: Project tracking systems require API access. Standing by.]"
+        )
+
+    # Build conversation context
+    context_parts = [f"## MEETING CONTEXT\n{req.meeting_context}"]
+    context_parts.append(f"\n## CURRENT TOPIC\n{req.current_topic}")
+
+    if req.previous_statements:
+        context_parts.append("\n## RECENT DISCUSSION")
+        for stmt in req.previous_statements[-10:]:
+            speaker = stmt.get("speaker", "Unknown")
+            message = stmt.get("message", "")
+            context_parts.append(f"\n**{speaker}:** {message}")
+
+    user_content = "\n".join(context_parts)
+
+    if req.directive:
+        user_content += f"\n\n## DIRECTIVE FOR YOU\n{req.directive}"
+    else:
+        user_content += "\n\n## YOUR TURN\nContribute from a project management perspective. Focus on action items, timelines, dependencies, and task implications."
+
+    try:
+        response = anthropic_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=512,
+            system=MAGNUS_COUNCIL_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_content}]
+        )
+        return CouncilRespondResponse(response=response.content[0].text)
+    except Exception as e:
+        return CouncilRespondResponse(
+            response=f"[MAGNUS: Calculation error - {str(e)}. The board position is unclear.]"
+        )
+
+
+@app.post("/council/extract-actions")
+async def extract_council_actions(meeting_transcript: List[Dict[str, str]]):
+    """
+    Extract action items from a council meeting transcript.
+    MAGNUS's special ability to identify commitments and tasks.
+    """
+    if not anthropic_client:
+        return {"actions": [], "error": "API access required"}
+
+    transcript_text = "\n".join([
+        f"**{entry.get('speaker', '?')}:** {entry.get('message', '')}"
+        for entry in meeting_transcript
+    ])
+
+    prompt = f"""Analyze this council meeting transcript and extract all action items, commitments, and tasks.
+
+## TRANSCRIPT
+{transcript_text}
+
+## EXTRACT
+For each action item found, provide:
+1. **Action**: What needs to be done
+2. **Assignee**: Who committed to it (or suggested assignee)
+3. **Deadline**: Any mentioned timeline
+4. **Dependencies**: What must happen first
+5. **Priority**: Based on discussion urgency
+
+Return as a structured list. If no clear action items, note any implied tasks."""
+
+    try:
+        response = anthropic_client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=1024,
+            system="You are MAGNUS, the Universal Project Master. Extract action items with precision.",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return {
+            "analysis": response.content[0].text,
+            "source": "council_meeting",
+            "extracted_by": "MAGNUS"
+        }
+    except Exception as e:
+        return {"actions": [], "error": str(e)}
 
 
 if __name__ == "__main__":

@@ -110,8 +110,14 @@ AGENT_ENDPOINTS = {
     "MAGISTRATE": "http://magistrate:8210",  # Legal counsel (was solon)
     "EXCHEQUER": "http://exchequer:8211",    # Tax strategy (was croesus)
     # ARIA SANCTUM
-    "VARYS": "http://varys:8112",          # Portfolio tracking
+    "VARYS": "http://varys:8112",          # Master of Whispers - Intelligence/Portfolio
+    # CHANCERY
+    "MAGNUS": "http://magnus:8017",        # Universal Project Master (permanent council member)
 }
+
+# Permanent council members - auto-join ALL meetings (like ARIA for awareness)
+# MAGNUS takes notes, tracks action items, creates tasks from decisions
+PERMANENT_COUNCIL_MEMBERS = ["MAGNUS"]
 
 # Topic-to-agent mapping for auto-selection
 TOPIC_AGENT_MAPPING = {
@@ -128,12 +134,16 @@ TOPIC_AGENT_MAPPING = {
     "copy": ["ELIXIR", "SAGA"],
     "research": ["SCHOLAR", "RELIC"],
     "analysis": ["SCHOLAR", "ATHENA"],
-    "project": ["GUILDMASTER", "PROCTOR"],
-    "timeline": ["GUILDMASTER", "ATHENA"],
-    "delivery": ["GUILDMASTER", "PROCTOR"],
-    "quality": ["PROCTOR", "ARTIFICER"],
+    "project": ["MAGNUS", "TYRION"],
+    "timeline": ["MAGNUS", "ATHENA"],
+    "delivery": ["MAGNUS", "TYRION"],
+    "quality": ["STANNIS", "ATHENA"],
     "strategy": ["CHIRON", "CATALYST"],
     "vision": ["CATALYST", "CHIRON"],
+    "task": ["MAGNUS"],
+    "milestone": ["MAGNUS"],
+    "deadline": ["MAGNUS"],
+    "planning": ["MAGNUS", "ATHENA"],
 }
 
 # Initialize clients
@@ -857,8 +867,11 @@ def select_agents_for_topic(topic: str) -> List[str]:
     selected.add("ATLAS")  # Convener
     selected.add("ATHENA")  # Scribe
 
+    # Always include permanent council members (MAGNUS for notes/action tracking)
+    selected.update(PERMANENT_COUNCIL_MEMBERS)
+
     # If no specific matches, add general advisors
-    if len(selected) == 2:
+    if len(selected) <= 3:  # Just ATLAS, ATHENA, and permanent members
         selected.update(["CHIRON", "ARTIFICER"])
 
     return list(selected)
@@ -925,11 +938,17 @@ async def convene_meeting(req: ConveneRequest):
     """
     # Select agents if not provided - support both V2 (participants) and legacy (council_members)
     if req.participants:
-        members = req.participants
+        members = list(req.participants)
     elif req.council_members:
-        members = req.council_members
+        members = list(req.council_members)
     else:
         members = select_agents_for_topic(req.topic)
+
+    # Always ensure permanent council members are included (MAGNUS auto-joins all meetings)
+    # MAGNUS takes notes, tracks action items, creates tasks from decisions
+    for permanent_member in PERMANENT_COUNCIL_MEMBERS:
+        if permanent_member not in members:
+            members.append(permanent_member)
 
     # Create meeting record
     now = datetime.utcnow()

@@ -48,7 +48,7 @@ export const DOMAINS: Record<string, Domain> = {
     theme: 'Royal Court',
     color: '#800020',
     supervisor: 'MAGISTRATE',
-    agents: ['MAGISTRATE', 'EXCHEQUER']
+    agents: ['MAGISTRATE', 'EXCHEQUER', 'MAGNUS']
   },
   alchemy: {
     id: 'alchemy',
@@ -109,6 +109,7 @@ export const AGENTS: Record<string, Agent> = {
   // CHANCERY
   'MAGISTRATE': { id: 'magistrate', name: 'MAGISTRATE', port: 8210, domain: 'chancery', function: 'Legal Counsel', supervisor: true, councilMember: true },
   'EXCHEQUER': { id: 'exchequer', name: 'EXCHEQUER', port: 8211, domain: 'chancery', function: 'Tax & Wealth' },
+  'MAGNUS': { id: 'magnus', name: 'MAGNUS', port: 8017, domain: 'chancery', function: 'Universal Project Master', councilMember: true },
 
   // ALCHEMY
   'CATALYST': { id: 'catalyst', name: 'CATALYST', port: 8030, domain: 'alchemy', function: 'Creative Director', supervisor: true, councilMember: true },
@@ -121,7 +122,7 @@ export const AGENTS: Record<string, Agent> = {
   'ARIA': { id: 'aria', name: 'ARIA', port: 0, domain: 'aria-sanctum', function: 'Personal AI', supervisor: true },
   'ARIA-OMNISCIENCE': { id: 'aria-omniscience', name: 'ARIA-OMNISCIENCE', port: 8400, domain: 'aria-sanctum', function: 'System Awareness' },
   'ARIA-REMINDERS': { id: 'aria-reminders', name: 'ARIA-REMINDERS', port: 8111, domain: 'aria-sanctum', function: 'Proactive Notifications' },
-  'VARYS': { id: 'varys', name: 'VARYS', port: 8113, domain: 'aria-sanctum', function: 'Intelligence/Portfolio', councilMember: true },
+  'VARYS': { id: 'varys', name: 'VARYS', port: 8112, domain: 'aria-sanctum', function: 'Master of Whispers', councilMember: true },
 
   // CONCLAVE
   'CONVENER': { id: 'convener', name: 'CONVENER', port: 8300, domain: 'conclave', function: 'Council Facilitator' },

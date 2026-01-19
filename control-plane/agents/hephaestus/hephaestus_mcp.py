@@ -1257,6 +1257,243 @@ async def magnus_agent_workload():
         return {"error": str(e)}
 
 
+# ============ VARYS INTELLIGENCE TOOLS ============
+
+VARYS_URL = os.getenv("VARYS_URL", "http://localhost:8112")
+
+
+@app.get("/tools/varys/portfolio")
+async def varys_portfolio():
+    """
+    Get portfolio status from VARYS - Master of Whispers.
+
+    Returns total wins, value range, recent wins, and domain breakdown.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{VARYS_URL}/portfolio", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e), "varys_says": "The web is dark - cannot see the portfolio"}
+
+
+@app.get("/tools/varys/portfolio/summary")
+async def varys_portfolio_summary():
+    """Quick portfolio summary for context injection."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{VARYS_URL}/portfolio/summary", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e), "wins": 0, "value_range": "Unknown"}
+
+
+@app.get("/tools/varys/briefing")
+async def varys_briefing():
+    """
+    Get VARYS's daily intelligence briefing.
+
+    Returns:
+    - Portfolio status
+    - New intelligence (24h)
+    - Active opportunities
+    - Competitor activity (7 days)
+    - VARYS's summary
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{VARYS_URL}/briefing", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e), "varys_says": "The web is silent"}
+
+
+class VarysIntelReport(BaseModel):
+    report_type: str  # market, competitor, opportunity, threat, pattern, insight, alert, portfolio
+    title: str
+    summary: str
+    confidence: float = 70.0
+    tags: List[str] = []
+
+
+@app.post("/tools/varys/intelligence")
+async def varys_intel(report: VarysIntelReport):
+    """
+    Report intelligence to VARYS.
+
+    Types: market, competitor, opportunity, threat, pattern, insight, alert, portfolio
+    Confidence: 0-100
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{VARYS_URL}/intelligence",
+                json=report.model_dump(),
+                timeout=10.0
+            )
+            await log_event("varys_intel_reported", report.report_type, {"title": report.title[:50]})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/varys/intelligence")
+async def varys_intel_list(report_type: Optional[str] = None, limit: int = 50):
+    """List intelligence reports."""
+    try:
+        params = {"limit": limit}
+        if report_type:
+            params["report_type"] = report_type
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{VARYS_URL}/intelligence",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/varys/opportunities")
+async def varys_opportunities(stage: Optional[str] = None):
+    """
+    Get active opportunities from VARYS.
+
+    Stages: identified, researching, qualified, pursuing, negotiating, won, lost, deferred
+    """
+    try:
+        params = {"stage": stage} if stage else {}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{VARYS_URL}/opportunities",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class VarysOpportunity(BaseModel):
+    name: str
+    description: Optional[str] = None
+    source: Optional[str] = None
+    estimated_value_low: Optional[float] = None
+    estimated_value_high: Optional[float] = None
+    company: Optional[str] = None
+    contact_name: Optional[str] = None
+
+
+@app.post("/tools/varys/opportunities")
+async def varys_create_opportunity(opp: VarysOpportunity):
+    """Create a new opportunity."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{VARYS_URL}/opportunities",
+                json=opp.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("varys_opportunity_created", opp.name, {})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/varys/competitors")
+async def varys_competitors():
+    """Get tracked competitors from VARYS."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{VARYS_URL}/competitors", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class VarysCompetitor(BaseModel):
+    name: str
+    website: Optional[str] = None
+    description: Optional[str] = None
+    threat_level: str = "medium"  # low, medium, high, critical
+    market_segment: Optional[str] = None
+
+
+@app.post("/tools/varys/competitors")
+async def varys_add_competitor(competitor: VarysCompetitor):
+    """Add a competitor to track."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{VARYS_URL}/competitors",
+                json=competitor.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("varys_competitor_added", competitor.name, {})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class VarysMarketSignal(BaseModel):
+    signal_type: str  # trend, regulation, technology, demand, pricing, consolidation, disruption
+    title: str
+    description: Optional[str] = None
+    source: Optional[str] = None
+    impact: str = "medium"  # low, medium, high, critical
+    relevance_score: float = 50.0
+
+
+@app.post("/tools/varys/market-signals")
+async def varys_report_market_signal(signal: VarysMarketSignal):
+    """Report a market signal."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{VARYS_URL}/market-signals",
+                json=signal.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("varys_market_signal", signal.signal_type, {"title": signal.title[:50]})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/varys/market-signals")
+async def varys_market_signals(impact: Optional[str] = None, limit: int = 20):
+    """List market signals."""
+    try:
+        params = {"limit": limit}
+        if impact:
+            params["impact"] = impact
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{VARYS_URL}/market-signals",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/varys/agents/metrics")
+async def varys_agent_metrics(days: int = 7):
+    """Get agent performance metrics from VARYS."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{VARYS_URL}/agents/metrics",
+                params={"days": days},
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ============ HEALTH ============
 
 @app.get("/health")
