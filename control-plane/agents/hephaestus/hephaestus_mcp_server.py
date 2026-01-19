@@ -32,6 +32,19 @@ SENTINEL_URL = os.getenv("SENTINEL_URL", "http://localhost:8019")
 ATLAS_URL = os.getenv("ATLAS_URL", "http://localhost:8007")
 CONVENER_URL = os.getenv("CONVENER_URL", "http://localhost:8300")
 
+# Supabase for Coach Channel
+SUPABASE_URL = os.getenv("SUPABASE_URL", "http://localhost:54321")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0")
+
+def get_supabase_headers():
+    """Get headers for Supabase REST API"""
+    return {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+    }
+
 def get_n8n_headers():
     """Get headers for n8n API authentication"""
     return {"X-N8N-API-KEY": N8N_API_KEY}
@@ -504,6 +517,82 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["meeting_id", "guest_id"]
+            }
+        ),
+        # ============ COACH CHANNEL TOOLS ============
+        Tool(
+            name="coach_send",
+            description="Send a message/instruction to Claude Code. Use this to coordinate work, give instructions, or ask questions.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "The message content"
+                    },
+                    "message_type": {
+                        "type": "string",
+                        "enum": ["instruction", "question", "feedback", "status"],
+                        "description": "Type of message",
+                        "default": "instruction"
+                    },
+                    "subject": {
+                        "type": "string",
+                        "description": "Short subject line"
+                    },
+                    "reference_id": {
+                        "type": "string",
+                        "description": "Reference to GSD spec, task, etc."
+                    }
+                },
+                "required": ["message"]
+            }
+        ),
+        Tool(
+            name="coach_receive",
+            description="Check for responses from Claude Code. Call this to see what Claude Code has reported back.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Max messages to return",
+                        "default": 10
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["pending", "read", "all"],
+                        "description": "Filter by status",
+                        "default": "pending"
+                    },
+                    "mark_read": {
+                        "type": "boolean",
+                        "description": "Mark messages as read",
+                        "default": True
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="coach_status",
+            description="Check coach channel status - unread message count and recent activity.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="coach_thread",
+            description="Get all messages in a conversation thread.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "thread_id": {
+                        "type": "string",
+                        "description": "Thread ID to view"
+                    }
+                },
+                "required": ["thread_id"]
             }
         ),
     ]
@@ -1144,6 +1233,195 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     return [TextContent(type="text", text=f"👋 {data.get('message')}")]
                 except Exception as e:
                     return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
+
+        # ============ COACH CHANNEL TOOLS ============
+        elif name == "coach_send":
+            message = arguments["message"]
+            message_type = arguments.get("message_type", "instruction")
+            subject = arguments.get("subject")
+            reference_id = arguments.get("reference_id")
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    payload = {
+                        "from_agent": "LAUNCH_COACH",
+                        "to_agent": "CLAUDE_CODE",
+                        "message_type": message_type,
+                        "subject": subject,
+                        "content": message,
+                        "reference_id": reference_id,
+                        "context": {},
+                        "status": "pending"
+                    }
+                    response = await client.post(
+                        f"{SUPABASE_URL}/rest/v1/coach_channel",
+                        headers=get_supabase_headers(),
+                        json=payload
+                    )
+                    if response.status_code not in [200, 201]:
+                        return [TextContent(type="text", text=f"ERROR: Failed to send: {response.text}")]
+
+                    data = response.json()
+                    msg_id = data[0]["id"] if isinstance(data, list) else data.get("id", "unknown")
+
+                    await log_to_event_bus("coach.message_sent", "CLAUDE_CODE", {
+                        "message_id": msg_id,
+                        "type": message_type
+                    })
+
+                    lines = [
+                        f"✅ **Message sent to Claude Code**",
+                        f"",
+                        f"**ID:** `{msg_id}`",
+                        f"**Type:** {message_type}",
+                    ]
+                    if subject:
+                        lines.append(f"**Subject:** {subject}")
+                    lines.append(f"**Content:** {message[:200]}{'...' if len(message) > 200 else ''}")
+
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "coach_receive":
+            limit = arguments.get("limit", 10)
+            status = arguments.get("status", "pending")
+            mark_read = arguments.get("mark_read", True)
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    # Fetch messages to LAUNCH_COACH
+                    params = {
+                        "to_agent": "eq.LAUNCH_COACH",
+                        "order": "created_at.desc",
+                        "limit": limit
+                    }
+                    if status != "all":
+                        params["status"] = f"eq.{status}"
+
+                    response = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/coach_channel",
+                        headers=get_supabase_headers(),
+                        params=params
+                    )
+                    messages = response.json() if response.status_code == 200 else []
+
+                    # Mark as read if requested
+                    if mark_read and messages:
+                        pending_ids = [m["id"] for m in messages if m.get("status") == "pending"]
+                        for msg_id in pending_ids:
+                            await client.patch(
+                                f"{SUPABASE_URL}/rest/v1/coach_channel?id=eq.{msg_id}",
+                                headers=get_supabase_headers(),
+                                json={"status": "read", "read_at": datetime.utcnow().isoformat()}
+                            )
+
+                    if not messages:
+                        return [TextContent(type="text", text="📭 No messages from Claude Code")]
+
+                    lines = [f"**Messages from Claude Code** ({len(messages)} found)\n"]
+                    for m in messages:
+                        emoji = "📥" if m.get("status") == "pending" else "✓"
+                        lines.append(f"{emoji} **[{m.get('message_type', 'message')}]** {m.get('subject') or 'No subject'}")
+                        lines.append(f"   From: {m.get('from_agent')} | {m.get('created_at', '')[:16]}")
+                        content = m.get("content", "")[:300]
+                        lines.append(f"   {content}{'...' if len(m.get('content', '')) > 300 else ''}")
+                        lines.append("")
+
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "coach_status":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    # Count unread
+                    response = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/coach_channel",
+                        headers={**get_supabase_headers(), "Prefer": "count=exact"},
+                        params={
+                            "to_agent": "eq.LAUNCH_COACH",
+                            "status": "eq.pending",
+                            "select": "id"
+                        }
+                    )
+                    unread_count = int(response.headers.get("content-range", "0-0/0").split("/")[-1])
+
+                    # Recent messages
+                    response = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/coach_channel",
+                        headers=get_supabase_headers(),
+                        params={
+                            "to_agent": "eq.LAUNCH_COACH",
+                            "order": "created_at.desc",
+                            "limit": 5
+                        }
+                    )
+                    recent = response.json() if response.status_code == 200 else []
+
+                    # Active session
+                    response = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/coach_sessions",
+                        headers=get_supabase_headers(),
+                        params={
+                            "status": "eq.active",
+                            "order": "started_at.desc",
+                            "limit": 1
+                        }
+                    )
+                    sessions = response.json() if response.status_code == 200 else []
+                    active_session = sessions[0] if sessions else None
+
+                    lines = [
+                        f"**Coach Channel Status**",
+                        f"",
+                        f"📬 Unread messages: **{unread_count}**",
+                        f""
+                    ]
+
+                    if active_session:
+                        lines.append(f"🎯 **Active Session:** {active_session.get('session_name', 'Unnamed')}")
+                        lines.append(f"   Task: {active_session.get('current_task', 'N/A')}")
+                        lines.append("")
+
+                    if recent:
+                        lines.append("**Recent Messages:**")
+                        for m in recent[:3]:
+                            status_icon = "📥" if m.get("status") == "pending" else "✓"
+                            lines.append(f"  {status_icon} [{m.get('message_type')}] {m.get('subject') or m.get('content', '')[:50]}")
+
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "coach_thread":
+            thread_id = arguments["thread_id"]
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(
+                        f"{SUPABASE_URL}/rest/v1/coach_channel",
+                        headers=get_supabase_headers(),
+                        params={
+                            "thread_id": f"eq.{thread_id}",
+                            "order": "created_at.asc"
+                        }
+                    )
+                    messages = response.json() if response.status_code == 200 else []
+
+                    if not messages:
+                        return [TextContent(type="text", text=f"No messages found in thread {thread_id}")]
+
+                    lines = [f"**Thread {thread_id[:8]}...** ({len(messages)} messages)\n"]
+                    for m in messages:
+                        arrow = "→" if m.get("from_agent") == "LAUNCH_COACH" else "←"
+                        lines.append(f"{arrow} **{m.get('from_agent')}** [{m.get('message_type')}]")
+                        lines.append(f"  {m.get('content', '')[:200]}")
+                        lines.append("")
+
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
 
         else:
             return [TextContent(type="text", text=f"ERROR: Unknown tool: {name}")]
