@@ -1,0 +1,18 @@
+# MAGNUS PM Tools Reference
+#
+# PM Tools are managed separately at:
+# - Leantime: /home/damon/leantime/docker-compose.yml
+# - OpenProject: /home/damon/openproject/docker-compose.yml
+#
+# URLs:
+# - leantime.leveredgeai.com (internal daily driver)
+# - openproject.leveredgeai.com (enterprise projects)
+# - magnus.leveredgeai.com (MAGNUS API on port 8017)
+#
+# This file is kept for documentation.
+# Use the original docker-compose files to manage PM tools.
+
+version: '3.8'
+
+# Reference only - do not deploy from here
+# See actual compose files in /home/damon/leantime and /home/damon/openproject

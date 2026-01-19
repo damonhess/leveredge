@@ -295,6 +295,94 @@ async def list_tools() -> list[Tool]:
                 "properties": {}
             }
         ),
+        # ============ MAGNUS PM TOOLS ============
+        Tool(
+            name="magnus_status",
+            description="Get MAGNUS's assessment of the board - project status, overdue tasks, blockers, days to launch",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="magnus_projects",
+            description="List all projects with summaries",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "enum": ["planning", "active", "on_hold", "completed", "cancelled"],
+                        "description": "Filter by status"
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="magnus_standup",
+            description="Generate a daily standup summary with health status, projects, overdue tasks, blockers",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="magnus_templates",
+            description="List available project templates (automation_project, agent_development)",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="magnus_create_task",
+            description="Create a new task in a project",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "project_id": {
+                        "type": "string",
+                        "description": "UUID of the project"
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "Task title"
+                    },
+                    "assigned_agent": {
+                        "type": "string",
+                        "description": "Agent to assign (CHRONOS, HERMES, etc.)"
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "description": "Due date (YYYY-MM-DD)"
+                    },
+                    "priority": {
+                        "type": "string",
+                        "enum": ["critical", "high", "medium", "low"],
+                        "default": "medium"
+                    }
+                },
+                "required": ["project_id", "title"]
+            }
+        ),
+        Tool(
+            name="magnus_complete_task",
+            description="Mark a task as complete",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "description": "UUID of the task"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "Completion notes"
+                    }
+                },
+                "required": ["task_id"]
+            }
+        ),
     ]
 
 
@@ -676,6 +764,72 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         ]
                     }
                     return [TextContent(type="text", text=json.dumps(agents, indent=2))]
+
+        # ============ MAGNUS PM TOOLS ============
+        elif name == "magnus_status":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get("http://localhost:8019/status")
+                    data = response.json()
+                    await log_to_event_bus("magnus_status_checked", "", data)
+                    return [TextContent(type="text", text=json.dumps(data, indent=2))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
+
+        elif name == "magnus_projects":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    params = {}
+                    if "status" in arguments:
+                        params["status"] = arguments["status"]
+                    response = await client.get("http://localhost:8019/projects", params=params)
+                    data = response.json()
+                    return [TextContent(type="text", text=json.dumps(data, indent=2))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
+
+        elif name == "magnus_standup":
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    response = await client.post("http://localhost:8019/standup/generate")
+                    data = response.json()
+                    await log_to_event_bus("magnus_standup_generated", data.get("date", ""), data.get("summary", {}))
+                    return [TextContent(type="text", text=json.dumps(data, indent=2))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
+
+        elif name == "magnus_templates":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get("http://localhost:8019/templates")
+                    data = response.json()
+                    return [TextContent(type="text", text=json.dumps(data, indent=2))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
+
+        elif name == "magnus_create_task":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.post("http://localhost:8019/tasks", json=arguments)
+                    data = response.json()
+                    await log_to_event_bus("magnus_task_created", arguments.get("title", ""), {"project_id": arguments.get("project_id")})
+                    return [TextContent(type="text", text=json.dumps(data, indent=2))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
+
+        elif name == "magnus_complete_task":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    task_id = arguments["task_id"]
+                    params = {}
+                    if "notes" in arguments:
+                        params["notes"] = arguments["notes"]
+                    response = await client.post(f"http://localhost:8019/tasks/{task_id}/complete", params=params)
+                    data = response.json()
+                    await log_to_event_bus("magnus_task_completed", task_id, {})
+                    return [TextContent(type="text", text=json.dumps(data, indent=2))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
 
         else:
             return [TextContent(type="text", text=f"ERROR: Unknown tool: {name}")]

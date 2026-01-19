@@ -1017,6 +1017,246 @@ async def lcis_dashboard():
         return {"error": str(e)}
 
 
+# ============ MAGNUS PM TOOLS ============
+
+MAGNUS_URL = os.getenv("MAGNUS_URL", "http://localhost:8019")
+
+
+@app.get("/tools/magnus/status")
+async def magnus_status():
+    """
+    Get MAGNUS's assessment of the board.
+
+    Returns current project status, overdue tasks, blockers, and days to launch.
+    MAGNUS speaks like a chess grandmaster - calculating, patient, precise.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MAGNUS_URL}/status", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e), "magnus_says": "Cannot assess the board - connection failed"}
+
+
+@app.get("/tools/magnus/projects")
+async def magnus_projects(status: Optional[str] = None):
+    """
+    List all projects with summaries.
+
+    Optional filter by status: planning, active, on_hold, completed, cancelled
+    """
+    try:
+        params = {"status": status} if status else {}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MAGNUS_URL}/projects", params=params, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class MagnusProjectCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    target_end: Optional[str] = None
+    client_name: Optional[str] = None
+    template: Optional[str] = None
+    priority: int = 50
+
+
+@app.post("/tools/magnus/projects")
+async def magnus_create_project(project: MagnusProjectCreate):
+    """
+    Create a new project.
+
+    Args:
+        name: Project name
+        description: Project description
+        target_end: Target end date (YYYY-MM-DD)
+        client_name: Client name (if external project)
+        template: Template to use (automation_project, agent_development)
+        priority: 1-100, higher = more important
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{MAGNUS_URL}/projects",
+                json=project.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("magnus_project_created", project.name, {})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class MagnusTaskCreate(BaseModel):
+    project_id: str
+    title: str
+    description: Optional[str] = None
+    assigned_agent: Optional[str] = None
+    due_date: Optional[str] = None
+    priority: str = "medium"
+    estimated_hours: Optional[float] = None
+
+
+@app.post("/tools/magnus/tasks")
+async def magnus_create_task(task: MagnusTaskCreate):
+    """
+    Create a new task.
+
+    Args:
+        project_id: UUID of the project
+        title: Task title
+        description: Task description
+        assigned_agent: Agent to assign (CHRONOS, HERMES, etc.)
+        due_date: Due date (YYYY-MM-DD)
+        priority: critical, high, medium, low
+        estimated_hours: Estimated hours to complete
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{MAGNUS_URL}/tasks",
+                json=task.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("magnus_task_created", task.title[:50], {"project_id": task.project_id})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/magnus/tasks")
+async def magnus_list_tasks(
+    project_id: Optional[str] = None,
+    status: Optional[str] = None,
+    assigned_agent: Optional[str] = None,
+    overdue: bool = False
+):
+    """
+    List tasks with optional filters.
+
+    Args:
+        project_id: Filter by project UUID
+        status: Filter by status (todo, in_progress, blocked, review, done)
+        assigned_agent: Filter by assigned agent
+        overdue: If True, only return overdue tasks
+    """
+    try:
+        params = {}
+        if project_id:
+            params["project_id"] = project_id
+        if status:
+            params["status"] = status
+        if assigned_agent:
+            params["assigned_agent"] = assigned_agent
+        if overdue:
+            params["overdue"] = "true"
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MAGNUS_URL}/tasks", params=params, timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/tools/magnus/tasks/{task_id}/complete")
+async def magnus_complete_task(task_id: str, notes: Optional[str] = None):
+    """
+    Mark a task as complete.
+
+    Args:
+        task_id: UUID of the task
+        notes: Optional completion notes
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            params = {"notes": notes} if notes else {}
+            response = await client.post(
+                f"{MAGNUS_URL}/tasks/{task_id}/complete",
+                params=params,
+                timeout=10.0
+            )
+            await log_event("magnus_task_completed", task_id, {})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/tools/magnus/standup")
+async def magnus_standup():
+    """
+    Generate a daily standup summary.
+
+    Returns:
+    - Overall health status
+    - Days to launch
+    - Project summaries
+    - Overdue tasks
+    - Open blockers
+    - Pending decisions
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{MAGNUS_URL}/standup/generate", timeout=30.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/magnus/blockers")
+async def magnus_blockers(status: str = "open"):
+    """
+    List blockers.
+
+    Args:
+        status: Filter by status (open, escalated, resolved)
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{MAGNUS_URL}/blockers",
+                params={"status": status},
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/magnus/templates")
+async def magnus_templates():
+    """List available project templates."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MAGNUS_URL}/templates", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/magnus/connections")
+async def magnus_connections():
+    """List PM tool connections (Leantime, OpenProject, etc.)."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MAGNUS_URL}/connections", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/magnus/agents/workload")
+async def magnus_agent_workload():
+    """Get current agent workloads."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{MAGNUS_URL}/agents/workload", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ============ HEALTH ============
 
 @app.get("/health")
