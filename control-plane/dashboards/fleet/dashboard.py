@@ -24,68 +24,32 @@ app = FastAPI(title="LeverEdge Fleet Dashboard", version="1.0.0")
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# Agent configuration with themed domains
-AGENTS = {
-    # GAIA (Primordial Creation)
-    "GAIA": {"port": 8000, "category": "gaia", "description": "Emergency bootstrap"},
+# Agent configuration loaded from registry
+def load_agents_from_registry():
+    """Load agents from alias registry."""
+    with open("/opt/leveredge/config/agent-aliases.json", 'r') as f:
+        registry = json.load(f)
 
-    # PANTHEON (Mount Olympus)
-    "ATLAS": {"port": 8007, "category": "pantheon", "description": "Master Orchestrator"},
-    "HEPHAESTUS": {"port": 8011, "category": "pantheon", "description": "Builder/Deployer"},
-    "CHRONOS": {"port": 8010, "category": "pantheon", "description": "Backup Manager"},
-    "HADES": {"port": 8008, "category": "pantheon", "description": "Rollback/Recovery"},
-    "AEGIS": {"port": 8015, "category": "pantheon", "description": "Credential Vault"},
-    "ATHENA": {"port": 8013, "category": "pantheon", "description": "Planner/Documenter"},
-    "HERMES": {"port": 8014, "category": "pantheon", "description": "Messenger/Notifications"},
-    "ARGUS": {"port": 8016, "category": "pantheon", "description": "Monitor"},
-    "CHIRON": {"port": 8017, "category": "pantheon", "description": "Elite Business Mentor"},
-    "SCHOLAR": {"port": 8018, "category": "pantheon", "description": "Market Research"},
-    "EVENT-BUS": {"port": 8099, "category": "pantheon", "description": "Event messaging backbone"},
+    agents = {}
+    for domain, domain_agents in registry.get("agents", {}).items():
+        for generic, info in domain_agents.items():
+            if info.get("status") != "active":
+                continue
 
-    # SENTINELS (Mythic Guardians)
-    "GRIFFIN": {"port": 8019, "category": "sentinels", "description": "Perimeter Watch"},
-    "CERBERUS": {"port": 8020, "category": "sentinels", "description": "Defense/Auth"},
-    "SPHINX": {"port": 8021, "category": "sentinels", "description": "Access Control"},
+            alias = info.get("alias", generic.upper())
+            primary_port = info["ports"][0] if info.get("ports") else None
 
-    # ALCHEMY (Mystic Workshop)
-    "CATALYST": {"port": 8030, "category": "alchemy", "description": "Creative Director"},
-    "SAGA": {"port": 8031, "category": "alchemy", "description": "Writer"},
-    "PRISM": {"port": 8032, "category": "alchemy", "description": "Visual Designer"},
-    "ELIXIR": {"port": 8033, "category": "alchemy", "description": "Media Producer"},
-    "RELIC": {"port": 8034, "category": "alchemy", "description": "Reviewer"},
+            if primary_port:
+                agents[alias] = {
+                    "port": primary_port,
+                    "category": domain.lower(),
+                    "description": info.get("function", ""),
+                    "generic": generic
+                }
 
-    # THE SHIRE (LOTR Hobbit Comfort)
-    "GANDALF": {"port": 8103, "category": "shire", "description": "Learning/Wisdom"},
-    "ARAGORN": {"port": 8110, "category": "shire", "description": "Fitness"},
-    "BOMBADIL": {"port": 8101, "category": "shire", "description": "Nutrition"},
-    "SAMWISE": {"port": 8102, "category": "shire", "description": "Meal Planning"},
-    "ARWEN": {"port": 8104, "category": "shire", "description": "Relationships"},
+    return agents
 
-    # THE KEEP (Game of Thrones)
-    "TYRION": {"port": 8200, "category": "keep", "description": "Project Leadership"},
-    "SAMWELL-TARLY": {"port": 8201, "category": "keep", "description": "Knowledge Keeper"},
-    "GENDRY": {"port": 8202, "category": "keep", "description": "Workflow Builder"},
-    "STANNIS": {"port": 8203, "category": "keep", "description": "QA/Compliance"},
-    "DAVOS": {"port": 8204, "category": "keep", "description": "Business Advisor"},
-    "LITTLEFINGER": {"port": 8020, "category": "keep", "description": "Master of Coin"},
-    "BRONN": {"port": 8206, "category": "keep", "description": "Procurement"},
-    "RAVEN": {"port": 8209, "category": "keep", "description": "News/Intel"},
-
-    # CHANCERY (Royal Court)
-    "MAGISTRATE": {"port": 8210, "category": "chancery", "description": "Legal Counsel"},
-    "EXCHEQUER": {"port": 8211, "category": "chancery", "description": "Tax & Wealth"},
-    "MAGNUS": {"port": 8017, "category": "chancery", "description": "Universal Project Master"},
-
-    # ARIA SANCTUM (Ethereal Intelligence)
-    "ARIA": {"port": 0, "category": "sanctum", "description": "Personal AI"},
-    "ARIA-OMNISCIENCE": {"port": 8400, "category": "sanctum", "description": "System Awareness"},
-    "ARIA-REMINDERS": {"port": 8111, "category": "sanctum", "description": "Proactive Notifications"},
-    "VARYS": {"port": 8112, "category": "sanctum", "description": "Master of Whispers"},
-
-    # CONCLAVE (Council)
-    "CONVENER": {"port": 8300, "category": "conclave", "description": "Council Facilitator"},
-    "SCRIBE": {"port": 8301, "category": "conclave", "description": "Council Secretary"},
-}
+AGENTS = load_agents_from_registry()
 
 # Store activity logs in memory
 activity_log = []

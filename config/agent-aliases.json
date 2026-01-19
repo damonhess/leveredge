@@ -1,0 +1,246 @@
+{
+  "version": "1.0.0",
+  "updated": "2026-01-19",
+  "description": "Generic names (code) → Aliases (display)",
+
+  "agents": {
+    "GAIA": {
+      "orchestrator": {
+        "alias": "GAIA",
+        "ports": [5678, 5679, 5680],
+        "domain": "GAIA",
+        "function": "Workflow automation via n8n",
+        "status": "active"
+      },
+      "builder": {
+        "alias": "HEPHAESTUS",
+        "ports": [8011, 8207],
+        "domain": "GAIA",
+        "function": "File ops, code generation, builds everything",
+        "status": "active"
+      },
+      "pipeline_engine": {
+        "alias": "ATLAS",
+        "ports": [8208],
+        "domain": "GAIA",
+        "function": "Pipeline orchestration and execution",
+        "status": "active"
+      },
+      "event_bus": {
+        "alias": "EVENT_BUS",
+        "ports": [8099],
+        "domain": "GAIA",
+        "function": "Inter-agent pub/sub messaging",
+        "status": "active"
+      },
+      "knowledge_ingest": {
+        "alias": "LIBRARIAN",
+        "ports": [8050],
+        "domain": "GAIA",
+        "function": "LCIS knowledge ingestion",
+        "status": "active"
+      },
+      "knowledge_query": {
+        "alias": "ORACLE",
+        "ports": [8052],
+        "domain": "GAIA",
+        "function": "LCIS knowledge consultation",
+        "status": "active"
+      }
+    },
+
+    "THE_KEEP": {
+      "backup": {
+        "alias": "CHRONOS",
+        "ports": [8010],
+        "domain": "THE_KEEP",
+        "function": "Automated backups and scheduling",
+        "status": "active"
+      },
+      "recovery": {
+        "alias": "HADES",
+        "ports": [8008],
+        "domain": "THE_KEEP",
+        "function": "Disaster recovery and rollback",
+        "status": "active"
+      },
+      "credentials": {
+        "alias": "AEGIS",
+        "ports": [8012],
+        "domain": "THE_KEEP",
+        "function": "Secrets and credential management",
+        "status": "active"
+      },
+      "notifications": {
+        "alias": "HERMES",
+        "ports": [8014],
+        "domain": "THE_KEEP",
+        "function": "Alerts, notifications, communications",
+        "status": "active"
+      },
+      "auth_gateway": {
+        "alias": "CERBERUS",
+        "ports": [8022],
+        "domain": "THE_KEEP",
+        "function": "Authentication gateway",
+        "status": "active"
+      },
+      "port_manager": {
+        "alias": "PORT_MANAGER",
+        "ports": [8021],
+        "domain": "THE_KEEP",
+        "function": "Port allocation tracking",
+        "status": "active"
+      }
+    },
+
+    "SENTINELS": {
+      "monitoring": {
+        "alias": "PANOPTES",
+        "ports": [8023],
+        "domain": "SENTINELS",
+        "function": "Real-time system monitoring",
+        "status": "active"
+      },
+      "diagnostics": {
+        "alias": "ASCLEPIUS",
+        "ports": [8024],
+        "domain": "SENTINELS",
+        "function": "Health diagnostics and healing",
+        "status": "active"
+      },
+      "security": {
+        "alias": "ARGUS",
+        "ports": [8016],
+        "domain": "SENTINELS",
+        "function": "Security scanning",
+        "status": "active"
+      },
+      "evaluation": {
+        "alias": "ALOY",
+        "ports": [8015],
+        "domain": "SENTINELS",
+        "function": "Performance evaluation",
+        "status": "active"
+      }
+    },
+
+    "CHANCERY": {
+      "project_manager": {
+        "alias": "MAGNUS",
+        "ports": [8019],
+        "domain": "CHANCERY",
+        "function": "Universal project management (7 PM tools)",
+        "status": "active"
+      },
+      "intelligence": {
+        "alias": "VARYS",
+        "ports": [8018],
+        "domain": "CHANCERY",
+        "function": "Intelligence gathering, portfolio tracking",
+        "status": "active"
+      },
+      "finance": {
+        "alias": "LITTLEFINGER",
+        "ports": [8020],
+        "domain": "CHANCERY",
+        "function": "Invoicing, expenses, MRR tracking",
+        "status": "active"
+      },
+      "research": {
+        "alias": "SCHOLAR",
+        "ports": [8030],
+        "domain": "CHANCERY",
+        "function": "Deep research and analysis",
+        "status": "active"
+      },
+      "planning": {
+        "alias": "CHIRON",
+        "ports": [8031],
+        "domain": "CHANCERY",
+        "function": "Strategic planning and guidance",
+        "status": "active"
+      },
+      "documentation": {
+        "alias": "ATHENA",
+        "ports": [8013],
+        "domain": "CHANCERY",
+        "function": "Documentation, knowledge, compliance",
+        "status": "active"
+      }
+    },
+
+    "ARIA_SANCTUM": {
+      "assistant": {
+        "alias": "ARIA",
+        "ports": [8114, 8115],
+        "domain": "ARIA_SANCTUM",
+        "function": "Personal AI assistant",
+        "status": "active"
+      },
+      "council": {
+        "alias": "CONVENER",
+        "ports": [8025],
+        "domain": "ARIA_SANCTUM",
+        "function": "Council meeting facilitation",
+        "status": "active"
+      }
+    },
+
+    "PERSONAL": {
+      "nutrition": {
+        "alias": "NUTRITIONIST",
+        "ports": [8101],
+        "domain": "PERSONAL",
+        "function": "Nutrition guidance",
+        "status": "active"
+      },
+      "meals": {
+        "alias": "MEAL_PLANNER",
+        "ports": [8102],
+        "domain": "PERSONAL",
+        "function": "Recipe and meal suggestions",
+        "status": "active"
+      },
+      "learning": {
+        "alias": "ACADEMIC_GUIDE",
+        "ports": [8103],
+        "domain": "PERSONAL",
+        "function": "Study assistance",
+        "status": "active"
+      },
+      "relationships": {
+        "alias": "EROS",
+        "ports": [8104],
+        "domain": "PERSONAL",
+        "function": "Relationship coaching",
+        "status": "active"
+      },
+      "fitness": {
+        "alias": "GYM_COACH",
+        "ports": [8110],
+        "domain": "PERSONAL",
+        "function": "Fitness training",
+        "status": "active"
+      }
+    }
+  },
+
+  "freed_ports": {
+    "8200": "Available (was HERACLES)",
+    "8201": "Available (was LIBRARIAN duplicate)",
+    "8202": "Available (was WORKFLOW-BUILDER)",
+    "8203": "Available (was THEMIS)",
+    "8204": "Available (was MENTOR)",
+    "8205": "Available (was PLUTUS)",
+    "8206": "Available (was PROCUREMENT)",
+    "8209": "Available (was IRIS)"
+  },
+
+  "port_ranges": {
+    "8000-8099": "GAIA / Core Infrastructure",
+    "8100-8199": "ARIA_SANCTUM / Personal",
+    "8200-8299": "RESERVED (freed from OLYMPUS)",
+    "5678-5680": "n8n instances"
+  }
+}
