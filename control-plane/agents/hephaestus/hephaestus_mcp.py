@@ -1732,6 +1732,106 @@ async def littlefinger_goals():
         return {"error": str(e)}
 
 
+# ============ PIPELINE TOOLS ============
+# Multi-agent orchestration pipelines via ATLAS
+
+ATLAS_PIPELINE_URL = "http://localhost:8007"
+
+
+@app.get("/tools/pipeline/list")
+async def pipeline_list():
+    """List all available pipeline definitions."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{ATLAS_PIPELINE_URL}/pipelines", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/pipeline/{pipeline_name}")
+async def pipeline_get(pipeline_name: str):
+    """Get pipeline definition details."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{ATLAS_PIPELINE_URL}/pipelines/{pipeline_name}",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/tools/pipeline/{pipeline_name}/execute")
+async def pipeline_execute(pipeline_name: str, input_data: dict = {}):
+    """
+    Execute a pipeline with input data.
+
+    Available pipelines:
+    - agent-upgrade: Evaluate and upgrade an agent (input: agent_name)
+    - content-creation: Create content from brief (input: brief, content_type)
+    - deep-research: Research a topic (input: question)
+    - client-onboarding: Onboard new client (input: client_name, project_type, billing_info)
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{ATLAS_PIPELINE_URL}/pipelines/{pipeline_name}/execute",
+                json={"input": input_data, "triggered_by": "hephaestus-mcp"},
+                timeout=30.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/pipeline/execution/{execution_id}")
+async def pipeline_execution_status(execution_id: str):
+    """Get pipeline execution status and stage details."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{ATLAS_PIPELINE_URL}/pipelines/executions/{execution_id}",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/pipeline/executions")
+async def pipeline_executions(status: Optional[str] = None, limit: int = 20):
+    """List recent pipeline executions. Filter by status: running, completed, failed"""
+    try:
+        params = {"limit": limit}
+        if status:
+            params["status"] = status
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{ATLAS_PIPELINE_URL}/pipelines/executions",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/tools/pipeline/execution/{execution_id}/cancel")
+async def pipeline_cancel(execution_id: str):
+    """Cancel a running pipeline execution."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{ATLAS_PIPELINE_URL}/pipelines/executions/{execution_id}/cancel",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ============ HEALTH ============
 
 @app.get("/health")
@@ -1750,7 +1850,7 @@ async def root():
     return {
         "name": "HEPHAESTUS",
         "description": "Builder MCP Server with Orchestration",
-        "version": "1.1.0",
+        "version": "1.2.0",
         "endpoints": {
             "health": "/health",
             "workflows": "/tools/workflow/*",
@@ -1761,7 +1861,8 @@ async def root():
             "orchestrate": "/tools/orchestrate/*",
             "lcis": "/tools/lcis/*",
             "varys": "/tools/varys/*",
-            "littlefinger": "/tools/littlefinger/*"
+            "littlefinger": "/tools/littlefinger/*",
+            "pipeline": "/tools/pipeline/*"
         }
     }
 

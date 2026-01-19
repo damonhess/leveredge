@@ -1112,6 +1112,466 @@ async def reload_registry():
     }
 
 # -----------------------------------------------------------------------------
+# PIPELINE SYSTEM (Database-backed multi-agent orchestration)
+# -----------------------------------------------------------------------------
+
+# Agent endpoint mapping for pipelines
+PIPELINE_AGENT_ENDPOINTS = {
+    "ALOY": "http://localhost:8015",
+    "SCHOLAR": "http://localhost:8018",
+    "CHIRON": "http://localhost:8017",
+    "MAGNUS": "http://localhost:8017",
+    "HEPHAESTUS": "http://localhost:8011",
+    "CATALYST": "http://localhost:8030",
+    "SAGA": "http://localhost:8031",
+    "PRISM": "http://localhost:8032",
+    "ELIXIR": "http://localhost:8033",
+    "RELIC": "http://localhost:8034",
+    "HERMES": "http://localhost:8014",
+    "LITTLEFINGER": "http://localhost:8020",
+    "VARYS": "http://localhost:8112",
+    "ARIA": "http://localhost:8111",
+}
+
+# Database connection pool (lazy initialized)
+_db_pool = None
+
+async def get_db_pool():
+    """Get or create database connection pool."""
+    global _db_pool
+    if _db_pool is None:
+        try:
+            import asyncpg
+            db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/leveredge")
+            _db_pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10)
+        except Exception as e:
+            print(f"Warning: Could not connect to database: {e}")
+            return None
+    return _db_pool
+
+
+class PipelineEngine:
+    """Database-backed pipeline execution engine."""
+
+    def __init__(self):
+        self.active_executions: Dict[str, asyncio.Task] = {}
+
+    async def list_pipelines(self) -> List[dict]:
+        """List all active pipeline definitions."""
+        pool = await get_db_pool()
+        if not pool:
+            return []
+
+        async with pool.acquire() as conn:
+            rows = await conn.fetch("""
+                SELECT id, name, description, stages, status, created_at
+                FROM pipeline_definitions
+                WHERE status = 'active'
+                ORDER BY name
+            """)
+            return [
+                {
+                    "id": str(row["id"]),
+                    "name": row["name"],
+                    "description": row["description"],
+                    "stage_count": len(row["stages"]) if row["stages"] else 0,
+                    "status": row["status"]
+                }
+                for row in rows
+            ]
+
+    async def get_pipeline(self, name: str) -> Optional[dict]:
+        """Get pipeline definition by name."""
+        pool = await get_db_pool()
+        if not pool:
+            return None
+
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM pipeline_definitions WHERE name = $1 AND status = 'active'",
+                name
+            )
+            if row:
+                return dict(row)
+            return None
+
+    async def start_pipeline(
+        self,
+        pipeline_name: str,
+        input_data: dict,
+        triggered_by: str = "api"
+    ) -> str:
+        """Start a pipeline execution."""
+        pool = await get_db_pool()
+        if not pool:
+            raise HTTPException(503, "Database not available")
+
+        async with pool.acquire() as conn:
+            # Get pipeline definition
+            pipeline = await conn.fetchrow(
+                "SELECT * FROM pipeline_definitions WHERE name = $1 AND status = 'active'",
+                pipeline_name
+            )
+
+            if not pipeline:
+                raise HTTPException(404, f"Pipeline '{pipeline_name}' not found")
+
+            stages = pipeline['stages']
+
+            # Create execution record
+            execution = await conn.fetchrow("""
+                INSERT INTO pipeline_executions
+                (pipeline_id, pipeline_name, input_data, total_stages, triggered_by, status, started_at)
+                VALUES ($1, $2, $3, $4, $5, 'running', NOW())
+                RETURNING id
+            """, pipeline['id'], pipeline_name, json.dumps(input_data), len(stages), triggered_by)
+
+            execution_id = str(execution['id'])
+
+            # Start execution in background
+            task = asyncio.create_task(
+                self._execute_pipeline(execution_id, stages, input_data)
+            )
+            self.active_executions[execution_id] = task
+
+            return execution_id
+
+    async def _execute_pipeline(
+        self,
+        execution_id: str,
+        stages: list,
+        initial_input: dict
+    ):
+        """Execute pipeline stages sequentially."""
+        pool = await get_db_pool()
+        if not pool:
+            return
+
+        context = initial_input.copy()
+
+        async with pool.acquire() as conn:
+            for i, stage in enumerate(stages):
+                stage_name = stage.get('name', f'stage_{i}')
+                agent = stage.get('agent', 'UNKNOWN')
+                action = stage.get('action', 'unknown')
+
+                # Check if stage should be skipped (optional + missing inputs)
+                if stage.get('optional'):
+                    required_inputs = stage.get('required_inputs', [])
+                    missing = [k for k in required_inputs if k not in context]
+                    if missing:
+                        await self._log_stage(conn, execution_id, i, stage_name, agent, action, 'skipped', {}, {"skipped": "missing optional inputs"})
+                        continue
+
+                # Update execution progress
+                await conn.execute(
+                    "UPDATE pipeline_executions SET current_stage = $2 WHERE id = $1",
+                    uuid.UUID(execution_id), i
+                )
+
+                # Prepare stage input
+                stage_input = {}
+                for input_key in stage.get('required_inputs', []):
+                    if input_key in context:
+                        stage_input[input_key] = context[input_key]
+                    else:
+                        # Missing required input
+                        await self._fail_execution(
+                            conn, execution_id,
+                            f"Missing required input '{input_key}' for stage '{stage_name}'"
+                        )
+                        return
+
+                # Log stage start
+                stage_log_id = await self._log_stage(
+                    conn, execution_id, i, stage_name, agent, action, 'running', stage_input, {}
+                )
+
+                # Execute stage
+                try:
+                    timeout = stage.get('timeout_minutes', 30) * 60
+                    output = await asyncio.wait_for(
+                        self._call_agent(agent, action, stage_input),
+                        timeout=timeout
+                    )
+
+                    # Update stage log
+                    await conn.execute("""
+                        UPDATE pipeline_stage_logs
+                        SET status = 'completed', output_data = $2, completed_at = NOW(),
+                            duration_seconds = EXTRACT(EPOCH FROM (NOW() - started_at))::INTEGER
+                        WHERE id = $1
+                    """, stage_log_id, json.dumps(output))
+
+                    # Merge output into context
+                    if isinstance(output, dict):
+                        context.update(output)
+
+                except asyncio.TimeoutError:
+                    await self._fail_stage(conn, stage_log_id, f"Stage timed out after {timeout}s")
+                    if not stage.get('optional'):
+                        await self._fail_execution(conn, execution_id, f"Stage '{stage_name}' timed out")
+                        return
+
+                except Exception as e:
+                    await self._fail_stage(conn, stage_log_id, str(e))
+                    if not stage.get('optional'):
+                        await self._fail_execution(conn, execution_id, f"Stage '{stage_name}' failed: {e}")
+                        return
+
+            # Pipeline completed successfully
+            await conn.execute("""
+                UPDATE pipeline_executions
+                SET status = 'completed', output_data = $2, completed_at = NOW()
+                WHERE id = $1
+            """, uuid.UUID(execution_id), json.dumps(context))
+
+            # Cleanup active execution
+            self.active_executions.pop(execution_id, None)
+
+    async def _call_agent(self, agent: str, action: str, input_data: dict) -> dict:
+        """Call an agent's action endpoint."""
+        endpoint = PIPELINE_AGENT_ENDPOINTS.get(agent)
+        if not endpoint:
+            # Try registry-based lookup as fallback
+            agent_config = registry.get_agent(agent)
+            if agent_config:
+                base_url = agent_config.get("connection", {}).get("url", "")
+                if "://" in base_url:
+                    parts = base_url.split("://")
+                    host_port = parts[1]
+                    if ":" in host_port:
+                        port = host_port.split(":")[1].split("/")[0]
+                        endpoint = f"http://localhost:{port}"
+
+        if not endpoint:
+            raise Exception(f"Unknown agent: {agent}")
+
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            # Try action endpoint
+            response = await client.post(
+                f"{endpoint}/action/{action}",
+                json=input_data
+            )
+
+            if response.status_code == 404:
+                # Fallback to generic execute endpoint
+                response = await client.post(
+                    f"{endpoint}/execute",
+                    json={"action": action, **input_data}
+                )
+
+            if response.status_code != 200:
+                raise Exception(f"Agent returned {response.status_code}: {response.text[:200]}")
+
+            return response.json()
+
+    async def _log_stage(self, conn, execution_id, index, name, agent, action, status, input_data, output_data):
+        """Log stage execution."""
+        row = await conn.fetchrow("""
+            INSERT INTO pipeline_stage_logs
+            (execution_id, stage_index, stage_name, agent, action, status, input_data, output_data, started_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+            RETURNING id
+        """, uuid.UUID(execution_id), index, name, agent, action, status,
+            json.dumps(input_data), json.dumps(output_data))
+        return row['id']
+
+    async def _fail_stage(self, conn, stage_log_id, error):
+        """Mark stage as failed."""
+        await conn.execute("""
+            UPDATE pipeline_stage_logs
+            SET status = 'failed', error_message = $2, completed_at = NOW()
+            WHERE id = $1
+        """, stage_log_id, error)
+
+    async def _fail_execution(self, conn, execution_id, error):
+        """Mark execution as failed."""
+        await conn.execute("""
+            UPDATE pipeline_executions
+            SET status = 'failed', error_message = $2, completed_at = NOW()
+            WHERE id = $1
+        """, uuid.UUID(execution_id), error)
+
+        # Cleanup active execution
+        self.active_executions.pop(execution_id, None)
+
+    async def get_execution_status(self, execution_id: str) -> Optional[dict]:
+        """Get pipeline execution status."""
+        pool = await get_db_pool()
+        if not pool:
+            return None
+
+        async with pool.acquire() as conn:
+            execution = await conn.fetchrow(
+                "SELECT * FROM pipeline_executions WHERE id = $1",
+                uuid.UUID(execution_id)
+            )
+
+            if not execution:
+                return None
+
+            stages = await conn.fetch(
+                "SELECT * FROM pipeline_stage_logs WHERE execution_id = $1 ORDER BY stage_index",
+                uuid.UUID(execution_id)
+            )
+
+            return {
+                "execution_id": str(execution["id"]),
+                "pipeline_name": execution["pipeline_name"],
+                "status": execution["status"],
+                "current_stage": execution["current_stage"],
+                "total_stages": execution["total_stages"],
+                "started_at": execution["started_at"].isoformat() if execution["started_at"] else None,
+                "completed_at": execution["completed_at"].isoformat() if execution["completed_at"] else None,
+                "error_message": execution["error_message"],
+                "input_data": execution["input_data"],
+                "output_data": execution["output_data"],
+                "stages": [
+                    {
+                        "stage_index": s["stage_index"],
+                        "stage_name": s["stage_name"],
+                        "agent": s["agent"],
+                        "action": s["action"],
+                        "status": s["status"],
+                        "duration_seconds": s["duration_seconds"],
+                        "error_message": s["error_message"]
+                    }
+                    for s in stages
+                ]
+            }
+
+    async def list_executions(self, status: Optional[str] = None, limit: int = 20) -> List[dict]:
+        """List recent pipeline executions."""
+        pool = await get_db_pool()
+        if not pool:
+            return []
+
+        async with pool.acquire() as conn:
+            if status:
+                rows = await conn.fetch("""
+                    SELECT id, pipeline_name, status, current_stage, total_stages, started_at, completed_at, error_message
+                    FROM pipeline_executions
+                    WHERE status = $1
+                    ORDER BY started_at DESC
+                    LIMIT $2
+                """, status, limit)
+            else:
+                rows = await conn.fetch("""
+                    SELECT id, pipeline_name, status, current_stage, total_stages, started_at, completed_at, error_message
+                    FROM pipeline_executions
+                    ORDER BY started_at DESC
+                    LIMIT $1
+                """, limit)
+
+            return [
+                {
+                    "execution_id": str(row["id"]),
+                    "pipeline_name": row["pipeline_name"],
+                    "status": row["status"],
+                    "progress": f"{row['current_stage']}/{row['total_stages']}",
+                    "started_at": row["started_at"].isoformat() if row["started_at"] else None,
+                    "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+                    "error_message": row["error_message"]
+                }
+                for row in rows
+            ]
+
+    async def cancel_execution(self, execution_id: str) -> bool:
+        """Cancel a running pipeline execution."""
+        # Cancel the asyncio task
+        if execution_id in self.active_executions:
+            self.active_executions[execution_id].cancel()
+            del self.active_executions[execution_id]
+
+        pool = await get_db_pool()
+        if not pool:
+            return False
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE pipeline_executions SET status = 'cancelled', completed_at = NOW() WHERE id = $1",
+                uuid.UUID(execution_id)
+            )
+
+        return True
+
+
+pipeline_engine = PipelineEngine()
+
+
+class PipelineExecuteRequest(BaseModel):
+    input: dict = Field(default_factory=dict)
+    triggered_by: str = "api"
+
+
+@app.get("/pipelines")
+async def list_pipelines():
+    """List all active pipeline definitions."""
+    pipelines = await pipeline_engine.list_pipelines()
+    return {
+        "pipelines": pipelines,
+        "count": len(pipelines)
+    }
+
+
+@app.get("/pipelines/{pipeline_name}")
+async def get_pipeline_definition(pipeline_name: str):
+    """Get pipeline definition."""
+    pipeline = await pipeline_engine.get_pipeline(pipeline_name)
+    if not pipeline:
+        raise HTTPException(404, f"Pipeline '{pipeline_name}' not found")
+    return {
+        "name": pipeline["name"],
+        "description": pipeline["description"],
+        "stages": pipeline["stages"],
+        "status": pipeline["status"]
+    }
+
+
+@app.post("/pipelines/{pipeline_name}/execute")
+async def execute_pipeline(pipeline_name: str, request: PipelineExecuteRequest):
+    """Start a pipeline execution."""
+    execution_id = await pipeline_engine.start_pipeline(
+        pipeline_name,
+        request.input,
+        request.triggered_by
+    )
+    return {
+        "execution_id": execution_id,
+        "pipeline_name": pipeline_name,
+        "status": "running",
+        "message": f"Pipeline started. Check status at /pipelines/executions/{execution_id}"
+    }
+
+
+@app.get("/pipelines/executions/{execution_id}")
+async def get_pipeline_execution(execution_id: str):
+    """Get pipeline execution status and details."""
+    status = await pipeline_engine.get_execution_status(execution_id)
+    if not status:
+        raise HTTPException(404, f"Execution '{execution_id}' not found")
+    return status
+
+
+@app.get("/pipelines/executions")
+async def list_pipeline_executions(status: Optional[str] = None, limit: int = 20):
+    """List recent pipeline executions."""
+    executions = await pipeline_engine.list_executions(status, limit)
+    return {
+        "executions": executions,
+        "count": len(executions)
+    }
+
+
+@app.post("/pipelines/executions/{execution_id}/cancel")
+async def cancel_pipeline_execution(execution_id: str):
+    """Cancel a running pipeline execution."""
+    success = await pipeline_engine.cancel_execution(execution_id)
+    return {"status": "cancelled" if success else "not_found"}
+
+
+# -----------------------------------------------------------------------------
 # LIFECYCLE
 # -----------------------------------------------------------------------------
 
@@ -1120,6 +1580,13 @@ async def startup():
     """Initialize on startup."""
     # Load registry
     registry.load()
+
+    # Initialize database pool for pipelines
+    try:
+        await get_db_pool()
+        print("   Pipeline database: connected")
+    except Exception as e:
+        print(f"   Pipeline database: not available ({e})")
 
     # Log startup
     try:
