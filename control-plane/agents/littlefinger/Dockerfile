@@ -2,17 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir \
+    fastapi \
+    uvicorn \
+    asyncpg \
+    httpx \
+    pydantic
 
-# Create shared modules directory
-RUN mkdir -p /opt/leveredge/control-plane/shared
+COPY littlefinger.py .
 
-# Copy shared modules (built with context from parent directory)
-COPY shared/ /opt/leveredge/control-plane/shared/
+EXPOSE 8020
 
-COPY plutus.py .
-
-EXPOSE 8205
-
-CMD ["uvicorn", "plutus:app", "--host", "0.0.0.0", "--port", "8205"]
+CMD ["uvicorn", "littlefinger:app", "--host", "0.0.0.0", "--port", "8020"]

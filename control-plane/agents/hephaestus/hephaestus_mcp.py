@@ -1494,6 +1494,244 @@ async def varys_agent_metrics(days: int = 7):
         return {"error": str(e)}
 
 
+# ============ LITTLEFINGER FINANCE TOOLS ============
+
+LITTLEFINGER_URL = os.getenv("LITTLEFINGER_URL", "http://localhost:8020")
+
+
+@app.get("/tools/littlefinger/status")
+async def littlefinger_status():
+    """
+    Get financial status from LITTLEFINGER - Master of Coin.
+
+    Returns MRR, revenue/expenses MTD, goal progress, pending invoices.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{LITTLEFINGER_URL}/status", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e), "littlefinger_says": "The web of gold is tangled - cannot reach the coffers"}
+
+
+@app.get("/tools/littlefinger/mrr")
+async def littlefinger_mrr():
+    """Get MRR breakdown and goal progress."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{LITTLEFINGER_URL}/mrr", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/littlefinger/subscriptions")
+async def littlefinger_subscriptions():
+    """Get active subscriptions and total monthly cost."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{LITTLEFINGER_URL}/subscriptions", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class LittlefingerExpense(BaseModel):
+    category: str  # software, hosting, tools, marketing, contractor, etc.
+    vendor: str
+    description: str
+    amount: float
+    is_recurring: bool = False
+    recurring_interval: Optional[str] = None  # weekly, monthly, quarterly, yearly
+
+
+@app.post("/tools/littlefinger/expenses")
+async def littlefinger_add_expense(expense: LittlefingerExpense):
+    """Add an expense."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LITTLEFINGER_URL}/expenses",
+                json=expense.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("littlefinger_expense_added", expense.vendor, {"amount": expense.amount})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/littlefinger/expenses")
+async def littlefinger_list_expenses(category: Optional[str] = None, month: Optional[str] = None):
+    """List expenses with optional filters."""
+    try:
+        params = {}
+        if category:
+            params["category"] = category
+        if month:
+            params["month"] = month
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LITTLEFINGER_URL}/expenses",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class LittlefingerRevenue(BaseModel):
+    source_type: str  # project, retainer, hourly, consulting, product, other
+    description: str
+    amount: float
+    client_id: Optional[str] = None
+    is_recurring: bool = False
+    recurring_interval: Optional[str] = None
+
+
+@app.post("/tools/littlefinger/revenue")
+async def littlefinger_add_revenue(revenue: LittlefingerRevenue):
+    """Add revenue entry."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LITTLEFINGER_URL}/revenue",
+                json=revenue.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("littlefinger_revenue_added", revenue.source_type, {"amount": revenue.amount})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/littlefinger/clients")
+async def littlefinger_clients(status: Optional[str] = None):
+    """List clients."""
+    try:
+        params = {"status": status} if status else {}
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LITTLEFINGER_URL}/clients",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class LittlefingerClient(BaseModel):
+    name: str
+    company: Optional[str] = None
+    email: Optional[str] = None
+    payment_terms: int = 30
+    default_hourly_rate: Optional[float] = None
+
+
+@app.post("/tools/littlefinger/clients")
+async def littlefinger_create_client(client_data: LittlefingerClient):
+    """Create a new client."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LITTLEFINGER_URL}/clients",
+                json=client_data.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            await log_event("littlefinger_client_created", client_data.name, {})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/littlefinger/invoices")
+async def littlefinger_invoices(status: Optional[str] = None, client_id: Optional[str] = None):
+    """List invoices."""
+    try:
+        params = {}
+        if status:
+            params["status"] = status
+        if client_id:
+            params["client_id"] = client_id
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LITTLEFINGER_URL}/invoices",
+                params=params,
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+class LittlefingerInvoice(BaseModel):
+    client_id: str
+    line_items: List[dict]  # [{"description": "...", "quantity": 1, "unit_price": 100}]
+    notes: Optional[str] = None
+    due_days: int = 30
+
+
+@app.post("/tools/littlefinger/invoices")
+async def littlefinger_create_invoice(invoice: LittlefingerInvoice):
+    """Create a new invoice."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LITTLEFINGER_URL}/invoices",
+                json=invoice.model_dump(exclude_none=True),
+                timeout=10.0
+            )
+            result = response.json()
+            await log_event("littlefinger_invoice_created", result.get("invoice_number", ""), {})
+            return result
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/tools/littlefinger/invoices/{invoice_id}/paid")
+async def littlefinger_mark_invoice_paid(invoice_id: str, amount: Optional[float] = None):
+    """Mark an invoice as paid."""
+    try:
+        params = {"amount": amount} if amount else {}
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LITTLEFINGER_URL}/invoices/{invoice_id}/paid",
+                params=params,
+                timeout=10.0
+            )
+            await log_event("littlefinger_invoice_paid", invoice_id, {})
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/littlefinger/report/{month}")
+async def littlefinger_monthly_report(month: str):
+    """Get monthly P&L report. Month format: YYYY-MM (e.g., 2026-01)"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LITTLEFINGER_URL}/report/monthly/{month}",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/littlefinger/goals")
+async def littlefinger_goals():
+    """Get financial goals."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{LITTLEFINGER_URL}/goals", timeout=10.0)
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ============ HEALTH ============
 
 @app.get("/health")
@@ -1521,7 +1759,9 @@ async def root():
             "git": "/tools/git/*",
             "agents": "/tools/agent/*",
             "orchestrate": "/tools/orchestrate/*",
-            "lcis": "/tools/lcis/*"
+            "lcis": "/tools/lcis/*",
+            "varys": "/tools/varys/*",
+            "littlefinger": "/tools/littlefinger/*"
         }
     }
 

@@ -102,7 +102,7 @@ export const AGENTS: Record<string, Agent> = {
   'GENDRY': { id: 'gendry', name: 'GENDRY', port: 8202, domain: 'keep', function: 'Workflow Builder', councilMember: true },
   'STANNIS': { id: 'stannis', name: 'STANNIS', port: 8203, domain: 'keep', function: 'QA/Compliance' },
   'DAVOS': { id: 'davos', name: 'DAVOS', port: 8204, domain: 'keep', function: 'Business Advisor', councilMember: true },
-  'LITTLEFINGER': { id: 'littlefinger', name: 'LITTLEFINGER', port: 8205, domain: 'keep', function: 'Finance', councilMember: true },
+  'LITTLEFINGER': { id: 'littlefinger', name: 'LITTLEFINGER', port: 8020, domain: 'keep', function: 'Master of Coin', councilMember: true },
   'BRONN': { id: 'bronn', name: 'BRONN', port: 8206, domain: 'keep', function: 'Procurement' },
   'RAVEN': { id: 'raven', name: 'RAVEN', port: 8209, domain: 'keep', function: 'News/Intel' },
 
