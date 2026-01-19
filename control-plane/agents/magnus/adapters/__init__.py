@@ -6,6 +6,7 @@ from .jira import JiraAdapter
 from .monday import MondayAdapter
 from .notion import NotionAdapter
 from .linear import LinearAdapter
+from .openproject import OpenProjectAdapter
 
 __all__ = [
     'PMAdapter',
@@ -17,6 +18,7 @@ __all__ = [
     'MondayAdapter',
     'NotionAdapter',
     'LinearAdapter',
+    'OpenProjectAdapter',
 ]
 
 # Adapter registry for dynamic lookup
@@ -27,4 +29,5 @@ ADAPTERS = {
     'monday': MondayAdapter,
     'notion': NotionAdapter,
     'linear': LinearAdapter,
+    'openproject': OpenProjectAdapter,
 }
