@@ -1587,3 +1587,81 @@ services:
       com.leveredge.agent: "scribe"
       com.leveredge.group: "council"
       com.leveredge.port: "8301"
+
+  # ===========================================================================
+  # LCIS - LEVEREDGE COLLECTIVE INTELLIGENCE SYSTEM (8050-8059)
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # LCIS Librarian - Knowledge Ingestion Service (Port 8050)
+  # ---------------------------------------------------------------------------
+  lcis-librarian:
+    build:
+      context: ./control-plane/agents/lcis-librarian
+      dockerfile: Dockerfile
+    container_name: lcis-librarian
+    hostname: lcis-librarian
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:${DEV_POSTGRES_PASSWORD}@supabase-db-dev:5432/postgres
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./control-plane/agents/lcis-librarian:/app:ro
+      - fleet-logs:/logs
+    ports:
+      - "${LCIS_LIBRARIAN_PORT:-8050}:8050"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8050/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "lcis-librarian"
+      com.leveredge.group: "lcis"
+      com.leveredge.port: "8050"
+
+  # ---------------------------------------------------------------------------
+  # LCIS Oracle - Pre-Action Consultation Service (Port 8052)
+  # ---------------------------------------------------------------------------
+  lcis-oracle:
+    build:
+      context: ./control-plane/agents/lcis-oracle
+      dockerfile: Dockerfile
+    container_name: lcis-oracle
+    hostname: lcis-oracle
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+      lcis-librarian:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:${DEV_POSTGRES_PASSWORD}@supabase-db-dev:5432/postgres
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./control-plane/agents/lcis-oracle:/app:ro
+      - fleet-logs:/logs
+    ports:
+      - "${LCIS_ORACLE_PORT:-8052}:8052"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8052/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "lcis-oracle"
+      com.leveredge.group: "lcis"
+      com.leveredge.port: "8052"

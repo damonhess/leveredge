@@ -844,6 +844,179 @@ async def get_batch_results(batch_id: str):
             raise HTTPException(status_code=502, detail=f"ATLAS error: {str(e)}")
 
 
+# ============ LCIS INTEGRATION ============
+
+LCIS_LIBRARIAN_URL = os.getenv("LCIS_LIBRARIAN_URL", "http://localhost:8050")
+LCIS_ORACLE_URL = os.getenv("LCIS_ORACLE_URL", "http://localhost:8052")
+
+
+class LCISConsultRequest(BaseModel):
+    """Request for LCIS Oracle consultation"""
+    action: str
+    domain: Optional[str] = None
+    context: Optional[str] = None
+
+
+class LCISReportRequest(BaseModel):
+    """Request for reporting a lesson to LCIS"""
+    content: str
+    type: str  # failure, success, warning, insight, anti_pattern
+    domain: str
+    title: Optional[str] = None
+    context: Optional[str] = None
+    outcome: Optional[str] = None
+    solution: Optional[str] = None
+    severity: str = "medium"  # critical, high, medium, low
+    tags: List[str] = []
+
+
+@app.post("/tools/lcis/consult")
+async def lcis_consult(req: LCISConsultRequest):
+    """
+    REQUIRED before significant actions.
+
+    Consult LCIS Oracle for:
+    - Blocking rules
+    - Relevant warnings (past failures)
+    - Recommendations (success patterns)
+    - Playbooks (step-by-step guides)
+
+    Example:
+        result = await lcis_consult({
+            "action": "Update ARIA system prompt",
+            "domain": "ARIA_SANCTUM",
+            "context": "User wants personality change"
+        })
+        if result["blocked"]:
+            return f"BLOCKED: {result['blocked_by']['reason']}"
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LCIS_ORACLE_URL}/consult",
+                json={
+                    "action": req.action,
+                    "domain": req.domain,
+                    "agent": "CLAUDE_CODE",
+                    "context": req.context
+                },
+                timeout=10.0
+            )
+            result = response.json()
+            await log_event("lcis_consult", req.action[:50], {"blocked": result.get("blocked", False)})
+            return result
+    except Exception as e:
+        await log_event("lcis_consult_error", req.action[:50], {"error": str(e)}, "failed")
+        return {"error": str(e), "proceed": True, "warnings": ["LCIS unavailable"]}
+
+
+@app.post("/tools/lcis/report")
+async def lcis_report(req: LCISReportRequest):
+    """
+    Report a lesson learned to LCIS.
+
+    Types: failure, success, warning, insight, anti_pattern
+    Severity: critical, high, medium, low
+
+    Example (failure):
+        await lcis_report({
+            "content": "Docker restart doesn't reload baked files",
+            "type": "failure",
+            "domain": "THE_KEEP",
+            "title": "Prompt not updating after restart",
+            "context": "Tried to update ARIA prompt",
+            "outcome": "Prompt unchanged",
+            "solution": "Rebuild Docker image instead",
+            "severity": "high",
+            "tags": ["docker", "aria", "prompt"]
+        })
+
+    Example (success):
+        await lcis_report({
+            "content": "Volume mount allows hot-reload of config files",
+            "type": "success",
+            "domain": "THE_KEEP",
+            "title": "Hot-reload config pattern",
+            "solution": "Mount config as volume instead of baking",
+            "tags": ["docker", "config", "pattern"]
+        })
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{LCIS_LIBRARIAN_URL}/ingest",
+                json={
+                    "content": req.content,
+                    "type": req.type,
+                    "domain": req.domain,
+                    "title": req.title,
+                    "context": req.context,
+                    "outcome": req.outcome,
+                    "solution": req.solution,
+                    "severity": req.severity,
+                    "tags": req.tags,
+                    "source_agent": "CLAUDE_CODE",
+                    "source_type": "claude_code"
+                },
+                timeout=10.0
+            )
+            result = response.json()
+            await log_event("lcis_report", req.type, {"domain": req.domain, "id": result.get("id")})
+            return result
+    except Exception as e:
+        await log_event("lcis_report_error", req.type, {"error": str(e)}, "failed")
+        return {"error": str(e), "status": "failed"}
+
+
+@app.get("/tools/lcis/rules")
+async def lcis_rules():
+    """Get all active LCIS rules that will block or warn."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LCIS_ORACLE_URL}/rules",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e), "rules": []}
+
+
+@app.get("/tools/lcis/context")
+async def lcis_context():
+    """
+    Get full LCIS context for current session.
+
+    Returns:
+    - critical_failures: Things to avoid
+    - active_rules: Enforced constraints
+    - recent_successes: Patterns to follow
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LCIS_ORACLE_URL}/context/claude-code",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/tools/lcis/dashboard")
+async def lcis_dashboard():
+    """Get LCIS dashboard metrics."""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{LCIS_LIBRARIAN_URL}/dashboard",
+                timeout=10.0
+            )
+            return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ============ HEALTH ============
 
 @app.get("/health")
@@ -870,7 +1043,8 @@ async def root():
             "commands": "/tools/command/*",
             "git": "/tools/git/*",
             "agents": "/tools/agent/*",
-            "orchestrate": "/tools/orchestrate/*"
+            "orchestrate": "/tools/orchestrate/*",
+            "lcis": "/tools/lcis/*"
         }
     }
 
