@@ -203,6 +203,25 @@ class DelegateRequest(BaseModel):
     task: str
 
 # =============================================================================
+# GUEST MANAGEMENT
+# =============================================================================
+
+class GuestAgent(BaseModel):
+    """External guest joining via MCP"""
+    guest_id: str
+    name: str  # LAUNCH_COACH, DOMAIN_EXPERT, etc.
+    display_name: str  # "Launch Coach (Claude Web)"
+    connection_type: str = "mcp"  # mcp, api, webhook
+    permissions: List[str] = ["speak", "listen", "vote"]  # No "facilitate" or "adjourn"
+    joined_at: Optional[datetime] = None
+    last_seen: Optional[datetime] = None
+
+
+# In-memory guest registry (per meeting)
+meeting_guests: Dict[str, Dict[str, GuestAgent]] = {}  # meeting_id -> {guest_id -> GuestAgent}
+
+
+# =============================================================================
 # V2 MODELS
 # =============================================================================
 
@@ -2237,6 +2256,272 @@ async def delegate_to_supervisor(meeting_id: str, req: DelegateRequest):
         "supervisor": supervisor,
         "task": req.task
     }
+
+
+# =============================================================================
+# GUEST ENDPOINTS
+# =============================================================================
+
+@app.post("/meetings/{meeting_id}/guests/join")
+async def guest_join(
+    meeting_id: str,
+    name: str,
+    display_name: Optional[str] = None,
+    connection_type: str = "mcp"
+):
+    """Guest agent joins a meeting"""
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    if meeting["status"] not in ["active", "IN_SESSION"]:
+        raise HTTPException(status_code=400, detail="Meeting not in session")
+
+    guest_id = f"guest_{name.lower()}_{uuid.uuid4().hex[:8]}"
+    guest = GuestAgent(
+        guest_id=guest_id,
+        name=name,
+        display_name=display_name or name,
+        connection_type=connection_type,
+        joined_at=datetime.now(),
+        last_seen=datetime.now()
+    )
+
+    if meeting_id not in meeting_guests:
+        meeting_guests[meeting_id] = {}
+    meeting_guests[meeting_id][guest_id] = guest
+
+    # Announce to meeting
+    announcement = f"{guest.display_name} has joined the meeting as a guest advisor."
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        announcement,
+        message_type="CONVENER_PROCEDURAL",
+        metadata={"guest_joined": guest_id}
+    )
+
+    # Publish event
+    await publish_event("guest_joined", {
+        "meeting_id": meeting_id,
+        "guest_id": guest_id,
+        "guest_name": name
+    })
+
+    return {
+        "guest_id": guest_id,
+        "name": name,
+        "display_name": guest.display_name,
+        "meeting_topic": meeting.get("topic", ""),
+        "current_attendees": meeting.get("council_members", []) + [g.name for g in meeting_guests.get(meeting_id, {}).values()],
+        "message": f"Welcome to the council, {guest.display_name}. You may speak, listen, and vote as an advisor."
+    }
+
+
+@app.post("/meetings/{meeting_id}/guests/{guest_id}/speak")
+async def guest_speak(meeting_id: str, guest_id: str, statement: str):
+    """Guest makes a statement to the council"""
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    guests = meeting_guests.get(meeting_id, {})
+    guest = guests.get(guest_id)
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found in this meeting")
+
+    if "speak" not in guest.permissions:
+        raise HTTPException(status_code=403, detail="Guest does not have speak permission")
+
+    # Update last seen
+    guest.last_seen = datetime.now()
+
+    # Record to transcript
+    await record_to_transcript(
+        meeting_id,
+        guest.name,
+        statement,
+        message_type="GUEST_STATEMENT",
+        metadata={
+            "display_name": guest.display_name,
+            "is_guest": True
+        }
+    )
+
+    # Publish for real-time updates
+    await publish_event("guest_spoke", {
+        "meeting_id": meeting_id,
+        "guest_id": guest_id,
+        "guest_name": guest.name,
+        "statement": statement[:200]
+    })
+
+    transcript = await get_transcript(meeting_id)
+    return {
+        "status": "recorded",
+        "entry_index": len(transcript),
+        "transcript_length": len(transcript)
+    }
+
+
+@app.get("/meetings/{meeting_id}/guests/{guest_id}/listen")
+async def guest_listen(
+    meeting_id: str,
+    guest_id: str,
+    since_index: int = 0,
+    limit: int = 20
+):
+    """Guest gets recent transcript entries"""
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    guests = meeting_guests.get(meeting_id, {})
+    guest = guests.get(guest_id)
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found in this meeting")
+
+    if "listen" not in guest.permissions:
+        raise HTTPException(status_code=403, detail="Guest does not have listen permission")
+
+    # Update last seen
+    guest.last_seen = datetime.now()
+
+    # Get transcript entries since index
+    transcript = await get_transcript(meeting_id, limit=500)
+    entries = transcript[since_index:since_index + limit]
+
+    return {
+        "meeting_id": meeting_id,
+        "meeting_topic": meeting.get("topic", ""),
+        "meeting_status": meeting.get("status", ""),
+        "entries": entries,
+        "from_index": since_index,
+        "to_index": since_index + len(entries),
+        "total_entries": len(transcript),
+        "has_more": since_index + limit < len(transcript),
+        "current_attendees": meeting.get("council_members", []),
+        "current_guests": [g.display_name for g in guests.values()]
+    }
+
+
+@app.post("/meetings/{meeting_id}/guests/{guest_id}/vote")
+async def guest_vote(meeting_id: str, guest_id: str, vote: str, reasoning: Optional[str] = None):
+    """Guest casts an advisory vote"""
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    guests = meeting_guests.get(meeting_id, {})
+    guest = guests.get(guest_id)
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found in this meeting")
+
+    if "vote" not in guest.permissions:
+        raise HTTPException(status_code=403, detail="Guest does not have vote permission")
+
+    # Record advisory vote
+    vote_message = f"ADVISORY VOTE: {vote}"
+    if reasoning:
+        vote_message += f" | Reasoning: {reasoning}"
+
+    await record_to_transcript(
+        meeting_id,
+        guest.name,
+        vote_message,
+        message_type="GUEST_VOTE",
+        metadata={
+            "display_name": guest.display_name,
+            "vote": vote,
+            "reasoning": reasoning,
+            "is_guest": True,
+            "is_advisory": True
+        }
+    )
+
+    return {
+        "status": "vote_recorded",
+        "advisory_note": "Guest votes are advisory. The Chair has final authority."
+    }
+
+
+@app.post("/meetings/{meeting_id}/guests/{guest_id}/leave")
+async def guest_leave(meeting_id: str, guest_id: str):
+    """Guest leaves the meeting"""
+    meeting = await get_meeting(meeting_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    guests = meeting_guests.get(meeting_id, {})
+    guest = guests.pop(guest_id, None)
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found")
+
+    # Announce departure
+    await record_to_transcript(
+        meeting_id,
+        "CONVENER",
+        f"{guest.display_name} has left the meeting.",
+        message_type="CONVENER_PROCEDURAL",
+        metadata={"guest_left": guest_id}
+    )
+
+    return {"status": "left", "message": f"Thank you for your counsel, {guest.display_name}."}
+
+
+@app.get("/meetings/{meeting_id}/guests")
+async def list_guests(meeting_id: str):
+    """List all guests in a meeting"""
+    guests = meeting_guests.get(meeting_id, {})
+    return {
+        "meeting_id": meeting_id,
+        "guests": [
+            {
+                "guest_id": g.guest_id,
+                "name": g.name,
+                "display_name": g.display_name,
+                "connection_type": g.connection_type,
+                "joined_at": g.joined_at.isoformat() if g.joined_at else None,
+                "last_seen": g.last_seen.isoformat() if g.last_seen else None
+            }
+            for g in guests.values()
+        ],
+        "count": len(guests)
+    }
+
+
+@app.get("/council/meetings")
+async def list_all_meetings():
+    """List all meetings (for MCP tools to discover joinable meetings)"""
+    try:
+        async with httpx.AsyncClient() as http:
+            resp = await http.get(
+                f"{SUPABASE_URL}/rest/v1/council_meetings",
+                params={"order": "created_at.desc", "limit": 20},
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                },
+                timeout=10.0
+            )
+            if resp.status_code == 200:
+                meetings = resp.json()
+                return {
+                    "meetings": [
+                        {
+                            "meeting_id": m.get("id"),
+                            "title": m.get("title"),
+                            "topic": m.get("topic"),
+                            "status": m.get("status"),
+                            "participants": m.get("council_members", []),
+                            "created_at": m.get("created_at")
+                        }
+                        for m in meetings
+                    ]
+                }
+    except Exception as e:
+        print(f"List meetings failed: {e}")
+    return {"meetings": []}
 
 
 if __name__ == "__main__":

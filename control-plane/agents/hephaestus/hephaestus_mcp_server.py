@@ -30,6 +30,7 @@ EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
 # OLYMPUS Orchestration URLs
 SENTINEL_URL = os.getenv("SENTINEL_URL", "http://localhost:8019")
 ATLAS_URL = os.getenv("ATLAS_URL", "http://localhost:8007")
+CONVENER_URL = os.getenv("CONVENER_URL", "http://localhost:8300")
 
 def get_n8n_headers():
     """Get headers for n8n API authentication"""
@@ -381,6 +382,128 @@ async def list_tools() -> list[Tool]:
                     }
                 },
                 "required": ["task_id"]
+            }
+        ),
+        # ============ COUNCIL PARTICIPATION TOOLS ============
+        Tool(
+            name="council_list_meetings",
+            description="List active council meetings. Use this to find meetings to join.",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="council_join",
+            description="Join a council meeting as a guest advisor (e.g., LAUNCH_COACH from Claude Web). Returns a guest_id you'll need for speaking/listening.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "meeting_id": {
+                        "type": "string",
+                        "description": "Meeting ID to join"
+                    },
+                    "guest_name": {
+                        "type": "string",
+                        "description": "Your role name (LAUNCH_COACH, DOMAIN_EXPERT, etc.)",
+                        "default": "LAUNCH_COACH"
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "description": "Display name shown in meeting",
+                        "default": "Launch Coach (Claude Web)"
+                    }
+                },
+                "required": ["meeting_id"]
+            }
+        ),
+        Tool(
+            name="council_speak",
+            description="Make a statement to the council as a guest advisor. Your statement is recorded to the transcript.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "meeting_id": {
+                        "type": "string",
+                        "description": "Meeting ID"
+                    },
+                    "guest_id": {
+                        "type": "string",
+                        "description": "Your guest ID from council_join"
+                    },
+                    "statement": {
+                        "type": "string",
+                        "description": "What you want to say to the council"
+                    }
+                },
+                "required": ["meeting_id", "guest_id", "statement"]
+            }
+        ),
+        Tool(
+            name="council_listen",
+            description="Get recent council discussion. Returns transcript entries so you can follow the conversation.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "meeting_id": {
+                        "type": "string",
+                        "description": "Meeting ID"
+                    },
+                    "guest_id": {
+                        "type": "string",
+                        "description": "Your guest ID from council_join"
+                    },
+                    "since_index": {
+                        "type": "integer",
+                        "description": "Start from this transcript index (0 = beginning)",
+                        "default": 0
+                    }
+                },
+                "required": ["meeting_id", "guest_id"]
+            }
+        ),
+        Tool(
+            name="council_vote",
+            description="Cast an advisory vote on the current matter. Guest votes are advisory only - the Chair decides.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "meeting_id": {
+                        "type": "string",
+                        "description": "Meeting ID"
+                    },
+                    "guest_id": {
+                        "type": "string",
+                        "description": "Your guest ID from council_join"
+                    },
+                    "vote": {
+                        "type": "string",
+                        "description": "Your vote (approve, reject, abstain, or custom)"
+                    },
+                    "reasoning": {
+                        "type": "string",
+                        "description": "Why you voted this way"
+                    }
+                },
+                "required": ["meeting_id", "guest_id", "vote"]
+            }
+        ),
+        Tool(
+            name="council_leave",
+            description="Leave the council meeting gracefully",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "meeting_id": {
+                        "type": "string",
+                        "description": "Meeting ID"
+                    },
+                    "guest_id": {
+                        "type": "string",
+                        "description": "Your guest ID from council_join"
+                    }
+                },
+                "required": ["meeting_id", "guest_id"]
             }
         ),
     ]
@@ -830,6 +953,197 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     return [TextContent(type="text", text=json.dumps(data, indent=2))]
                 except Exception as e:
                     return [TextContent(type="text", text=f"ERROR: Cannot reach MAGNUS: {e}")]
+
+        # ============ COUNCIL PARTICIPATION TOOLS ============
+        elif name == "council_list_meetings":
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(f"{CONVENER_URL}/council/meetings")
+                    data = response.json()
+                    # Format nicely for the guest
+                    meetings = data.get("meetings", [])
+                    if not meetings:
+                        return [TextContent(type="text", text="No meetings found. The council hasn't convened yet.")]
+
+                    lines = ["**Active Council Meetings:**\n"]
+                    for m in meetings:
+                        status = m.get("status", "unknown")
+                        is_joinable = status in ["active", "IN_SESSION"]
+                        status_emoji = "🟢" if is_joinable else "⚪"
+                        lines.append(f"{status_emoji} **{m.get('title', 'Untitled')}**")
+                        lines.append(f"   ID: `{m.get('meeting_id')}`")
+                        lines.append(f"   Topic: {m.get('topic', 'N/A')}")
+                        lines.append(f"   Status: {status}")
+                        lines.append(f"   Participants: {', '.join(m.get('participants', []))}")
+                        lines.append("")
+
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
+
+        elif name == "council_join":
+            meeting_id = arguments["meeting_id"]
+            guest_name = arguments.get("guest_name", "LAUNCH_COACH")
+            display_name = arguments.get("display_name", "Launch Coach (Claude Web)")
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.post(
+                        f"{CONVENER_URL}/meetings/{meeting_id}/guests/join",
+                        params={
+                            "name": guest_name,
+                            "display_name": display_name,
+                            "connection_type": "mcp"
+                        }
+                    )
+                    if response.status_code == 404:
+                        return [TextContent(type="text", text=f"ERROR: Meeting {meeting_id} not found")]
+                    if response.status_code == 400:
+                        return [TextContent(type="text", text=f"ERROR: Meeting not in session. Wait for the Chair to start the meeting.")]
+
+                    data = response.json()
+                    await log_to_event_bus("council_joined", meeting_id, {"guest_id": data.get("guest_id")})
+
+                    # Format welcome message
+                    lines = [
+                        f"✅ **Joined Council Meeting**",
+                        f"",
+                        f"**Your Guest ID:** `{data.get('guest_id')}`",
+                        f"**Meeting Topic:** {data.get('meeting_topic')}",
+                        f"**Current Attendees:** {', '.join(data.get('current_attendees', []))}",
+                        f"",
+                        f"💬 {data.get('message')}",
+                        f"",
+                        f"**Next Steps:**",
+                        f"- Use `council_listen` with your guest_id to see the discussion",
+                        f"- Use `council_speak` to contribute to the meeting",
+                        f"- Use `council_vote` when a vote is called",
+                    ]
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
+
+        elif name == "council_speak":
+            meeting_id = arguments["meeting_id"]
+            guest_id = arguments["guest_id"]
+            statement = arguments["statement"]
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.post(
+                        f"{CONVENER_URL}/meetings/{meeting_id}/guests/{guest_id}/speak",
+                        params={"statement": statement}
+                    )
+                    if response.status_code == 404:
+                        return [TextContent(type="text", text=f"ERROR: Meeting or guest not found. Did you join with council_join first?")]
+                    if response.status_code == 403:
+                        return [TextContent(type="text", text=f"ERROR: You don't have permission to speak in this meeting")]
+
+                    data = response.json()
+                    await log_to_event_bus("council_spoke", meeting_id, {"guest_id": guest_id})
+
+                    return [TextContent(type="text", text=f"✅ Statement recorded (entry #{data.get('entry_index')}). The council has heard your input.")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
+
+        elif name == "council_listen":
+            meeting_id = arguments["meeting_id"]
+            guest_id = arguments["guest_id"]
+            since_index = arguments.get("since_index", 0)
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(
+                        f"{CONVENER_URL}/meetings/{meeting_id}/guests/{guest_id}/listen",
+                        params={"since_index": since_index, "limit": 20}
+                    )
+                    if response.status_code == 404:
+                        return [TextContent(type="text", text=f"ERROR: Meeting or guest not found")]
+
+                    data = response.json()
+                    entries = data.get("entries", [])
+
+                    if not entries:
+                        return [TextContent(type="text", text=f"No new discussion since index {since_index}. Meeting topic: {data.get('meeting_topic')}")]
+
+                    lines = [
+                        f"**Council Discussion** (entries {data.get('from_index')}-{data.get('to_index')} of {data.get('total_entries')})",
+                        f"Topic: {data.get('meeting_topic')}",
+                        f"Status: {data.get('meeting_status')}",
+                        f"",
+                    ]
+
+                    for entry in entries:
+                        speaker = entry.get("speaker", "?")
+                        message = entry.get("message", "")
+                        msg_type = entry.get("message_type", "discussion")
+
+                        # Format based on type
+                        if msg_type in ["CONVENER_PROCEDURAL", "summary"]:
+                            lines.append(f"📋 *[{speaker}]* {message}")
+                        elif "GUEST" in msg_type:
+                            lines.append(f"👤 **{speaker}** (guest): {message}")
+                        elif msg_type == "CHAIR_DIRECTION":
+                            lines.append(f"👑 **{speaker}**: {message}")
+                        else:
+                            lines.append(f"🤖 **{speaker}**: {message}")
+                        lines.append("")
+
+                    if data.get("has_more"):
+                        lines.append(f"📄 More entries available. Call with since_index={data.get('to_index')}")
+
+                    lines.append(f"\n**Guests present:** {', '.join(data.get('current_guests', [])) or 'Just you'}")
+
+                    return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
+
+        elif name == "council_vote":
+            meeting_id = arguments["meeting_id"]
+            guest_id = arguments["guest_id"]
+            vote = arguments["vote"]
+            reasoning = arguments.get("reasoning")
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    params = {"vote": vote}
+                    if reasoning:
+                        params["reasoning"] = reasoning
+
+                    response = await client.post(
+                        f"{CONVENER_URL}/meetings/{meeting_id}/guests/{guest_id}/vote",
+                        params=params
+                    )
+                    if response.status_code == 404:
+                        return [TextContent(type="text", text=f"ERROR: Meeting or guest not found")]
+                    if response.status_code == 403:
+                        return [TextContent(type="text", text=f"ERROR: You don't have permission to vote")]
+
+                    data = response.json()
+                    await log_to_event_bus("council_voted", meeting_id, {"guest_id": guest_id, "vote": vote})
+
+                    return [TextContent(type="text", text=f"✅ Vote recorded: **{vote}**\n\n⚠️ {data.get('advisory_note')}")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
+
+        elif name == "council_leave":
+            meeting_id = arguments["meeting_id"]
+            guest_id = arguments["guest_id"]
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.post(
+                        f"{CONVENER_URL}/meetings/{meeting_id}/guests/{guest_id}/leave"
+                    )
+                    if response.status_code == 404:
+                        return [TextContent(type="text", text=f"ERROR: Meeting or guest not found")]
+
+                    data = response.json()
+                    await log_to_event_bus("council_left", meeting_id, {"guest_id": guest_id})
+
+                    return [TextContent(type="text", text=f"👋 {data.get('message')}")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: Cannot reach CONVENER: {e}")]
 
         else:
             return [TextContent(type="text", text=f"ERROR: Unknown tool: {name}")]

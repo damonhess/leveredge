@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { COUNCIL_MEMBERS, DOMAINS } from '@/lib/agents';
+import { COUNCIL_MEMBERS, DOMAINS, GUEST_ADVISORS } from '@/lib/agents';
 import {
   ArrowLeft, Users, MessageSquare, Play,
   Check, X, ChevronDown
@@ -32,8 +32,17 @@ function NewMeetingContent() {
     }
     return [];
   });
+  const [selectedGuests, setSelectedGuests] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showMemberDropdown, setShowMemberDropdown] = useState(false);
+
+  const toggleGuest = (guestId: string) => {
+    setSelectedGuests(prev =>
+      prev.includes(guestId)
+        ? prev.filter(id => id !== guestId)
+        : [...prev, guestId]
+    );
+  };
 
   const toggleMember = (memberName: string) => {
     setSelectedMembers(prev =>
@@ -202,6 +211,43 @@ function NewMeetingContent() {
           <p className="text-xs text-slate-500 mt-2">
             {selectedMembers.length} of {COUNCIL_MEMBERS.length} members selected
           </p>
+        </div>
+
+        {/* Guest Advisors Section */}
+        <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
+          <div className="flex items-center justify-between mb-4">
+            <label className="font-semibold flex items-center gap-2">
+              <Users size={18} className="text-purple-400" />
+              Guest Advisors (External)
+            </label>
+          </div>
+          <p className="text-sm text-slate-400 mb-4">
+            Invite external advisors who connect via MCP. Guests have advisory privileges only.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {GUEST_ADVISORS.map(guest => (
+              <button
+                key={guest.id}
+                type="button"
+                onClick={() => toggleGuest(guest.id)}
+                className={`p-4 rounded-lg border transition-all text-left ${
+                  selectedGuests.includes(guest.id)
+                    ? 'border-purple-500 bg-purple-500/10'
+                    : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                }`}
+              >
+                <div className="text-2xl mb-2">{guest.icon}</div>
+                <div className="font-medium">{guest.name}</div>
+                <div className="text-xs text-slate-400">{guest.description}</div>
+                <div className="text-xs text-purple-400 mt-1">via {guest.connectionType}</div>
+              </button>
+            ))}
+          </div>
+          {selectedGuests.length > 0 && (
+            <p className="text-xs text-purple-400 mt-3">
+              ⏳ {selectedGuests.length} guest(s) will be notified when meeting starts
+            </p>
+          )}
         </div>
 
         {/* Meeting Options */}

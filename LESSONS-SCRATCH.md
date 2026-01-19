@@ -152,3 +152,174 @@ migrate-prod force N-1  # where N is the dirty version
 - Both are now at migration version 5
 - AEGIS V2 and CONCLAVE tables now exist in PROD
 
+### 2026-01-19 18:30 - [Agent Rapid Deployment Session - 4 Agents Built]
+**Context:** Built 4 new agents in rapid succession: VARYS Discovery Engine, MIDAS Finance, SATOSHI Crypto
+**Key Patterns Learned:**
+
+1. **Database Container Naming:**
+   - DEV Supabase DB container is `supabase-db-dev` (NOT `supabase-dev-db-1`)
+   - Use `docker ps --format "{{.Names}}" | grep -i db` to find the correct name
+   - Password is URL-encoded in DATABASE_URL: `i%2BNKWrdGrBsHu2n%2FLGzNMY84Avry2RhNOY2QYksldLtX7GEuxdyASrpv3n0IRinS`
+
+2. **Migration Execution via Docker:**
+   ```bash
+   # Correct way to run migrations
+   cat migration.sql | docker exec -i supabase-db-dev psql -U postgres -d postgres
+
+   # NOT: docker exec ... -f /dev/stdin (doesn't work with file input)
+   # NOT: psql directly (not installed on host)
+   ```
+
+3. **Container Networking:**
+   - Agents need `--network supabase-dev_supabase-dev` to reach the database
+   - Database hostname is container name: `supabase-db-dev`
+   - Can mount `/opt/leveredge` with `-v /opt/leveredge:/opt/leveredge:ro` for file access (e.g., VARYS reading AGENT-ROUTING.md)
+
+4. **FastAPI Health Endpoints:**
+   - Include `agent` field for VARYS discovery: `"agent": "AGENT_NAME"`
+   - Include `database` field: `"database": "connected"` or `"disconnected"`
+   - Include `tagline` for personality
+
+5. **Git Ignore Issues:**
+   - Migration files in `data-plane/dev/supabase/migrations/` may be gitignored
+   - Use `git add -f` to force-add if needed
+
+**Agents Built:**
+| Agent | Port | Purpose | Commit |
+|-------|------|---------|--------|
+| VARYS Discovery | 8112 | Fleet discovery via port scan, drift detection | 51e9a9fd |
+| MIDAS | 8205 | Traditional finance portfolio tracking | e4ee4c28 |
+| SATOSHI | 8206 | Crypto & blockchain portfolio tracking | 0460e9cc |
+
+**VARYS Discovery Endpoints:**
+- `GET /fleet/documented` - Parse AGENT-ROUTING.md
+- `POST /fleet/discover` - Port scan 8000-8400
+- `GET /fleet/drift` - Compare documented vs registered vs running
+- `GET /fleet/intel` - Full intelligence report
+
+**Commands for Quick Agent Deployment:**
+```bash
+# 1. Create migration and run it
+cat migration.sql | docker exec -i supabase-db-dev psql -U postgres -d postgres
+
+# 2. Build agent
+cd /opt/leveredge/control-plane/agents/<agent> && docker build -t <agent>:dev .
+
+# 3. Run agent
+docker run -d --name <agent> --network supabase-dev_supabase-dev -p <port>:<port> \
+  -e DATABASE_URL="postgresql://postgres:i%2BNKWrdGrBsHu2n%2FLGzNMY84Avry2RhNOY2QYksldLtX7GEuxdyASrpv3n0IRinS@supabase-db-dev:5432/postgres" \
+  <agent>:dev
+
+# 4. Verify
+curl http://localhost:<port>/health
+```
+
+### 2026-01-19 18:45 - [VARYS Route Ordering Bug]
+**Symptom:** `/fleet/report` returned "Agent not found" error
+**Cause:** FastAPI route `/fleet/{agent_name}` was catching `/fleet/report` before the static route could match
+**Fix:** Moved parameterized route `/fleet/{agent_name}` to the END of the file with comment:
+```python
+# ============ AGENT DETAILS (must be LAST due to path param) ============
+@app.get("/fleet/{agent_name}")
+```
+**Prevention:** In FastAPI, always put parameterized routes AFTER static routes with the same prefix. The order of route registration matters.
+
+### 2026-01-19 18:50 - [External API Access from Containers]
+**Symptom:** MIDAS and SATOSHI couldn't fetch prices from Yahoo Finance/CoinGecko
+**Cause:** Container network isolation - external API calls may be blocked or rate-limited
+**Workaround:**
+- Return graceful error when price unavailable: `current_price: null`
+- Allow positions to be created without real-time price data
+- Background tasks for price refresh when APIs accessible
+**Note:** This may be a firewall/network policy issue rather than code problem. APIs work from host but not from containers in this environment.
+
+### 2026-01-19 23:30 - [Spec Organization Pattern]
+**Context:** Accumulated 30+ spec files in /specs/, many superseded or completed
+**Problem:** Hard to know which specs are active vs obsolete
+**Solution:** Created directory structure:
+- `/specs/` - Active specs to be executed
+- `/specs/archive/` - Superseded specs (replaced by newer versions)
+- `/specs/done/` - Completed specs (work finished, kept for reference)
+
+**Files Archived (superseded):**
+- CONSUL specs → superseded by MAGNUS
+- Mega-GSDs → individual approach worked better
+- Loose ends specs → work rolled into other GSDs
+
+**Files Moved to Done:**
+- gsd-midas-finance.md, gsd-satoshi-crypto.md
+- gsd-varys.md, gsd-varys-discovery.md, gsd-varys-fleet-audit.md
+- gsd-magnus-unified-command-center.md
+- gsd-advisory-upgrades.md, gsd-steward.md, gsd-lcis-cleanup.md
+
+**Prevention:** After completing a GSD, move it to `/specs/done/` immediately.
+
+### 2026-01-19 23:35 - [Missing Agent Dockerfiles]
+**Symptom:** ASCLEPIUS directory existed but had no Dockerfile
+**Cause:** Agent code was written but deployment setup was incomplete
+**Fix:** Created standard Dockerfile:
+```dockerfile
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir fastapi uvicorn asyncpg httpx anthropic pydantic
+COPY agent_name.py .
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt 2>/dev/null || true
+EXPOSE <port>
+CMD ["uvicorn", "agent_name:app", "--host", "0.0.0.0", "--port", "<port>"]
+```
+**Prevention:** When creating a new agent, always include: code file, Dockerfile, requirements.txt, docker-compose entry.
+
+### 2026-01-19 23:40 - [Port Conflict Detection Pattern]
+**Symptom:** PLUTUS and MIDAS both claimed port 8205 in different files
+**Cause:** Port assigned to MIDAS, but docker-compose still had old PLUTUS entry
+**Discovery Method:**
+```bash
+# Check for port conflicts
+grep -r "820[0-9]" control-plane/agents/*/Dockerfile docker-compose*.yml
+```
+**Fix:** Updated PLUTUS to 8207 in docker-compose.fleet.yml
+**Prevention:** Use AGENT-ROUTING.md as source of truth for port assignments. Check before assigning new ports.
+
+### 2026-01-19 23:45 - [LITTLEFINGER Missing Base Schema]
+**Symptom:** Balance sheet endpoint returned 500 - `UndefinedTableError: relation "littlefinger_revenue" does not exist`
+**Cause:** Agent upgrade spec assumed base tables existed, but they were never created
+**Fix:** Created migration with all base tables:
+- littlefinger_clients, littlefinger_invoices
+- littlefinger_expenses, littlefinger_revenue, littlefinger_subscriptions
+**Prevention:** Before adding features to an agent, verify its base schema exists:
+```bash
+docker exec supabase-db-dev psql -U postgres -d postgres -c "\dt *agent_name*"
+```
+
+### 2026-01-19 23:50 - [Advisory Agent Upgrade Pattern]
+**Context:** Upgraded SOLON, QUAESTOR, LITTLEFINGER, MIDAS with new capabilities
+**Key Pattern:** Add asyncpg pool for database access:
+```python
+pool = None
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+@app.on_event("startup")
+async def startup():
+    global pool
+    if DATABASE_URL:
+        pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+```
+**Useful Endpoints Added:**
+- `/status` - Dashboard showing counts/summaries
+- `/prep/<professional>` - AI-powered meeting prep
+- Time-based filters: `/deadlines/upcoming`, `/contracts/expiring`
+
+### 2026-01-19 23:55 - [Creative Fleet Verification]
+**Context:** Spec mentioned verifying creative fleet structure
+**Discovery:** Creative agents (muse, calliope, thalia, erato, clio) are in:
+- `/control-plane/agents/<name>/` (not in a subdirectory)
+- All have Dockerfiles and are in docker-compose.fleet.yml
+**Check Command:**
+```bash
+for agent in muse calliope thalia erato clio; do
+  echo "=== $agent ==="
+  ls /opt/leveredge/control-plane/agents/$agent/
+done
+```
+

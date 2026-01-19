@@ -18,6 +18,10 @@ const mockMeeting = {
   topic: 'Q1 2026 Launch Strategy Discussion',
   status: 'active',
   attendees: ['ATLAS', 'TYRION', 'ATHENA', 'DAVOS', 'CATALYST'],
+  guests: [
+    { guest_id: 'guest_launch_coach_abc123', name: 'LAUNCH_COACH', display_name: 'Launch Coach (Claude Web)', connection_type: 'mcp' }
+  ],
+  invitedGuests: ['LAUNCH_COACH'],
   currentSpeaker: 'ATLAS',
   floorQueue: ['TYRION', 'ATHENA'],
   transcript: [
@@ -26,6 +30,7 @@ const mockMeeting = {
     { speaker: 'CONVENER', message: 'ATLAS yields the floor. TYRION, you have the floor.', time: '09:02' },
     { speaker: 'TYRION', message: 'I agree with the framework. However, I believe we should prioritize partner integrations first - they have the longest lead time. [QUESTION: DAVOS]', time: '09:03' },
     { speaker: 'DAVOS', message: 'From a business perspective, TYRION is correct. Partner agreements typically take 4-6 weeks to finalize. We should start those conversations immediately.', time: '09:04' },
+    { speaker: 'LAUNCH_COACH', message: 'I concur with DAVOS. Based on today\'s build velocity, I recommend aggressive timelines. The team has proven it can execute faster than estimated.', time: '09:05', isGuest: true },
   ],
   decisions: [
     { text: 'Prioritize partner integrations in Q1 timeline', votes: { for: 4, against: 1 }, status: 'passed' }
@@ -210,6 +215,38 @@ export default function MeetingPage({ params }: MeetingPageProps) {
             </div>
           </div>
 
+          {/* Guests */}
+          {(meeting.guests.length > 0 || meeting.invitedGuests.length > 0) && (
+            <div className="bg-slate-800 rounded-xl p-4 border border-purple-500/30">
+              <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm text-purple-400">
+                <UserPlus size={14} />
+                Guest Advisors
+              </h3>
+              <div className="space-y-2">
+                {meeting.guests.map(guest => (
+                  <div key={guest.guest_id} className="flex items-center gap-2 text-sm">
+                    <div className="w-2 h-2 rounded-full bg-purple-400" />
+                    <span>{guest.display_name}</span>
+                    <span className="text-xs text-slate-500">({guest.connection_type})</span>
+                  </div>
+                ))}
+                {meeting.invitedGuests
+                  .filter(name => !meeting.guests.some(g => g.name === name))
+                  .map(name => (
+                    <div key={name} className="flex items-center gap-2 text-sm text-slate-500">
+                      <div className="w-2 h-2 rounded-full bg-slate-600" />
+                      <span>{name}</span>
+                      <span className="text-xs">(waiting)</span>
+                    </div>
+                  ))
+                }
+              </div>
+              <p className="text-xs text-slate-500 mt-2">
+                Advisory only - no voting authority
+              </p>
+            </div>
+          )}
+
           {/* Decisions */}
           <div className="bg-slate-800 rounded-xl p-4 border border-slate-700">
             <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
@@ -325,10 +362,12 @@ interface TranscriptEntryData {
   speaker: string;
   message: string;
   time: string;
+  isGuest?: boolean;
 }
 
 function TranscriptEntry({ entry }: { entry: TranscriptEntryData }) {
   const isSystem = entry.speaker === 'CONVENER';
+  const isGuest = entry.isGuest;
 
   if (isSystem) {
     return (
@@ -346,12 +385,23 @@ function TranscriptEntry({ entry }: { entry: TranscriptEntryData }) {
 
   return (
     <div className="flex items-start gap-3">
-      <div className="w-8 h-8 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 font-bold text-sm flex-shrink-0">
-        {entry.speaker.charAt(0)}
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+        isGuest
+          ? 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/50'
+          : 'bg-indigo-500/20 text-indigo-400'
+      }`}>
+        {isGuest ? '👤' : entry.speaker.charAt(0)}
       </div>
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-semibold text-sm">{entry.speaker}</span>
+          <span className={`font-semibold text-sm ${isGuest ? 'text-purple-400' : ''}`}>
+            {entry.speaker}
+          </span>
+          {isGuest && (
+            <span className="text-xs px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded">
+              guest
+            </span>
+          )}
           <span className="text-xs text-slate-500">{entry.time}</span>
         </div>
         <p className="text-sm text-slate-300 mt-1">{entry.message}</p>

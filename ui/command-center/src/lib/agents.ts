@@ -132,6 +132,39 @@ export const AGENTS: Record<string, Agent> = {
 export const COUNCIL_MEMBERS = Object.values(AGENTS).filter(a => a.councilMember);
 export const SUPERVISORS = Object.values(AGENTS).filter(a => a.supervisor);
 
+// Guest advisors who can join via MCP
+export interface GuestAdvisor {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  connectionType: string;
+}
+
+export const GUEST_ADVISORS: GuestAdvisor[] = [
+  {
+    id: 'LAUNCH_COACH',
+    name: 'Launch Coach',
+    description: 'Strategic accountability advisor (Claude Web)',
+    icon: '🎯',
+    connectionType: 'mcp'
+  },
+  {
+    id: 'DOMAIN_EXPERT',
+    name: 'Domain Expert',
+    description: 'Bring specialized knowledge via MCP',
+    icon: '🧠',
+    connectionType: 'mcp'
+  },
+  {
+    id: 'CUSTOM_GUEST',
+    name: 'Custom Guest',
+    description: 'Invite any MCP-connected advisor',
+    icon: '👤',
+    connectionType: 'mcp'
+  }
+];
+
 export function getAgentsByDomain(domainId: string): Agent[] {
   const domain = DOMAINS[domainId];
   if (!domain) return [];

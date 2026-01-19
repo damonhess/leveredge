@@ -6,9 +6,6 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy shared modules
-COPY --from=shared /opt/leveredge/control-plane/shared /opt/leveredge/control-plane/shared
-
 # Copy agent code
 COPY convener.py .
 
