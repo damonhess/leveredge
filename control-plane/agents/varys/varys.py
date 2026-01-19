@@ -659,6 +659,539 @@ async def publish_event(event_type: str, data: dict):
         pass
 
 
+# ============ FLEET CONFIGURATION ============
+
+AGENT_FLEET = {
+    "GAIA": {"port": 8000, "category": "core", "domain": "OLYMPUS"},
+    "HEPHAESTUS": {"port": 8011, "category": "core", "domain": "FORGE"},
+    "CHRONOS": {"port": 8010, "category": "core", "domain": "OLYMPUS"},
+    "HADES": {"port": 8008, "category": "core", "domain": "OLYMPUS"},
+    "AEGIS": {"port": 8012, "category": "core", "domain": "OLYMPUS"},
+    "HERMES": {"port": 8014, "category": "core", "domain": "OLYMPUS"},
+    "ARGUS": {"port": 8016, "category": "core", "domain": "OLYMPUS"},
+    "ALOY": {"port": 8015, "category": "core", "domain": "OLYMPUS"},
+    "ATHENA": {"port": 8013, "category": "core", "domain": "OLYMPUS"},
+    "CHIRON": {"port": 8018, "category": "business", "domain": "CHANCERY"},
+    "SCHOLAR": {"port": 8020, "category": "business", "domain": "CHANCERY"},
+    "MAGNUS": {"port": 8019, "category": "business", "domain": "CHANCERY"},
+    "VARYS": {"port": 8112, "category": "business", "domain": "ARIA_SANCTUM"},
+    "MUSE": {"port": 8030, "category": "creative", "domain": "ALCHEMY"},
+    "QUILL": {"port": 8031, "category": "creative", "domain": "ALCHEMY"},
+    "STAGE": {"port": 8032, "category": "creative", "domain": "ALCHEMY"},
+    "REEL": {"port": 8033, "category": "creative", "domain": "ALCHEMY"},
+    "CRITIC": {"port": 8034, "category": "creative", "domain": "ALCHEMY"},
+    "CONVENER": {"port": 8300, "category": "council", "domain": "CONCLAVE"},
+    "SCRIBE": {"port": 8301, "category": "council", "domain": "CONCLAVE"},
+    "ARIA": {"port": 8001, "category": "personal", "domain": "ARIA_SANCTUM"},
+    "EVENT_BUS": {"port": 8099, "category": "infrastructure", "domain": "OLYMPUS"},
+}
+
+
+# ============ FLEET REGISTRY ============
+
+@app.get("/fleet")
+async def get_fleet():
+    """Get full fleet registry"""
+    if not pool:
+        return {"fleet": AGENT_FLEET, "source": "config"}
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT ar.*, COUNT(ac.id) as capability_count
+            FROM varys_agent_registry ar
+            LEFT JOIN varys_agent_capabilities ac ON ar.id = ac.agent_id
+            GROUP BY ar.id
+            ORDER BY ar.category, ar.agent_name
+        """)
+
+        if not rows:
+            return {"fleet": AGENT_FLEET, "source": "config"}
+
+        return {"fleet": [dict(r) for r in rows], "source": "database"}
+
+
+@app.post("/fleet/sync")
+async def sync_fleet_registry():
+    """Sync AGENT_FLEET config to database"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    synced = 0
+    async with pool.acquire() as conn:
+        for agent_name, config in AGENT_FLEET.items():
+            await conn.execute("""
+                INSERT INTO varys_agent_registry (agent_name, port, category, domain, status)
+                VALUES ($1, $2, $3, $4, 'unknown')
+                ON CONFLICT (agent_name) DO UPDATE SET
+                    port = EXCLUDED.port, category = EXCLUDED.category,
+                    domain = EXCLUDED.domain, updated_at = NOW()
+            """, agent_name, config['port'], config.get('category'), config.get('domain'))
+            synced += 1
+
+    return {"status": "synced", "agents": synced, "varys_says": f"The web now tracks {synced} agents."}
+
+
+# ============ HEALTH SCANNING ============
+
+@app.post("/fleet/scan/health")
+async def scan_fleet_health(background_tasks: BackgroundTasks):
+    """Scan health of all agents"""
+    background_tasks.add_task(do_health_scan)
+    return {"status": "started", "varys_says": "Sending little birds to check on the flock."}
+
+
+async def do_health_scan():
+    """Background health scan"""
+    if not pool:
+        return
+
+    async with pool.acquire() as conn:
+        agents = await conn.fetch("SELECT * FROM varys_agent_registry")
+
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            for agent in agents:
+                try:
+                    response = await client.get(f"http://localhost:{agent['port']}/health")
+                    if response.status_code == 200:
+                        data = response.json()
+                        await conn.execute("""
+                            UPDATE varys_agent_registry
+                            SET status = 'healthy', last_health_check = NOW(),
+                                last_health_status = 'healthy', version = $2,
+                                description = $3, tagline = $4, consecutive_failures = 0
+                            WHERE id = $1
+                        """, agent['id'], data.get('version'),
+                            data.get('description'), data.get('tagline'))
+                    else:
+                        await mark_unhealthy(conn, agent['id'])
+                except Exception:
+                    await mark_unhealthy(conn, agent['id'])
+
+
+async def mark_unhealthy(conn, agent_id):
+    await conn.execute("""
+        UPDATE varys_agent_registry
+        SET status = 'unhealthy', last_health_check = NOW(),
+            last_health_status = 'unhealthy',
+            consecutive_failures = consecutive_failures + 1
+        WHERE id = $1
+    """, agent_id)
+
+
+# ============ CAPABILITY SCANNING ============
+
+@app.post("/fleet/scan/capabilities")
+async def scan_capabilities(background_tasks: BackgroundTasks):
+    """Scan capabilities via OpenAPI"""
+    background_tasks.add_task(do_capability_scan)
+    return {"status": "started", "varys_says": "Mapping the abilities of every piece on the board."}
+
+
+async def do_capability_scan():
+    """Background capability scan"""
+    if not pool:
+        return
+
+    async with pool.acquire() as conn:
+        agents = await conn.fetch(
+            "SELECT * FROM varys_agent_registry WHERE status = 'healthy'"
+        )
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            for agent in agents:
+                try:
+                    response = await client.get(f"http://localhost:{agent['port']}/openapi.json")
+                    if response.status_code == 200:
+                        openapi = response.json()
+                        for path, methods in openapi.get('paths', {}).items():
+                            for method, details in methods.items():
+                                if method.upper() in ['GET', 'POST', 'PUT', 'DELETE', 'PATCH']:
+                                    summary = details.get('summary', path)
+                                    await conn.execute("""
+                                        INSERT INTO varys_agent_capabilities
+                                        (agent_id, capability, capability_type, description, http_method, endpoint_path)
+                                        VALUES ($1, $2, 'endpoint', $3, $4, $5)
+                                        ON CONFLICT (agent_id, capability, capability_type) DO UPDATE
+                                        SET description = EXCLUDED.description
+                                    """, agent['id'], summary, details.get('description'),
+                                        method.upper(), path)
+                except Exception:
+                    pass
+
+
+# ============ DUPLICATE DETECTION ============
+
+@app.post("/fleet/analyze/duplicates")
+async def analyze_duplicates():
+    """Find duplicate capabilities"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        duplicates = await conn.fetch("""
+            SELECT capability, capability_type,
+                   array_agg(DISTINCT ar.agent_name) as agents,
+                   COUNT(DISTINCT ar.agent_name) as agent_count
+            FROM varys_agent_capabilities ac
+            JOIN varys_agent_registry ar ON ac.agent_id = ar.id
+            GROUP BY capability, capability_type
+            HAVING COUNT(DISTINCT ar.agent_name) > 1
+        """)
+
+        detected = 0
+        for dup in duplicates:
+            severity = "critical" if dup['agent_count'] > 2 else "warning"
+            await conn.execute("""
+                INSERT INTO varys_capability_duplicates
+                (capability, capability_type, agents, severity, recommendation)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT DO NOTHING
+            """, dup['capability'], dup['capability_type'],
+                list(dup['agents']), severity,
+                f"Consolidate into single agent: {', '.join(dup['agents'])}")
+            detected += 1
+
+        open_dups = await conn.fetch(
+            "SELECT * FROM varys_capability_duplicates WHERE status = 'open'"
+        )
+
+        return {
+            "duplicates_detected": detected,
+            "open_duplicates": [dict(d) for d in open_dups],
+            "varys_says": f"I've found {len(open_dups)} tangled threads in the web."
+        }
+
+
+@app.get("/fleet/duplicates")
+async def get_duplicates(status: str = "open"):
+    """Get duplicate capabilities"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM varys_capability_duplicates WHERE status = $1 ORDER BY severity DESC",
+            status
+        )
+        return [dict(r) for r in rows]
+
+
+@app.put("/fleet/duplicates/{dup_id}/resolve")
+async def resolve_duplicate(dup_id: str, resolution: str, notes: Optional[str] = None):
+    """Resolve a duplicate"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE varys_capability_duplicates
+            SET status = $2, resolved_at = NOW(), resolution_notes = $3
+            WHERE id = $1::uuid
+        """, dup_id, resolution, notes)
+        return {"status": "resolved"}
+
+
+# ============ GAP ANALYSIS ============
+
+@app.post("/fleet/analyze/gaps")
+async def analyze_gaps():
+    """Find capability gaps"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        expected = await conn.fetch("SELECT * FROM varys_expected_capabilities")
+        current = await conn.fetch(
+            "SELECT DISTINCT capability, capability_type FROM varys_agent_capabilities"
+        )
+        current_set = {(c['capability'], c['capability_type']) for c in current}
+
+        gaps_found = 0
+        for exp in expected:
+            if (exp['capability'], exp['capability_type']) not in current_set:
+                await conn.execute("""
+                    INSERT INTO varys_capability_gaps
+                    (gap_name, gap_type, description, priority, suggested_agent)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT DO NOTHING
+                """, exp['capability'], exp['capability_type'],
+                    exp['description'], exp['priority'], exp['expected_agent'])
+                gaps_found += 1
+
+        open_gaps = await conn.fetch(
+            "SELECT * FROM varys_capability_gaps WHERE status = 'open' ORDER BY priority DESC"
+        )
+
+        return {
+            "gaps_found": gaps_found,
+            "open_gaps": [dict(g) for g in open_gaps],
+            "varys_says": f"The web has {len(open_gaps)} dark corners."
+        }
+
+
+@app.get("/fleet/gaps")
+async def get_gaps(status: str = "open"):
+    """Get capability gaps"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM varys_capability_gaps WHERE status = $1 ORDER BY priority DESC",
+            status
+        )
+        return [dict(r) for r in rows]
+
+
+@app.post("/fleet/gaps/expected")
+async def add_expected_capability(
+    capability: str,
+    capability_type: str,
+    description: Optional[str] = None,
+    priority: str = "medium",
+    expected_agent: Optional[str] = None
+):
+    """Add expected capability for gap detection"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO varys_expected_capabilities
+            (capability, capability_type, description, priority, expected_agent)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (capability) DO UPDATE SET
+                description = EXCLUDED.description, priority = EXCLUDED.priority
+            RETURNING *
+        """, capability, capability_type, description, priority, expected_agent)
+        return dict(row)
+
+
+# ============ FULL FLEET AUDIT ============
+
+@app.post("/fleet/audit")
+async def run_fleet_audit(background_tasks: BackgroundTasks):
+    """Run complete fleet audit"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        audit = await conn.fetchrow("""
+            INSERT INTO varys_fleet_audits (audit_type, status)
+            VALUES ('full', 'running')
+            RETURNING *
+        """)
+
+    background_tasks.add_task(do_full_audit, str(audit['id']))
+    return {
+        "status": "started",
+        "audit_id": str(audit['id']),
+        "varys_says": "The spider begins weaving its web of knowledge."
+    }
+
+
+async def do_full_audit(audit_id: str):
+    """Background full audit"""
+    if not pool:
+        return
+
+    try:
+        # Sync fleet registry first
+        await sync_fleet_registry()
+
+        # Health scan
+        await do_health_scan()
+
+        # Capability scan
+        await do_capability_scan()
+
+        async with pool.acquire() as conn:
+            # Analyze duplicates
+            dup_result = await analyze_duplicates_internal(conn)
+
+            # Analyze gaps
+            gap_result = await analyze_gaps_internal(conn)
+
+            # Get stats
+            stats = await conn.fetchrow("""
+                SELECT COUNT(*) as total,
+                    COUNT(*) FILTER (WHERE status = 'healthy') as healthy,
+                    COUNT(*) FILTER (WHERE status = 'unhealthy') as unhealthy
+                FROM varys_agent_registry
+            """)
+
+            cap_count = await conn.fetchrow(
+                "SELECT COUNT(*) as count FROM varys_agent_capabilities"
+            )
+
+            await conn.execute("""
+                UPDATE varys_fleet_audits
+                SET status = 'completed', completed_at = NOW(),
+                    agents_scanned = $2, agents_healthy = $3, agents_unhealthy = $4,
+                    capabilities_found = $5, duplicates_detected = $6, gaps_identified = $7
+                WHERE id = $1::uuid
+            """, audit_id, stats['total'], stats['healthy'], stats['unhealthy'],
+                cap_count['count'], dup_result, gap_result)
+    except Exception as e:
+        async with pool.acquire() as conn:
+            await conn.execute("""
+                UPDATE varys_fleet_audits SET status = 'failed', audit_data = $2
+                WHERE id = $1::uuid
+            """, audit_id, json.dumps({"error": str(e)}))
+
+
+async def analyze_duplicates_internal(conn) -> int:
+    """Internal duplicate analysis for audit"""
+    duplicates = await conn.fetch("""
+        SELECT capability, capability_type,
+               array_agg(DISTINCT ar.agent_name) as agents,
+               COUNT(DISTINCT ar.agent_name) as agent_count
+        FROM varys_agent_capabilities ac
+        JOIN varys_agent_registry ar ON ac.agent_id = ar.id
+        GROUP BY capability, capability_type
+        HAVING COUNT(DISTINCT ar.agent_name) > 1
+    """)
+
+    detected = 0
+    for dup in duplicates:
+        severity = "critical" if dup['agent_count'] > 2 else "warning"
+        await conn.execute("""
+            INSERT INTO varys_capability_duplicates
+            (capability, capability_type, agents, severity, recommendation)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT DO NOTHING
+        """, dup['capability'], dup['capability_type'],
+            list(dup['agents']), severity,
+            f"Consolidate into single agent: {', '.join(dup['agents'])}")
+        detected += 1
+    return detected
+
+
+async def analyze_gaps_internal(conn) -> int:
+    """Internal gap analysis for audit"""
+    expected = await conn.fetch("SELECT * FROM varys_expected_capabilities")
+    current = await conn.fetch(
+        "SELECT DISTINCT capability, capability_type FROM varys_agent_capabilities"
+    )
+    current_set = {(c['capability'], c['capability_type']) for c in current}
+
+    gaps_found = 0
+    for exp in expected:
+        if (exp['capability'], exp['capability_type']) not in current_set:
+            await conn.execute("""
+                INSERT INTO varys_capability_gaps
+                (gap_name, gap_type, description, priority, suggested_agent)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT DO NOTHING
+            """, exp['capability'], exp['capability_type'],
+                exp['description'], exp['priority'], exp['expected_agent'])
+            gaps_found += 1
+    return gaps_found
+
+
+@app.get("/fleet/audit/{audit_id}")
+async def get_audit_result(audit_id: str):
+    """Get audit result"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        audit = await conn.fetchrow(
+            "SELECT * FROM varys_fleet_audits WHERE id = $1::uuid", audit_id
+        )
+        if not audit:
+            raise HTTPException(status_code=404, detail="Audit not found")
+        return dict(audit)
+
+
+@app.get("/fleet/audits")
+async def list_audits(limit: int = 10):
+    """List recent audits"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"SELECT * FROM varys_fleet_audits ORDER BY started_at DESC LIMIT {limit}"
+        )
+        return [dict(r) for r in rows]
+
+
+# ============ FLEET REPORT ============
+
+@app.get("/fleet/report")
+async def get_fleet_report():
+    """Comprehensive fleet status report"""
+    if not pool:
+        return {"error": "Database not connected"}
+
+    async with pool.acquire() as conn:
+        health = await conn.fetchrow("""
+            SELECT COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'healthy') as healthy,
+                COUNT(*) FILTER (WHERE status = 'unhealthy') as unhealthy,
+                COUNT(*) FILTER (WHERE consecutive_failures > 3) as critical
+            FROM varys_agent_registry
+        """)
+
+        by_category = await conn.fetch("""
+            SELECT category, COUNT(*) as count
+            FROM varys_agent_registry GROUP BY category
+        """)
+
+        duplicates = await conn.fetchrow(
+            "SELECT COUNT(*) as count FROM varys_capability_duplicates WHERE status = 'open'"
+        )
+
+        gaps = await conn.fetchrow(
+            "SELECT COUNT(*) as count FROM varys_capability_gaps WHERE status = 'open'"
+        )
+
+        # Assessment
+        if health['critical'] > 0:
+            assessment = "CRITICAL - Multiple agents failing"
+        elif health['unhealthy'] > 2:
+            assessment = "DEGRADED - Several agents unhealthy"
+        elif duplicates['count'] > 5 or gaps['count'] > 5:
+            assessment = "NEEDS ATTENTION - Duplicates or gaps"
+        else:
+            assessment = "HEALTHY - Fleet operating normally"
+
+        return {
+            "assessment": assessment,
+            "health": dict(health),
+            "by_category": [dict(c) for c in by_category],
+            "open_duplicates": duplicates['count'],
+            "open_gaps": gaps['count'],
+            "generated_at": datetime.now().isoformat(),
+            "varys_says": f"The web connects {health['total']} agents. {health['unhealthy']} have gone silent."
+        }
+
+
+# ============ AGENT DETAILS (must be LAST due to path param) ============
+
+@app.get("/fleet/{agent_name}")
+async def get_agent_details(agent_name: str):
+    """Get detailed info for a specific agent"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        agent = await conn.fetchrow(
+            "SELECT * FROM varys_agent_registry WHERE agent_name = $1",
+            agent_name.upper()
+        )
+        if not agent:
+            raise HTTPException(status_code=404, detail="Agent not found")
+
+        capabilities = await conn.fetch(
+            "SELECT * FROM varys_agent_capabilities WHERE agent_id = $1",
+            agent['id']
+        )
+
+        return {"agent": dict(agent), "capabilities": [dict(c) for c in capabilities]}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8112)
