@@ -31,6 +31,7 @@ import sys
 import json
 import hashlib
 import httpx
+import asyncpg
 from datetime import datetime, date
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
@@ -56,9 +57,28 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Initialize clients
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+# Database pool
+pool: asyncpg.Pool = None
+
+
+@app.on_event("startup")
+async def startup():
+    global pool
+    if DATABASE_URL:
+        pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    if pool:
+        await pool.close()
+
+
 cost_tracker = CostTracker("SOLON")
 aria_reporter = ARIAReporter("SOLON")
 
@@ -761,6 +781,249 @@ Remember: This is legal research for INFORMATIONAL purposes. Always recommend at
             error_message=str(e)
         )
         raise HTTPException(status_code=500, detail=f"Error conducting research: {str(e)}")
+
+# =============================================================================
+# SITUATION MEMORY
+# =============================================================================
+
+@app.get("/situation")
+async def get_situation(category: Optional[str] = None):
+    """Get your current legal situation"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        if category:
+            rows = await conn.fetch(
+                "SELECT * FROM solon_situation WHERE category = $1 ORDER BY updated_at DESC",
+                category
+            )
+        else:
+            rows = await conn.fetch("SELECT * FROM solon_situation ORDER BY category, topic")
+        return [dict(r) for r in rows]
+
+
+@app.post("/situation")
+async def update_situation(category: str, topic: str, current_state: str, attorney_notes: Optional[str] = None):
+    """Update your legal situation"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        # Check if exists
+        existing = await conn.fetchrow(
+            "SELECT id, history FROM solon_situation WHERE category = $1 AND topic = $2",
+            category, topic
+        )
+
+        if existing:
+            # Append old state to history
+            history = existing['history'] or []
+            history.append({
+                "state": current_state,
+                "updated_at": datetime.now().isoformat()
+            })
+
+            await conn.execute("""
+                UPDATE solon_situation
+                SET current_state = $2, history = $3, attorney_notes = $4, updated_at = NOW()
+                WHERE id = $1
+            """, existing['id'], current_state, json.dumps(history), attorney_notes)
+        else:
+            await conn.execute("""
+                INSERT INTO solon_situation (category, topic, current_state, attorney_notes)
+                VALUES ($1, $2, $3, $4)
+            """, category, topic, current_state, attorney_notes)
+
+        return {"status": "updated"}
+
+
+# =============================================================================
+# CONTRACTS
+# =============================================================================
+
+@app.get("/contracts")
+async def list_contracts(status: Optional[str] = None):
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        if status:
+            rows = await conn.fetch(
+                "SELECT * FROM solon_contracts WHERE status = $1 ORDER BY expiration_date",
+                status
+            )
+        else:
+            rows = await conn.fetch("SELECT * FROM solon_contracts ORDER BY status, expiration_date")
+        return [dict(r) for r in rows]
+
+
+@app.get("/contracts/expiring")
+async def expiring_contracts(days: int = 30):
+    """Get contracts expiring within N days"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM solon_contracts
+            WHERE status = 'active'
+            AND expiration_date BETWEEN CURRENT_DATE AND CURRENT_DATE + $1
+            ORDER BY expiration_date
+        """, days)
+        return [dict(r) for r in rows]
+
+
+@app.post("/contracts")
+async def add_contract(
+    name: str,
+    contract_type: str,
+    counterparty: str,
+    effective_date: Optional[date] = None,
+    expiration_date: Optional[date] = None,
+    key_terms: Dict = {}
+):
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO solon_contracts (name, contract_type, counterparty, effective_date, expiration_date, key_terms)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        """, name, contract_type, counterparty, effective_date, expiration_date, json.dumps(key_terms))
+        return dict(row)
+
+
+# =============================================================================
+# COMPLIANCE
+# =============================================================================
+
+@app.get("/compliance")
+async def list_compliance(status: Optional[str] = None):
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        if status:
+            rows = await conn.fetch(
+                "SELECT * FROM solon_compliance WHERE status = $1 ORDER BY due_date",
+                status
+            )
+        else:
+            rows = await conn.fetch("SELECT * FROM solon_compliance ORDER BY due_date NULLS LAST")
+        return [dict(r) for r in rows]
+
+
+@app.get("/compliance/due")
+async def due_compliance(days: int = 30):
+    """Get compliance items due within N days"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM solon_compliance
+            WHERE status = 'pending'
+            AND due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + $1
+            ORDER BY due_date
+        """, days)
+        return [dict(r) for r in rows]
+
+
+# =============================================================================
+# ATTORNEY MEETING PREP
+# =============================================================================
+
+@app.post("/prep/attorney")
+async def prep_attorney_meeting(topics: List[str], context: Optional[str] = None):
+    """Generate attorney meeting prep"""
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured")
+
+    # Gather current situation
+    situation = await get_situation()
+    contracts = await list_contracts(status='active')
+    compliance = await due_compliance(days=90)
+
+    prompt = f"""Prepare me for a meeting with my attorney.
+
+Topics to discuss: {', '.join(topics)}
+Additional context: {context or 'None'}
+
+My current legal situation:
+{json.dumps(situation, indent=2, default=str)}
+
+Active contracts:
+{json.dumps(contracts[:10], indent=2, default=str)}
+
+Upcoming compliance:
+{json.dumps(compliance, indent=2, default=str)}
+
+Please provide:
+1. Key questions to ask about each topic
+2. Documents I should bring
+3. Background context I should understand
+4. Potential issues or risks to discuss
+5. Action items to prepare before the meeting
+
+Be specific and practical."""
+
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return {
+        "topics": topics,
+        "prep": response.content[0].text,
+        "situation_summary": f"{len(situation)} tracked items, {len(contracts)} active contracts"
+    }
+
+
+# =============================================================================
+# STATUS
+# =============================================================================
+
+@app.get("/status")
+async def solon_status():
+    """Get SOLON dashboard"""
+    if not pool:
+        return {"solon_says": "The law awaits your queries."}
+
+    async with pool.acquire() as conn:
+        contracts_expiring = await conn.fetchval("""
+            SELECT COUNT(*) FROM solon_contracts
+            WHERE status = 'active' AND expiration_date < CURRENT_DATE + 30
+        """)
+
+        compliance_due = await conn.fetchval("""
+            SELECT COUNT(*) FROM solon_compliance
+            WHERE status = 'pending' AND due_date < CURRENT_DATE + 30
+        """)
+
+        situation_count = await conn.fetchval("SELECT COUNT(*) FROM solon_situation")
+
+        return {
+            "situation_items": situation_count,
+            "contracts_expiring_30d": contracts_expiring,
+            "compliance_due_30d": compliance_due,
+            "summary": f"{situation_count} tracked items, {contracts_expiring} contracts expiring soon",
+            "solon_says": generate_solon_status(contracts_expiring, compliance_due)
+        }
+
+
+def generate_solon_status(contracts_expiring, compliance_due):
+    if contracts_expiring > 0 and compliance_due > 0:
+        return f"Attention required: {contracts_expiring} contracts expiring and {compliance_due} compliance items due."
+    elif contracts_expiring > 0:
+        return f"{contracts_expiring} contracts approaching expiration. Review recommended."
+    elif compliance_due > 0:
+        return f"{compliance_due} compliance matters require attention."
+    else:
+        return "Legal matters are in order. The law is satisfied."
+
 
 # =============================================================================
 # STARTUP

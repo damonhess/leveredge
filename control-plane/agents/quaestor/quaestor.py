@@ -37,6 +37,7 @@ import os
 import sys
 import json
 import httpx
+import asyncpg
 from datetime import datetime, date
 from decimal import Decimal
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -63,11 +64,28 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "http://supabase-kong:8000")
 SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Initialize clients
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 cost_tracker = CostTracker("QUAESTOR")
 aria_reporter = ARIAReporter("QUAESTOR")
+
+# Database pool
+pool: asyncpg.Pool = None
+
+
+@app.on_event("startup")
+async def startup():
+    global pool
+    if DATABASE_URL:
+        pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    if pool:
+        await pool.close()
 
 # Key dates
 LAUNCH_DATE = date(2026, 3, 1)
@@ -998,6 +1016,243 @@ Remember: This is GENERAL INFORMATION about wealth building concepts, NOT person
             error_message=str(e)
         )
         raise HTTPException(status_code=500, detail=f"Error generating guidance: {str(e)}")
+
+# =============================================================================
+# DATABASE-BACKED DEADLINES
+# =============================================================================
+
+@app.get("/deadlines/tracked")
+async def list_tracked_deadlines(status: Optional[str] = None, year: Optional[int] = None):
+    """Get tracked tax deadlines from database"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM quaestor_deadlines WHERE 1=1"
+        params = []
+
+        if status:
+            params.append(status)
+            query += f" AND status = ${len(params)}"
+        if year:
+            params.append(year)
+            query += f" AND EXTRACT(YEAR FROM due_date) = ${len(params)}"
+
+        query += " ORDER BY due_date"
+        rows = await conn.fetch(query, *params)
+        return [dict(r) for r in rows]
+
+
+@app.get("/deadlines/upcoming")
+async def upcoming_deadlines_db(days: int = 60):
+    """Get upcoming deadlines from database"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT * FROM quaestor_deadlines
+            WHERE status = 'pending' AND due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + $1
+            ORDER BY due_date
+        """, days)
+        return [dict(r) for r in rows]
+
+
+@app.post("/deadlines/add")
+async def add_deadline(name: str, deadline_type: str, jurisdiction: str, due_date: date, recurring_interval: Optional[str] = None):
+    """Add a tax deadline"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO quaestor_deadlines (name, deadline_type, jurisdiction, due_date, recurring_interval)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        """, name, deadline_type, jurisdiction, due_date, recurring_interval)
+        return dict(row)
+
+
+# =============================================================================
+# DOCUMENT CHECKLIST
+# =============================================================================
+
+@app.get("/documents/checklist/{tax_year}")
+async def document_checklist(tax_year: int):
+    """Get document checklist for tax year"""
+    if not pool:
+        return {"needed": [], "received": [], "missing": []}
+
+    async with pool.acquire() as conn:
+        docs = await conn.fetch(
+            "SELECT * FROM quaestor_documents WHERE tax_year = $1 ORDER BY category, name",
+            tax_year
+        )
+
+        needed = [dict(d) for d in docs if d['status'] == 'needed']
+        received = [dict(d) for d in docs if d['status'] in ('received', 'filed')]
+
+        return {
+            "tax_year": tax_year,
+            "needed": needed,
+            "received": received,
+            "progress": f"{len(received)}/{len(docs)} documents" if docs else "No documents tracked"
+        }
+
+
+@app.post("/documents/add")
+async def add_document(
+    name: str,
+    document_type: str,
+    tax_year: int,
+    category: str,
+    source: Optional[str] = None,
+    due_date: Optional[date] = None
+):
+    """Add a document to the checklist"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO quaestor_documents (name, document_type, tax_year, category, source, due_date)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        """, name, document_type, tax_year, category, source, due_date)
+        return dict(row)
+
+
+@app.post("/documents/generate-checklist/{tax_year}")
+async def generate_standard_checklist(tax_year: int):
+    """Generate standard tax document checklist"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    standard_docs = [
+        ("W-2 from Employer", "w2", "income", "Government Job"),
+        ("1099-INT Bank Interest", "1099", "income", "Bank"),
+        ("1099-DIV Dividends", "1099", "income", "Brokerage"),
+        ("1099-B Stock Sales", "1099", "income", "Brokerage"),
+        ("1099-MISC/NEC Freelance", "1099", "income", "Clients"),
+        ("Mortgage Interest (1098)", "1098", "deduction", "Lender"),
+        ("Property Tax Statement", "statement", "deduction", "County"),
+        ("Charitable Donation Receipts", "receipt", "deduction", "Various"),
+        ("Business Expense Receipts", "receipt", "deduction", "Various"),
+        ("Health Insurance (1095)", "1095", "credit", "Insurance"),
+        ("Retirement Contributions", "statement", "deduction", "401k/IRA"),
+    ]
+
+    async with pool.acquire() as conn:
+        for name, doc_type, category, source in standard_docs:
+            await conn.execute("""
+                INSERT INTO quaestor_documents (name, document_type, tax_year, category, source)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT DO NOTHING
+            """, name, doc_type, tax_year, category, source)
+
+    return {"status": "generated", "tax_year": tax_year, "documents": len(standard_docs)}
+
+
+@app.put("/documents/{doc_id}/status")
+async def update_document_status(doc_id: str, status: str, received_date: Optional[date] = None):
+    """Update document status"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            UPDATE quaestor_documents SET status = $2, received_date = $3 WHERE id = $1::uuid
+        """, doc_id, status, received_date or date.today() if status == 'received' else None)
+        return {"status": "updated"}
+
+
+# =============================================================================
+# CPA MEETING PREP
+# =============================================================================
+
+@app.post("/prep/cpa")
+async def prep_cpa_meeting(topics: List[str], tax_year: int, context: Optional[str] = None):
+    """Generate CPA meeting prep"""
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=503, detail="AI not configured")
+
+    # Gather context
+    deadlines = await upcoming_deadlines_db(days=90)
+    checklist = await document_checklist(tax_year)
+
+    prompt = f"""Prepare me for a meeting with my CPA.
+
+Topics: {', '.join(topics)}
+Tax Year: {tax_year}
+Additional context: {context or 'None'}
+
+Upcoming deadlines:
+{json.dumps(deadlines, indent=2, default=str)}
+
+Document status:
+- Needed: {len(checklist['needed'])} documents
+- Received: {len(checklist['received'])} documents
+
+Please provide:
+1. Key questions to ask about each topic
+2. Documents I should bring to this meeting
+3. Tax strategies to discuss
+4. Potential deductions or credits to explore
+5. Decisions I need to make (elections, entity choices, etc.)
+
+Be specific to my situation as a government employee starting a business."""
+
+    response = client.messages.create(
+        model="claude-sonnet-4-20250514",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return {
+        "topics": topics,
+        "tax_year": tax_year,
+        "prep": response.content[0].text
+    }
+
+
+# =============================================================================
+# STATUS
+# =============================================================================
+
+@app.get("/status")
+async def quaestor_status():
+    """Get QUAESTOR dashboard"""
+    if not pool:
+        return {"quaestor_says": "The treasury awaits your records."}
+
+    async with pool.acquire() as conn:
+        deadlines_soon = await conn.fetchval("""
+            SELECT COUNT(*) FROM quaestor_deadlines
+            WHERE status = 'pending' AND due_date < CURRENT_DATE + 30
+        """)
+
+        current_year = date.today().year
+        docs_needed = await conn.fetchval("""
+            SELECT COUNT(*) FROM quaestor_documents
+            WHERE tax_year = $1 AND status = 'needed'
+        """, current_year)
+
+        return {
+            "deadlines_30d": deadlines_soon,
+            "documents_needed": docs_needed,
+            "current_tax_year": current_year,
+            "quaestor_says": generate_quaestor_status(deadlines_soon, docs_needed)
+        }
+
+
+def generate_quaestor_status(deadlines, docs_needed):
+    if deadlines > 0:
+        return f"Caesar demands tribute: {deadlines} deadlines within 30 days."
+    elif docs_needed > 0:
+        return f"{docs_needed} documents still needed for the treasury."
+    else:
+        return "The treasury's records are in order."
+
 
 # =============================================================================
 # STARTUP

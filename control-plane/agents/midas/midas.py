@@ -661,6 +661,206 @@ async def record_dividend(
         return dict(row)
 
 
+# ============ BUDGETS ============
+
+@app.get("/budgets")
+async def list_budgets(month: Optional[str] = None):
+    """Get budgets with spending progress"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        current_month = month or date.today().strftime('%Y-%m')
+
+        rows = await conn.fetch("""
+            SELECT b.*,
+                   COALESCE(SUM(t.amount), 0) as spent
+            FROM midas_budgets b
+            LEFT JOIN midas_personal_transactions t
+                ON t.category = b.category
+                AND TO_CHAR(t.transaction_date, 'YYYY-MM') = $1
+                AND t.is_income = FALSE
+            WHERE b.year_month IS NULL OR b.year_month = $1
+            GROUP BY b.id
+        """, current_month)
+
+        result = []
+        for row in rows:
+            r = dict(row)
+            r['remaining'] = float(r['monthly_limit']) - float(r['spent'])
+            r['percent_used'] = round((float(r['spent']) / float(r['monthly_limit'])) * 100, 1) if r['monthly_limit'] else 0
+            result.append(r)
+
+        return result
+
+
+@app.post("/budgets")
+async def create_budget(category: str, monthly_limit: float):
+    """Create a monthly budget"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO midas_budgets (category, monthly_limit)
+            VALUES ($1, $2)
+            RETURNING *
+        """, category, monthly_limit)
+        return dict(row) if row else {"status": "exists"}
+
+
+# ============ PERSONAL TRANSACTIONS ============
+
+@app.get("/personal/transactions")
+async def list_personal_transactions(month: Optional[str] = None, category: Optional[str] = None):
+    """Get personal transactions"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        query = "SELECT * FROM midas_personal_transactions WHERE 1=1"
+        params = []
+
+        if month:
+            params.append(month)
+            query += f" AND TO_CHAR(transaction_date, 'YYYY-MM') = ${len(params)}"
+        if category:
+            params.append(category)
+            query += f" AND category = ${len(params)}"
+
+        query += " ORDER BY transaction_date DESC"
+        rows = await conn.fetch(query, *params)
+        return [dict(r) for r in rows]
+
+
+@app.post("/personal/transactions")
+async def add_personal_transaction(
+    transaction_date: date,
+    category: str,
+    amount: float,
+    description: Optional[str] = None,
+    is_income: bool = False,
+    source: Optional[str] = None
+):
+    """Add a personal transaction"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO midas_personal_transactions
+            (transaction_date, category, description, amount, is_income, source)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
+        """, transaction_date, category, description, amount, is_income, source)
+        return dict(row)
+
+
+# ============ NET WORTH ============
+
+@app.get("/net-worth")
+async def get_net_worth():
+    """Get latest net worth snapshot"""
+    if not pool:
+        return {"net_worth": 0}
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT * FROM midas_net_worth
+            ORDER BY snapshot_date DESC LIMIT 1
+        """)
+
+        if not row:
+            return {"net_worth": 0, "message": "No net worth snapshot yet"}
+
+        r = dict(row)
+        # Calculate totals since we're not using GENERATED columns
+        r['total_assets'] = float(r['cash'] or 0) + float(r['investments'] or 0) + float(r['real_estate'] or 0) + float(r['vehicles'] or 0) + float(r['other_assets'] or 0)
+        r['total_liabilities'] = float(r['mortgage'] or 0) + float(r['auto_loans'] or 0) + float(r['student_loans'] or 0) + float(r['credit_cards'] or 0) + float(r['other_liabilities'] or 0)
+        r['net_worth'] = r['total_assets'] - r['total_liabilities']
+        return r
+
+
+@app.get("/net-worth/history")
+async def net_worth_history(months: int = 12):
+    """Get net worth history"""
+    if not pool:
+        return []
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT snapshot_date, cash, investments, real_estate, vehicles, other_assets,
+                   mortgage, auto_loans, student_loans, credit_cards, other_liabilities
+            FROM midas_net_worth
+            ORDER BY snapshot_date DESC
+            LIMIT $1
+        """, months)
+
+        result = []
+        for row in rows:
+            r = dict(row)
+            total_assets = float(r['cash'] or 0) + float(r['investments'] or 0) + float(r['real_estate'] or 0) + float(r['vehicles'] or 0) + float(r['other_assets'] or 0)
+            total_liabilities = float(r['mortgage'] or 0) + float(r['auto_loans'] or 0) + float(r['student_loans'] or 0) + float(r['credit_cards'] or 0) + float(r['other_liabilities'] or 0)
+            r['total_assets'] = total_assets
+            r['total_liabilities'] = total_liabilities
+            r['net_worth'] = total_assets - total_liabilities
+            result.append(r)
+
+        return result
+
+
+@app.post("/net-worth/snapshot")
+async def take_net_worth_snapshot(
+    cash: float = 0,
+    real_estate: float = 0,
+    vehicles: float = 0,
+    other_assets: float = 0,
+    mortgage: float = 0,
+    auto_loans: float = 0,
+    student_loans: float = 0,
+    credit_cards: float = 0,
+    other_liabilities: float = 0,
+    notes: Optional[str] = None
+):
+    """Take net worth snapshot (investments auto-calculated from portfolio)"""
+    if not pool:
+        raise HTTPException(status_code=503, detail="Database not connected")
+
+    async with pool.acquire() as conn:
+        # Get investment value from portfolio
+        portfolio = await conn.fetchval("""
+            SELECT COALESCE(SUM(current_value), 0)
+            FROM midas_positions
+        """) or 0
+
+        row = await conn.fetchrow("""
+            INSERT INTO midas_net_worth
+            (cash, investments, real_estate, vehicles, other_assets,
+             mortgage, auto_loans, student_loans, credit_cards, other_liabilities, notes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            ON CONFLICT (snapshot_date) DO UPDATE SET
+                cash = EXCLUDED.cash,
+                investments = EXCLUDED.investments,
+                real_estate = EXCLUDED.real_estate,
+                vehicles = EXCLUDED.vehicles,
+                other_assets = EXCLUDED.other_assets,
+                mortgage = EXCLUDED.mortgage,
+                auto_loans = EXCLUDED.auto_loans,
+                student_loans = EXCLUDED.student_loans,
+                credit_cards = EXCLUDED.credit_cards,
+                other_liabilities = EXCLUDED.other_liabilities,
+                notes = EXCLUDED.notes
+            RETURNING *
+        """, cash, float(portfolio), real_estate, vehicles, other_assets,
+            mortgage, auto_loans, student_loans, credit_cards, other_liabilities, notes)
+
+        r = dict(row)
+        r['total_assets'] = cash + float(portfolio) + real_estate + vehicles + other_assets
+        r['total_liabilities'] = mortgage + auto_loans + student_loans + credit_cards + other_liabilities
+        r['net_worth'] = r['total_assets'] - r['total_liabilities']
+        return r
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8205)

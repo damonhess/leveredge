@@ -676,6 +676,125 @@ async def publish_event(event_type: str, data: dict):
         pass
 
 
+# ============ BALANCE SHEET ============
+
+@app.get("/statements/balance-sheet")
+async def balance_sheet(as_of: Optional[date] = None):
+    """Generate balance sheet"""
+    if not pool:
+        return {"error": "Database not connected"}
+
+    as_of_date = as_of or date.today()
+
+    async with pool.acquire() as conn:
+        # Assets - Cash (revenue received)
+        cash = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM littlefinger_revenue
+            WHERE revenue_date <= $1
+        """, as_of_date) or 0
+
+        # Subtract expenses to get actual cash
+        expenses_paid = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM littlefinger_expenses
+            WHERE expense_date <= $1
+        """, as_of_date) or 0
+
+        actual_cash = float(cash) - float(expenses_paid)
+
+        # Accounts Receivable (outstanding invoices)
+        outstanding_ar = await conn.fetchval("""
+            SELECT COALESCE(SUM(total - amount_paid), 0)
+            FROM littlefinger_invoices
+            WHERE status IN ('sent', 'partial') AND issue_date <= $1
+        """, as_of_date) or 0
+
+        # Total Assets
+        total_assets = actual_cash + float(outstanding_ar)
+
+        # Liabilities (placeholder - would need accounts payable table)
+        total_liabilities = 0
+
+        # Equity
+        equity = total_assets - total_liabilities
+
+        return {
+            "as_of": str(as_of_date),
+            "assets": {
+                "cash_and_equivalents": actual_cash,
+                "accounts_receivable": float(outstanding_ar),
+                "total_assets": total_assets
+            },
+            "liabilities": {
+                "accounts_payable": 0,
+                "total_liabilities": total_liabilities
+            },
+            "equity": equity,
+            "balanced": abs(total_assets - total_liabilities - equity) < 0.01,
+            "littlefinger_says": f"Your kingdom is worth ${equity:,.2f}. Guard it well."
+        }
+
+
+# ============ CASH FLOW STATEMENT ============
+
+@app.get("/statements/cash-flow/{month}")
+async def cash_flow_statement(month: str):
+    """Generate cash flow statement for month (YYYY-MM)"""
+    if not pool:
+        return {"error": "Database not connected"}
+
+    async with pool.acquire() as conn:
+        # Operating activities - Revenue received
+        revenue_received = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM littlefinger_revenue
+            WHERE TO_CHAR(revenue_date, 'YYYY-MM') = $1
+        """, month) or 0
+
+        # Operating activities - Expenses paid
+        expenses_paid = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM littlefinger_expenses
+            WHERE TO_CHAR(expense_date, 'YYYY-MM') = $1
+        """, month) or 0
+
+        # Invoices paid this month
+        invoice_payments = await conn.fetchval("""
+            SELECT COALESCE(SUM(amount_paid), 0)
+            FROM littlefinger_invoices
+            WHERE TO_CHAR(paid_date, 'YYYY-MM') = $1
+        """, month) or 0
+
+        operating_cash_flow = float(revenue_received) + float(invoice_payments) - float(expenses_paid)
+
+        # Investing activities (placeholder)
+        investing_cash_flow = 0
+
+        # Financing activities (placeholder)
+        financing_cash_flow = 0
+
+        net_cash_flow = operating_cash_flow + investing_cash_flow + financing_cash_flow
+
+        return {
+            "month": month,
+            "operating_activities": {
+                "revenue_received": float(revenue_received),
+                "invoice_payments": float(invoice_payments),
+                "expenses_paid": float(expenses_paid),
+                "net_operating": operating_cash_flow
+            },
+            "investing_activities": {
+                "net_investing": investing_cash_flow
+            },
+            "financing_activities": {
+                "net_financing": financing_cash_flow
+            },
+            "net_cash_flow": net_cash_flow,
+            "littlefinger_says": f"Net cash flow: ${net_cash_flow:,.0f}. {'The coffers grow.' if net_cash_flow > 0 else 'More must flow in than out.'}"
+        }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8020)
