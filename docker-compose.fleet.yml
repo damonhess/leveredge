@@ -1065,40 +1065,9 @@ services:
       com.leveredge.port: "8200"
 
   # ---------------------------------------------------------------------------
-  # Librarian - Knowledge Management Agent (Port 8201)
+  # REMOVED: Librarian (Port 8201) - Ghost entry, directory doesn't exist
+  # LCIS-LIBRARIAN (Port 8050) is the canonical knowledge management agent
   # ---------------------------------------------------------------------------
-  librarian:
-    build:
-      context: ./control-plane/agents/librarian
-      dockerfile: Dockerfile
-    container_name: librarian
-    hostname: librarian
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/librarian:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${LIBRARIAN_PORT:-8201}:8201"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8201/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "librarian"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8201"
 
   # ---------------------------------------------------------------------------
   # Workflow Builder - Automation Agent (Port 8202)

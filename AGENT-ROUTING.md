@@ -38,7 +38,8 @@
 | **Learning paths** | ACADEMIC-GUIDE (8103) | Study planning |
 | **Relationship advice** | EROS (8104) | Dating, communication |
 | **Project management** | HERACLES (8200) | Tasks, sprints |
-| **Knowledge management** | LIBRARIAN (8201) | Document organization |
+| **Knowledge ingestion** | LCIS-LIBRARIAN (8050) | Lessons, rules, playbooks |
+| **Pre-action consultation** | LCIS-ORACLE (8052) | Rule checking, guidance |
 | **Workflow building** | DAEDALUS (8202) | Automation design |
 | **Legal guidance** | THEMIS (8203) | Contracts, compliance |
 | **Business mentorship** | MENTOR (8204) | Career, leadership |
@@ -47,7 +48,6 @@
 | **Financial analysis** | PLUTUS (8207) | Budgets, ROI |
 | **Cloud architecture** | ATLAS-INFRA (8208) | Scaling, costs |
 | **Current events** | IRIS (8209) | News, trends |
-| **File processing** | FILE-PROCESSOR (8050) | PDF, images, audio |
 | **Voice interface** | VOICE (8051) | Speech-to-text, TTS |
 | **API gateway** | GATEWAY (8070) | Rate limiting, routing |
 | **Memory consolidation** | MEMORY-V2 (8066) | Cross-conversation facts |
@@ -561,19 +561,36 @@ curl -X POST http://localhost:8018/compare \
 
 ## INFRASTRUCTURE AGENTS
 
-### FILE-PROCESSOR (File Processing) - Port 8050
+### LCIS-LIBRARIAN (Knowledge Ingestion) - Port 8050
 **Use for:**
-- PDF parsing with page-level citations
-- Image analysis via Vision API
-- Audio transcription via Whisper
-- Document extraction
+- Learning from experiences (lessons, insights)
+- Knowledge base growth
+- Pattern detection and escalation
+- Searchable lessons and rules
 
 **Endpoints:**
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| /process/pdf | POST | Extract text from PDF |
-| /process/image | POST | Analyze image |
-| /process/audio | POST | Transcribe audio |
+| /ingest | POST | Ingest new lesson (requires source_agent) |
+| /lessons | GET | Retrieve lessons (supports ?limit=N) |
+| /search | GET | Search lessons (?q=query) |
+| /health | GET | Health check |
+
+### LCIS-ORACLE (Pre-Action Consultation) - Port 8052
+**Use for:**
+- Pre-action rule checking
+- Blocking dangerous operations
+- Providing alternatives and guidance
+- Claude Code context injection
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /consult | POST | Check action against rules |
+| /rules | GET | List all active rules |
+| /context/claude-code | GET | Get Claude Code context |
+| /feedback/helpful | POST | Mark guidance as helpful |
+| /feedback/ignored | POST | Report ignored guidance |
 | /health | GET | Health check |
 
 ### VOICE (Voice Interface) - Port 8051
@@ -790,13 +807,6 @@ curl -X POST http://localhost:8301/scribe/search \
 - Task breakdown and estimation
 - Sprint management
 - Resource allocation
-
-### LIBRARIAN (Knowledge Manager) - Port 8201
-**Use for:**
-- Document organization
-- Knowledge base management
-- Information retrieval
-- Content categorization
 
 ### DAEDALUS (Workflow Builder) - Port 8202
 **Use for:**
