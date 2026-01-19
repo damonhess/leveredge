@@ -516,6 +516,41 @@ services:
       com.leveredge.port: "8012"
 
   # ---------------------------------------------------------------------------
+  # Asclepius - System Health & Healing Agent (Port 8024)
+  # ---------------------------------------------------------------------------
+  asclepius:
+    build:
+      context: ./control-plane/agents/asclepius
+      dockerfile: Dockerfile
+    container_name: asclepius
+    hostname: asclepius
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["security", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:${DEV_POSTGRES_PASSWORD}@supabase-db-dev:5432/postgres
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./control-plane/agents/asclepius:/app:ro
+      - fleet-logs:/logs
+    ports:
+      - "${ASCLEPIUS_PORT:-8024}:8024"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8024/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "asclepius"
+      com.leveredge.group: "security"
+      com.leveredge.port: "8024"
+
+  # ---------------------------------------------------------------------------
   # Sentinel - Routing & Failover Agent (Port 8019)
   # ---------------------------------------------------------------------------
   sentinel:
@@ -1202,10 +1237,10 @@ services:
       - fleet-logs:/logs
       - fleet-data:/data
     ports:
-      - "${PLUTUS_PORT:-8205}:8205"
+      - "${PLUTUS_PORT:-8207}:8207"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8205/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8207/health"]
     networks:
       - fleet-net
       - control-plane-net
@@ -1213,7 +1248,7 @@ services:
       <<: *common-labels
       com.leveredge.agent: "plutus"
       com.leveredge.group: "business"
-      com.leveredge.port: "8205"
+      com.leveredge.port: "8207"
 
   # ---------------------------------------------------------------------------
   # Procurement - Purchasing Agent (Port 8206)

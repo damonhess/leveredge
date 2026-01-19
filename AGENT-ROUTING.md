@@ -37,7 +37,7 @@
 | **Meal planning** | MEAL-PLANNER (8102) | Recipes, grocery lists |
 | **Learning paths** | ACADEMIC-GUIDE (8103) | Study planning |
 | **Relationship advice** | EROS (8104) | Dating, communication |
-| **Project management** | HERACLES (8200) | Tasks, sprints |
+| **Project management** | MAGNUS (8200) | Universal PM |
 | **Knowledge ingestion** | LCIS-LIBRARIAN (8050) | Lessons, rules, playbooks |
 | **Pre-action consultation** | LCIS-ORACLE (8052) | Rule checking, guidance |
 | **Workflow building** | DAEDALUS (8202) | Automation design |
@@ -802,12 +802,25 @@ curl -X POST http://localhost:8301/scribe/search \
 
 ## BUSINESS FLEET (Professional Services)
 
-### HERACLES (Project Manager) - Port 8200
+### MAGNUS (Universal Project Manager) - Port 8200
 **Use for:**
-- Project planning and tracking
+- Multi-platform project management (OpenProject, Asana, Jira, Monday, Notion, Linear)
 - Task breakdown and estimation
-- Sprint management
+- Sprint management with adapter system
 - Resource allocation
+- Background sync with external PM tools
+- Unified API across all platforms
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /projects | GET/POST | List/create projects |
+| /tasks | GET/POST | Manage tasks |
+| /sync | POST | Sync with external platform |
+| /status | GET | Dashboard with active projects |
+| /health | GET | Health check |
+
+> Note: MAGNUS supersedes HERACLES. The adapter system supports multiple PM tools.
 
 ### DAEDALUS (Workflow Builder) - Port 8202
 **Use for:**
@@ -959,3 +972,16 @@ Continuity Preserved ✓
 ```
 
 Periodic consolidation: LESSONS-SCRATCH.md → LESSONS-LEARNED.md
+
+---
+
+## Deprecated Agents
+
+| Agent | Port | Replaced By | Notes |
+|-------|------|-------------|-------|
+| HERACLES | 8200 | MAGNUS | Merged into universal PM |
+| CONSUL | - | MAGNUS | Superseded by MAGNUS adapters |
+| CROESUS | 8211 | QUAESTOR | Renamed for clarity |
+| LIBRARIAN | 8201 | LCIS-LIBRARIAN (8050) | Ghost entry removed |
+
+> These agents should not be used directly. Use their replacements instead.
