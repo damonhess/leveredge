@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PLUTUS - AI-Powered Financial Analysis Agent
-Port: 8205
+Port: 8207
 
 Financial analysis and portfolio intelligence for LeverEdge users.
 Named after Plutus - Greek god of wealth, who distributes riches and prosperity.
@@ -589,7 +589,7 @@ async def health():
         "status": "healthy",
         "agent": "PLUTUS",
         "role": "Financial Analysis (READ-ONLY)",
-        "port": 8205,
+        "port": 8207,
         "current_time": time_ctx['current_datetime'],
         "market_status": time_ctx['market_status'],
         "days_to_launch": time_ctx['days_to_launch'],
@@ -1640,4 +1640,4 @@ async def aria_alert(
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8205)
+    uvicorn.run(app, host="0.0.0.0", port=8207)

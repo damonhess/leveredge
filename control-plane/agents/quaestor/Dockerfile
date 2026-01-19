@@ -11,8 +11,8 @@ RUN mkdir -p /opt/leveredge/shared
 # Copy shared modules (built with context from parent directory)
 COPY shared/ /opt/leveredge/shared/
 
-COPY croesus.py .
+COPY quaestor.py .
 
 EXPOSE 8211
 
-CMD ["uvicorn", "croesus:app", "--host", "0.0.0.0", "--port", "8211"]
+CMD ["uvicorn", "quaestor:app", "--host", "0.0.0.0", "--port", "8211"]

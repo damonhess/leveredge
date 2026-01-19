@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-CROESUS - AI-Powered Tax & Wealth Advisor Agent
+QUAESTOR - AI-Powered Tax Advisor Agent
 Port: 8211
 
-Named after Croesus, King of Lydia renowned for his vast wealth.
+Named after the Quaestors, Roman financial magistrates who managed the treasury.
 Provides tax INFORMATION (not advice) with authoritative citations.
 
 CRITICAL SAFETY:
@@ -50,8 +50,8 @@ from aria_reporter import ARIAReporter
 from cost_tracker import CostTracker
 
 app = FastAPI(
-    title="CROESUS",
-    description="AI-Powered Tax & Wealth Advisor - Tax Information Only",
+    title="QUAESTOR",
+    description="AI-Powered Tax Advisor - Tax Information Only",
     version="1.0.0"
 )
 
@@ -66,8 +66,8 @@ SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY", "")
 
 # Initialize clients
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-cost_tracker = CostTracker("CROESUS")
-aria_reporter = ARIAReporter("CROESUS")
+cost_tracker = CostTracker("QUAESTOR")
+aria_reporter = ARIAReporter("QUAESTOR")
 
 # Key dates
 LAUNCH_DATE = date(2026, 3, 1)
@@ -205,11 +205,12 @@ def get_time_context() -> dict:
 # =============================================================================
 
 def build_system_prompt(time_context: dict) -> str:
-    """Build CROESUS system prompt with safety requirements"""
+    """Build QUAESTOR system prompt with safety requirements"""
 
-    return f"""You are CROESUS - Tax & Wealth Advisor for LeverEdge AI.
+    return f"""You are QUAESTOR - Tax Advisor for LeverEdge AI.
 
-Named after the legendarily wealthy King of Lydia, you provide intelligent tax planning and wealth building guidance.
+Named after the Quaestors, Roman financial magistrates who managed the treasury.
+The treasury knows all debts owed to Caesar.
 
 ## CRITICAL SAFETY REQUIREMENTS
 
@@ -411,10 +412,12 @@ async def health():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "CROESUS",
+        "service": "QUAESTOR",
+        "agent": "QUAESTOR",
         "version": "1.0.0",
         "port": 8211,
-        "capabilities": ["tax_questions", "tax_estimates", "deductions", "planning", "wealth_strategy"]
+        "tagline": "The treasury knows all debts owed to Caesar.",
+        "capabilities": ["tax_questions", "tax_estimates", "deductions", "planning"]
     }
 
 @app.get("/tax/deadlines")

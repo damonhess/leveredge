@@ -42,9 +42,9 @@
 | **Workflow building** | DAEDALUS (8202) | Automation design |
 | **Legal guidance** | THEMIS (8203) | Contracts, compliance |
 | **Business mentorship** | MENTOR (8204) | Career, leadership |
-| **Financial analysis** | PLUTUS (8205) | Budgets, ROI |
-| **Procurement** | PROCUREMENT (8206) | Vendors, costs |
-| **Server admin** | HEPHAESTUS-SERVER (8207) | Infrastructure |
+| **Portfolio tracking** | MIDAS (8205) | Stocks, ETFs |
+| **Crypto tracking** | SATOSHI (8206) | Wallets, DeFi |
+| **Financial analysis** | PLUTUS (8207) | Budgets, ROI |
 | **Cloud architecture** | ATLAS-INFRA (8208) | Scaling, costs |
 | **Current events** | IRIS (8209) | News, trends |
 | **File processing** | FILE-PROCESSOR (8050) | PDF, images, audio |
@@ -819,26 +819,28 @@ curl -X POST http://localhost:8301/scribe/search \
 - Leadership development
 - Professional growth planning
 
-### PLUTUS (Financial Analyst) - Port 8205
+### MIDAS (Traditional Finance) - Port 8205
 **Use for:**
-- Financial analysis
+- Portfolio tracking (stocks, ETFs, mutual funds)
+- Transaction recording
+- Watchlist and price alerts
+- Dividend tracking
+- Performance reporting
+
+### SATOSHI (Crypto & Blockchain) - Port 8206
+**Use for:**
+- Multi-wallet tracking (EVM, Solana, Bitcoin)
+- DeFi position monitoring
+- NFT portfolio
+- Gas tracking
+- Crypto market data
+
+### PLUTUS (Financial Analyst) - Port 8207
+**Use for:**
+- AI-powered financial analysis
 - Budget planning
 - Investment guidance
 - ROI calculations
-
-### PROCUREMENT (Procurement Expert) - Port 8206
-**Use for:**
-- Vendor evaluation
-- Purchase recommendations
-- Contract negotiation support
-- Cost optimization
-
-### HEPHAESTUS-SERVER (Server Admin) - Port 8207
-**Use for:**
-- Server management guidance
-- Infrastructure recommendations
-- DevOps best practices
-- System administration tasks
 
 ### ATLAS-INFRA (Infrastructure Advisor) - Port 8208
 **Use for:**
