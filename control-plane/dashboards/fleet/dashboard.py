@@ -6,14 +6,15 @@ Port: 8060
 """
 
 import asyncio
+import json
 import os
 import time
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional
 
 import httpx
 import psutil
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -25,57 +26,65 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Agent configuration with themed domains
 AGENTS = {
-    # Core Fleet (Pantheon)
-    "ATLAS": {"port": 8007, "category": "pantheon", "description": "Infrastructure orchestrator"},
-    "HADES": {"port": 8008, "category": "pantheon", "description": "Data persistence layer"},
-    "CHRONOS": {"port": 8010, "category": "pantheon", "description": "Scheduler & time management"},
-    "HEPHAESTUS": {"port": 8011, "category": "pantheon", "description": "Code generation & tooling"},
-    "AEGIS": {"port": 8012, "category": "pantheon", "description": "Security & access control"},
-    "ATHENA": {"port": 8013, "category": "pantheon", "description": "Knowledge & reasoning"},
-    "HERMES": {"port": 8014, "category": "pantheon", "description": "Communication & messaging"},
-    "ALOY": {"port": 8015, "category": "pantheon", "description": "Resource management"},
-    "ARGUS": {"port": 8016, "category": "pantheon", "description": "Monitoring & alerting"},
-    "CHIRON": {"port": 8017, "category": "pantheon", "description": "Training & mentoring"},
-    "SCHOLAR": {"port": 8018, "category": "pantheon", "description": "Research & analysis"},
+    # GAIA (Primordial Creation)
+    "GAIA": {"port": 8000, "category": "gaia", "description": "Emergency bootstrap"},
+
+    # PANTHEON (Mount Olympus)
+    "ATLAS": {"port": 8007, "category": "pantheon", "description": "Master Orchestrator"},
+    "HEPHAESTUS": {"port": 8011, "category": "pantheon", "description": "Builder/Deployer"},
+    "CHRONOS": {"port": 8010, "category": "pantheon", "description": "Backup Manager"},
+    "HADES": {"port": 8008, "category": "pantheon", "description": "Rollback/Recovery"},
+    "AEGIS": {"port": 8015, "category": "pantheon", "description": "Credential Vault"},
+    "ATHENA": {"port": 8013, "category": "pantheon", "description": "Planner/Documenter"},
+    "HERMES": {"port": 8014, "category": "pantheon", "description": "Messenger/Notifications"},
+    "ARGUS": {"port": 8016, "category": "pantheon", "description": "Monitor"},
+    "CHIRON": {"port": 8017, "category": "pantheon", "description": "Elite Business Mentor"},
+    "SCHOLAR": {"port": 8018, "category": "pantheon", "description": "Market Research"},
     "EVENT-BUS": {"port": 8099, "category": "pantheon", "description": "Event messaging backbone"},
 
-    # SENTINELS (Security - Mythic Beasts)
-    "GRIFFIN": {"port": 8019, "category": "sentinels", "description": "Perimeter monitoring (was sentinel)"},
-    "CERBERUS": {"port": 8020, "category": "sentinels", "description": "Active defense guardian"},
-    "SPHINX": {"port": 8021, "category": "sentinels", "description": "Access control & authentication"},
+    # SENTINELS (Mythic Guardians)
+    "GRIFFIN": {"port": 8019, "category": "sentinels", "description": "Perimeter Watch"},
+    "CERBERUS": {"port": 8020, "category": "sentinels", "description": "Defense/Auth"},
+    "SPHINX": {"port": 8021, "category": "sentinels", "description": "Access Control"},
 
-    # Creative Fleet
-    "MUSE": {"port": 8030, "category": "creative", "description": "Creative inspiration"},
-    "CALLIOPE": {"port": 8031, "category": "creative", "description": "Epic content creation"},
-    "THALIA": {"port": 8032, "category": "creative", "description": "Comedy & entertainment"},
-    "ERATO": {"port": 8033, "category": "creative", "description": "Lyric & poetry"},
-    "CLIO": {"port": 8034, "category": "creative", "description": "History & documentation"},
+    # ALCHEMY (Mystic Workshop)
+    "CATALYST": {"port": 8030, "category": "alchemy", "description": "Creative Director"},
+    "SAGA": {"port": 8031, "category": "alchemy", "description": "Writer"},
+    "PRISM": {"port": 8032, "category": "alchemy", "description": "Visual Designer"},
+    "ELIXIR": {"port": 8033, "category": "alchemy", "description": "Media Producer"},
+    "RELIC": {"port": 8034, "category": "alchemy", "description": "Reviewer"},
 
-    # THE SHIRE (Personal - LOTR Theme)
-    "ARAGORN": {"port": 8110, "category": "shire", "description": "Fitness & ranger discipline"},
-    "BOMBADIL": {"port": 8101, "category": "shire", "description": "Nutrition & natural health"},
-    "SAMWISE": {"port": 8102, "category": "shire", "description": "Meal planning & provisions"},
-    "GANDALF": {"port": 8103, "category": "shire", "description": "Learning & wisdom"},
-    "ARWEN": {"port": 8104, "category": "shire", "description": "Relationships & connection"},
+    # THE SHIRE (LOTR Hobbit Comfort)
+    "GANDALF": {"port": 8103, "category": "shire", "description": "Learning/Wisdom"},
+    "ARAGORN": {"port": 8110, "category": "shire", "description": "Fitness"},
+    "BOMBADIL": {"port": 8101, "category": "shire", "description": "Nutrition"},
+    "SAMWISE": {"port": 8102, "category": "shire", "description": "Meal Planning"},
+    "ARWEN": {"port": 8104, "category": "shire", "description": "Relationships"},
 
-    # THE KEEP (Business - GoT Theme)
-    "TYRION": {"port": 8200, "category": "keep", "description": "Project leadership & strategy"},
-    "SAMWELL-TARLY": {"port": 8201, "category": "keep", "description": "Knowledge management & archives"},
-    "GENDRY": {"port": 8202, "category": "keep", "description": "Workflow building & automation"},
-    "STANNIS": {"port": 8203, "category": "keep", "description": "QA & compliance"},
-    "DAVOS": {"port": 8204, "category": "keep", "description": "Business advice & counsel"},
-    "LITTLEFINGER": {"port": 8205, "category": "keep", "description": "Finance & investments"},
-    "BRONN": {"port": 8206, "category": "keep", "description": "Procurement & resources"},
-    "HEPHAESTUS-SERVER": {"port": 8207, "category": "keep", "description": "Server tooling"},
-    "ATLAS-INFRA": {"port": 8208, "category": "keep", "description": "Infrastructure management"},
-    "RAVEN": {"port": 8209, "category": "keep", "description": "Communications & intelligence"},
+    # THE KEEP (Game of Thrones)
+    "TYRION": {"port": 8200, "category": "keep", "description": "Project Leadership"},
+    "SAMWELL-TARLY": {"port": 8201, "category": "keep", "description": "Knowledge Keeper"},
+    "GENDRY": {"port": 8202, "category": "keep", "description": "Workflow Builder"},
+    "STANNIS": {"port": 8203, "category": "keep", "description": "QA/Compliance"},
+    "DAVOS": {"port": 8204, "category": "keep", "description": "Business Advisor"},
+    "LITTLEFINGER": {"port": 8020, "category": "keep", "description": "Master of Coin"},
+    "BRONN": {"port": 8206, "category": "keep", "description": "Procurement"},
+    "RAVEN": {"port": 8209, "category": "keep", "description": "News/Intel"},
 
-    # CHANCERY (Advisory)
-    "MAGISTRATE": {"port": 8210, "category": "chancery", "description": "Legal counsel & compliance"},
-    "EXCHEQUER": {"port": 8211, "category": "chancery", "description": "Tax strategy & wealth management"},
+    # CHANCERY (Royal Court)
+    "MAGISTRATE": {"port": 8210, "category": "chancery", "description": "Legal Counsel"},
+    "EXCHEQUER": {"port": 8211, "category": "chancery", "description": "Tax & Wealth"},
+    "MAGNUS": {"port": 8017, "category": "chancery", "description": "Universal Project Master"},
 
-    # ARIA SANCTUM
-    "VARYS": {"port": 8112, "category": "sanctum", "description": "Portfolio tracking & intelligence"},
+    # ARIA SANCTUM (Ethereal Intelligence)
+    "ARIA": {"port": 0, "category": "sanctum", "description": "Personal AI"},
+    "ARIA-OMNISCIENCE": {"port": 8400, "category": "sanctum", "description": "System Awareness"},
+    "ARIA-REMINDERS": {"port": 8111, "category": "sanctum", "description": "Proactive Notifications"},
+    "VARYS": {"port": 8112, "category": "sanctum", "description": "Master of Whispers"},
+
+    # CONCLAVE (Council)
+    "CONVENER": {"port": 8300, "category": "conclave", "description": "Council Facilitator"},
+    "SCRIBE": {"port": 8301, "category": "conclave", "description": "Council Secretary"},
 }
 
 # Store activity logs in memory
@@ -350,6 +359,146 @@ async def get_summary():
 async def health():
     """Health check endpoint."""
     return {"status": "healthy", "service": "fleet-dashboard", "port": 8060}
+
+
+# ============ COMMAND CENTER ENDPOINTS ============
+
+async def fetch_magnus_status() -> dict:
+    """Fetch project status from MAGNUS."""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get("http://localhost:8017/status")
+            if response.status_code == 200:
+                return response.json()
+    except:
+        pass
+    return {"error": "MAGNUS unavailable"}
+
+
+async def fetch_varys_intel() -> dict:
+    """Fetch intelligence from VARYS."""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get("http://localhost:8112/portfolio/summary")
+            if response.status_code == 200:
+                return response.json()
+    except:
+        pass
+    return {"error": "VARYS unavailable"}
+
+
+async def fetch_littlefinger_finances() -> dict:
+    """Fetch financial status from LITTLEFINGER."""
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.get("http://localhost:8020/snapshot")
+            if response.status_code == 200:
+                return response.json()
+    except:
+        pass
+    return {"error": "LITTLEFINGER unavailable"}
+
+
+@app.get("/command-center/status")
+async def command_center_status():
+    """Aggregate status for Command Center - main dashboard endpoint."""
+
+    # Calculate days to launch (March 1, 2026)
+    launch_date = date(2026, 3, 1)
+    days_to_launch = (launch_date - date.today()).days
+
+    # Parallel fetch from all sources
+    magnus_task = fetch_magnus_status()
+    varys_task = fetch_varys_intel()
+    littlefinger_task = fetch_littlefinger_finances()
+
+    magnus, varys, littlefinger = await asyncio.gather(
+        magnus_task, varys_task, littlefinger_task,
+        return_exceptions=True
+    )
+
+    # Handle exceptions
+    if isinstance(magnus, Exception):
+        magnus = {"error": str(magnus)}
+    if isinstance(varys, Exception):
+        varys = {"error": str(varys)}
+    if isinstance(littlefinger, Exception):
+        littlefinger = {"error": str(littlefinger)}
+
+    return {
+        "timestamp": datetime.now().isoformat(),
+        "days_to_launch": days_to_launch,
+        "projects": magnus,
+        "portfolio": varys,
+        "finances": littlefinger,
+    }
+
+
+@app.get("/command-center/agents")
+async def command_center_agents():
+    """Get status of all agents organized by domain."""
+
+    # Group agents by category
+    domains = {}
+    for name, config in AGENTS.items():
+        category = config["category"]
+        if category not in domains:
+            domains[category] = []
+        domains[category].append({
+            "name": name,
+            "port": config["port"],
+            "description": config["description"]
+        })
+
+    # Check health for each agent
+    async with httpx.AsyncClient(timeout=2.0) as client:
+        for category, agents in domains.items():
+            for agent in agents:
+                if agent["port"] == 0:
+                    agent["status"] = "external"
+                    continue
+                try:
+                    response = await client.get(f"http://localhost:{agent['port']}/health")
+                    agent["status"] = "healthy" if response.status_code == 200 else "unhealthy"
+                except:
+                    agent["status"] = "down"
+
+    return domains
+
+
+@app.get("/command-center/projects")
+async def command_center_projects():
+    """Get project details from MAGNUS."""
+    return await fetch_magnus_status()
+
+
+@app.get("/command-center/intel")
+async def command_center_intel():
+    """Get intelligence from VARYS."""
+    return await fetch_varys_intel()
+
+
+@app.get("/command-center/finances")
+async def command_center_finances():
+    """Get financial status from LITTLEFINGER."""
+    return await fetch_littlefinger_finances()
+
+
+@app.websocket("/ws/command-center")
+async def command_center_websocket(websocket: WebSocket):
+    """Real-time updates for Command Center."""
+    await websocket.accept()
+
+    try:
+        while True:
+            # Send status update every 30 seconds
+            status = await command_center_status()
+            await websocket.send_json(status)
+            await asyncio.sleep(30)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

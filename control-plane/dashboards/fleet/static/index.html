@@ -14,14 +14,18 @@
             <div class="logo">
                 <div class="logo-icon">LE</div>
                 <div>
-                    <h1>Fleet Dashboard</h1>
-                    <span class="subtitle">LeverEdge Agent Monitoring</span>
+                    <h1>Command Center</h1>
+                    <span class="subtitle">LeverEdge Fleet Dashboard</span>
                 </div>
             </div>
             <div class="summary-stats" id="summary-stats">
                 <div class="stat-item">
+                    <div class="stat-value" id="days-to-launch">--</div>
+                    <div class="stat-label">Days to Launch</div>
+                </div>
+                <div class="stat-item">
                     <div class="stat-value" id="total-agents">--</div>
-                    <div class="stat-label">Total Agents</div>
+                    <div class="stat-label">Agents</div>
                 </div>
                 <div class="stat-item">
                     <div class="stat-value healthy" id="healthy-count">--</div>
@@ -29,19 +33,15 @@
                 </div>
                 <div class="stat-item">
                     <div class="stat-value unhealthy" id="unhealthy-count">--</div>
-                    <div class="stat-label">Unhealthy</div>
+                    <div class="stat-label">Issues</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value offline" id="offline-count">--</div>
-                    <div class="stat-label">Offline</div>
+                    <div class="stat-value" id="mrr-value">$0</div>
+                    <div class="stat-label">MRR</div>
                 </div>
                 <div class="stat-item">
-                    <div class="stat-value" id="total-cpu">--%</div>
-                    <div class="stat-label">Total CPU</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value" id="total-memory">-- MB</div>
-                    <div class="stat-label">Total Memory</div>
+                    <div class="stat-value" id="portfolio-value">$0</div>
+                    <div class="stat-label">Portfolio</div>
                 </div>
             </div>
             <div class="refresh-indicator" id="refresh-indicator">
@@ -52,13 +52,48 @@
     </header>
 
     <main class="main-content">
+        <!-- Command Center Overview Panels -->
+        <div class="overview-panels" id="overview-panels">
+            <div class="overview-panel projects-panel">
+                <div class="panel-header">
+                    <h3>MAGNUS - Projects</h3>
+                    <span class="panel-badge">PM</span>
+                </div>
+                <div class="panel-content" id="magnus-content">
+                    <div class="loading-state">Loading...</div>
+                </div>
+            </div>
+            <div class="overview-panel intel-panel">
+                <div class="panel-header">
+                    <h3>VARYS - Intelligence</h3>
+                    <span class="panel-badge">INTEL</span>
+                </div>
+                <div class="panel-content" id="varys-content">
+                    <div class="loading-state">Loading...</div>
+                </div>
+            </div>
+            <div class="overview-panel finance-panel">
+                <div class="panel-header">
+                    <h3>LITTLEFINGER - Finances</h3>
+                    <span class="panel-badge">$</span>
+                </div>
+                <div class="panel-content" id="littlefinger-content">
+                    <div class="loading-state">Loading...</div>
+                </div>
+            </div>
+        </div>
+
         <div class="category-filters">
             <button class="filter-btn active" data-category="all">All Agents</button>
-            <button class="filter-btn" data-category="core">Core</button>
-            <button class="filter-btn" data-category="security">Security</button>
-            <button class="filter-btn" data-category="creative">Creative</button>
-            <button class="filter-btn" data-category="personal">Personal</button>
-            <button class="filter-btn" data-category="business">Business</button>
+            <button class="filter-btn" data-category="gaia">GAIA</button>
+            <button class="filter-btn" data-category="pantheon">Pantheon</button>
+            <button class="filter-btn" data-category="sentinels">Sentinels</button>
+            <button class="filter-btn" data-category="alchemy">Alchemy</button>
+            <button class="filter-btn" data-category="shire">The Shire</button>
+            <button class="filter-btn" data-category="keep">The Keep</button>
+            <button class="filter-btn" data-category="chancery">Chancery</button>
+            <button class="filter-btn" data-category="sanctum">ARIA Sanctum</button>
+            <button class="filter-btn" data-category="conclave">Conclave</button>
         </div>
 
         <div class="agent-grid" id="agent-grid">
@@ -97,6 +132,7 @@
 
         // State
         let agents = {};
+        let commandCenterData = {};
         let currentFilter = 'all';
         let isRefreshing = false;
 
@@ -105,8 +141,111 @@
             setupEventListeners();
             fetchStatus();
             fetchActivity();
+            fetchCommandCenterData();
             startAutoRefresh();
         });
+
+        async function fetchCommandCenterData() {
+            try {
+                const response = await fetch(`${API_BASE}/command-center/status`);
+                if (!response.ok) throw new Error('Failed to fetch command center data');
+                commandCenterData = await response.json();
+                renderCommandCenterPanels();
+                updateCommandCenterStats();
+            } catch (error) {
+                console.error('Error fetching command center data:', error);
+            }
+        }
+
+        function renderCommandCenterPanels() {
+            // MAGNUS Projects
+            const magnusEl = document.getElementById('magnus-content');
+            const projects = commandCenterData.projects;
+            if (projects && !projects.error) {
+                magnusEl.innerHTML = `
+                    <div class="panel-stat">
+                        <span class="stat-label">Active Projects</span>
+                        <span class="stat-value">${projects.active_projects || 0}</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="stat-label">Tasks In Progress</span>
+                        <span class="stat-value">${projects.tasks_in_progress || 0}</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="stat-label">Blocked</span>
+                        <span class="stat-value warning">${projects.blocked_tasks || 0}</span>
+                    </div>
+                `;
+            } else {
+                magnusEl.innerHTML = '<div class="unavailable">MAGNUS unavailable</div>';
+            }
+
+            // VARYS Intelligence
+            const varysEl = document.getElementById('varys-content');
+            const portfolio = commandCenterData.portfolio;
+            if (portfolio && !portfolio.error) {
+                const minValue = portfolio.total_min_value || 0;
+                const maxValue = portfolio.total_max_value || 0;
+                varysEl.innerHTML = `
+                    <div class="panel-stat">
+                        <span class="stat-label">Portfolio Value</span>
+                        <span class="stat-value">$${formatNumber(minValue)} - $${formatNumber(maxValue)}</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="stat-label">Total Wins</span>
+                        <span class="stat-value">${portfolio.total_wins || 0}</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="stat-label">Opportunities</span>
+                        <span class="stat-value">${portfolio.active_opportunities || 0}</span>
+                    </div>
+                `;
+                // Update header stat
+                document.getElementById('portfolio-value').textContent = `$${formatNumber(minValue)}`;
+            } else {
+                varysEl.innerHTML = '<div class="unavailable">VARYS unavailable</div>';
+            }
+
+            // LITTLEFINGER Finances
+            const financeEl = document.getElementById('littlefinger-content');
+            const finances = commandCenterData.finances;
+            if (finances && !finances.error) {
+                const mrr = finances.mrr || 0;
+                const expenses = finances.expenses_mtd || 0;
+                financeEl.innerHTML = `
+                    <div class="panel-stat">
+                        <span class="stat-label">MRR</span>
+                        <span class="stat-value healthy">$${formatNumber(mrr)}</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="stat-label">Expenses MTD</span>
+                        <span class="stat-value">$${formatNumber(expenses)}</span>
+                    </div>
+                    <div class="panel-stat">
+                        <span class="stat-label">Outstanding</span>
+                        <span class="stat-value">${finances.outstanding ? '$' + formatNumber(finances.outstanding) : '$0'}</span>
+                    </div>
+                `;
+                // Update header stat
+                document.getElementById('mrr-value').textContent = `$${formatNumber(mrr)}`;
+            } else {
+                financeEl.innerHTML = '<div class="unavailable">LITTLEFINGER unavailable</div>';
+            }
+        }
+
+        function updateCommandCenterStats() {
+            const daysEl = document.getElementById('days-to-launch');
+            if (commandCenterData.days_to_launch !== undefined) {
+                daysEl.textContent = commandCenterData.days_to_launch;
+            }
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toFixed(0);
+        }
 
         function setupEventListeners() {
             // Category filters
@@ -370,6 +509,7 @@
                     if (!isRefreshing) {
                         fetchStatus();
                         fetchActivity();
+                        fetchCommandCenterData();
                     }
                 }
                 countdownEl.textContent = countdown;
