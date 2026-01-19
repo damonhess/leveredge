@@ -43,6 +43,7 @@
 | **Workflow building** | DAEDALUS (8202) | Automation design |
 | **Legal guidance** | THEMIS (8203) | Contracts, compliance |
 | **Business mentorship** | MENTOR (8204) | Career, leadership |
+| **Professional coordination** | STEWARD (8220) | Meetings, advisors, action items |
 | **Portfolio tracking** | MIDAS (8205) | Stocks, ETFs |
 | **Crypto tracking** | SATOSHI (8206) | Wallets, DeFi |
 | **Financial analysis** | PLUTUS (8207) | Budgets, ROI |
@@ -828,6 +829,32 @@ curl -X POST http://localhost:8301/scribe/search \
 - Career guidance
 - Leadership development
 - Professional growth planning
+
+### STEWARD (Professional Coordination) - Port 8220
+**Use for:**
+- Tracking professional advisors (CPA, attorney, financial advisor)
+- Meeting preparation with AI-generated questions and context
+- Recording advice received from professionals
+- Managing action items with deadlines
+- Document tracking for professional needs
+- Synthesizing advice across multiple advisors and AI agents
+
+**Endpoints:**
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| /professionals | GET/POST | Manage your professional advisors |
+| /professionals/{id} | GET | Get professional with meetings, advice |
+| /meetings | GET/POST | Schedule and list meetings |
+| /meetings/{id} | GET | Get meeting details with questions |
+| /meetings/{id}/prep | POST | Generate AI meeting prep |
+| /meetings/{id}/complete | POST | Record meeting outcomes |
+| /advice | GET/POST | List/add advice from professionals |
+| /advice/actions | GET | Get pending action items |
+| /questions | GET/POST | Manage questions for professionals |
+| /documents | GET/POST | Track needed documents |
+| /synthesize | POST | Synthesize advice on a topic |
+| /status | GET | Dashboard with upcoming meetings |
+| /health | GET | Health check |
 
 ### MIDAS (Traditional Finance) - Port 8205
 **Use for:**

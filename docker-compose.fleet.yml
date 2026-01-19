@@ -1434,9 +1434,45 @@ services:
       - stack_net
     labels:
       <<: *common-labels
-      com.leveredge.agent: "croesus"
+      com.leveredge.agent: "quaestor"
       com.leveredge.group: "business"
       com.leveredge.port: "8211"
+
+  # ---------------------------------------------------------------------------
+  # STEWARD - Professional Coordination & Meeting Prep (Port 8220)
+  # ---------------------------------------------------------------------------
+  steward:
+    build:
+      context: ./control-plane/agents/steward
+      dockerfile: Dockerfile
+    container_name: steward
+    hostname: steward
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["business", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      DATABASE_URL: postgresql://postgres:${DEV_POSTGRES_PASSWORD}@supabase-db-dev:5432/postgres
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./control-plane/agents/steward:/app:ro
+      - fleet-logs:/logs
+    ports:
+      - "${STEWARD_PORT:-8220}:8220"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8220/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "steward"
+      com.leveredge.group: "business"
+      com.leveredge.port: "8220"
 
   # ---------------------------------------------------------------------------
   # ARIA Omniscience - Knowledge Ingest Service (Port 8112)
