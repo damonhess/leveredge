@@ -458,6 +458,8 @@ services:
     volumes:
       - ./control-plane/agents/hephaestus:/app:ro
       - fleet-logs:/logs
+      # Mount full leveredge directory for file operations (create_file, read_file, etc.)
+      - .:/opt/leveredge
     ports:
       - "${HEPHAESTUS_MCP_PORT:-8011}:8011"
     healthcheck:
