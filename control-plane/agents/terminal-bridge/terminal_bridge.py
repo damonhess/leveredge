@@ -51,8 +51,8 @@ MAX_OUTPUT_SIZE = int(os.getenv("MAX_OUTPUT_SIZE", "100000"))  # 100KB
 RATE_LIMIT_COMMANDS = int(os.getenv("RATE_LIMIT_COMMANDS", "30"))
 RATE_LIMIT_WINDOW = int(os.getenv("RATE_LIMIT_WINDOW", "60"))  # seconds
 
-EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
-LCIS_URL = os.getenv("LCIS_URL", "http://localhost:8050")
+EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
+LCIS_URL = os.getenv("LCIS_URL", "http://lcis-librarian:8050")
 
 # Current working directory (persists across commands)
 current_cwd = DEFAULT_CWD
@@ -222,14 +222,14 @@ async def log_to_lcis(command: str, result: CommandResult):
 
         async with httpx.AsyncClient(timeout=5.0) as client:
             await client.post(
-                f"{LCIS_URL}/lessons",
+                f"{LCIS_URL}/ingest",
                 json={
                     "content": content,
-                    "domain": "TERMINAL",
-                    "type": "command" if not result.blocked else "blocked",
+                    "domain": "INFRASTRUCTURE",
+                    "type": "warning" if result.blocked else "insight",
                     "source_agent": "TERMINAL_BRIDGE",
                     "tags": ["terminal", "bash", "audit"],
-                    "context": {
+                    "source_context": {
                         "command": command,
                         "exit_code": result.exit_code,
                         "cwd": result.cwd,
