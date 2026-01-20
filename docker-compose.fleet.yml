@@ -695,6 +695,42 @@ services:
       com.leveredge.group: "security"
       com.leveredge.port: "8022"
 
+  # ---------------------------------------------------------------------------
+  # Daedalus - Infrastructure Strategy Agent (Port 8026)
+  # ---------------------------------------------------------------------------
+  daedalus:
+    build:
+      context: ./control-plane/agents/daedalus
+      dockerfile: Dockerfile
+    container_name: daedalus
+    hostname: daedalus
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      DATABASE_URL: ${DATABASE_URL:-}
+    volumes:
+      - ./control-plane/agents/daedalus:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${DAEDALUS_PORT:-8026}:8026"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8026/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "daedalus"
+      com.leveredge.group: "core"
+      com.leveredge.port: "8026"
+
   # ===========================================================================
   # CREATIVE FLEET (8030-8034)
   # ===========================================================================
