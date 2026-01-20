@@ -595,6 +595,75 @@ async def list_tools() -> list[Tool]:
                 "required": ["thread_id"]
             }
         ),
+        # ============ CLAUDE CLI BRIDGE TOOLS ============
+        Tool(
+            name="claude_task",
+            description="Send a task to Claude CLI and get results. Use for complex work that needs Claude's full capabilities.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "instruction": {
+                        "type": "string",
+                        "description": "What you want Claude CLI to do"
+                    },
+                    "context": {
+                        "type": "string",
+                        "description": "Additional context (optional)"
+                    },
+                    "wait": {
+                        "type": "boolean",
+                        "description": "Wait for completion (default: true)",
+                        "default": True
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds (default: 300)",
+                        "default": 300
+                    }
+                },
+                "required": ["instruction"]
+            }
+        ),
+        Tool(
+            name="claude_chat",
+            description="Have a multi-turn conversation with Claude CLI. Maintains context across messages.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "message": {
+                        "type": "string",
+                        "description": "Your message to Claude CLI"
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Session ID for continuing a conversation (optional)"
+                    }
+                },
+                "required": ["message"]
+            }
+        ),
+        Tool(
+            name="claude_gsd",
+            description="Execute a GSD spec via Claude CLI. The most powerful way to run complex builds.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "spec_path": {
+                        "type": "string",
+                        "description": "Path to the GSD spec file (e.g., /opt/leveredge/specs/gsd-xxx.md)"
+                    }
+                },
+                "required": ["spec_path"]
+            }
+        ),
+        Tool(
+            name="claude_status",
+            description="Check Claude CLI bridge status and running tasks",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
     ]
 
 
@@ -1420,6 +1489,99 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         lines.append("")
 
                     return [TextContent(type="text", text="\n".join(lines))]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        # ============ CLAUDE CLI BRIDGE TOOLS ============
+        elif name == "claude_task":
+            instruction = arguments.get("instruction")
+            context = arguments.get("context")
+            wait = arguments.get("wait", True)
+            timeout = arguments.get("timeout", 300)
+
+            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+
+            async with httpx.AsyncClient(timeout=float(timeout + 30)) as client:
+                try:
+                    if wait:
+                        response = await client.post(
+                            f"{CLAUDE_BRIDGE_URL}/task/sync",
+                            json={
+                                "instruction": instruction,
+                                "context": context,
+                                "timeout": timeout
+                            }
+                        )
+                    else:
+                        response = await client.post(
+                            f"{CLAUDE_BRIDGE_URL}/task",
+                            json={
+                                "instruction": instruction,
+                                "context": context,
+                                "timeout": timeout
+                            }
+                        )
+
+                    result = response.json()
+                    await log_to_event_bus("claude_task_submitted", instruction[:100], {"wait": wait})
+                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Claude Bridge. Is it running on port 8250?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "claude_chat":
+            message = arguments.get("message")
+            session_id = arguments.get("session_id")
+
+            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+
+            async with httpx.AsyncClient(timeout=330.0) as client:
+                try:
+                    response = await client.post(
+                        f"{CLAUDE_BRIDGE_URL}/chat",
+                        json={
+                            "message": message,
+                            "session_id": session_id
+                        }
+                    )
+                    result = response.json()
+                    await log_to_event_bus("claude_chat", message[:100], {"session_id": result.get("session_id")})
+                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Claude Bridge. Is it running on port 8250?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "claude_gsd":
+            spec_path = arguments.get("spec_path")
+
+            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+
+            async with httpx.AsyncClient(timeout=630.0) as client:
+                try:
+                    response = await client.post(
+                        f"{CLAUDE_BRIDGE_URL}/gsd",
+                        params={"spec_path": spec_path}
+                    )
+                    result = response.json()
+                    await log_to_event_bus("claude_gsd_submitted", spec_path, {"task_id": result.get("task_id")})
+                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Claude Bridge. Is it running on port 8250?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "claude_status":
+            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(f"{CLAUDE_BRIDGE_URL}/status")
+                    result = response.json()
+                    return [TextContent(type="text", text=json.dumps(result, indent=2))]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Claude Bridge. Is it running on port 8250?")]
                 except Exception as e:
                     return [TextContent(type="text", text=f"ERROR: {e}")]
 

@@ -1,0 +1,21 @@
+[Unit]
+Description=Claude CLI Bridge - MCP Server
+After=network.target
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/claude-bridge
+Environment="PATH=/home/damon/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="CLAUDE_BIN=/home/damon/.npm-global/bin/claude"
+Environment="CLAUDE_WORKING_DIR=/opt/leveredge"
+Environment="CLAUDE_RUN_AS_USER=damon"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+Environment="LCIS_URL=http://localhost:8050"
+ExecStart=/opt/leveredge/shared/venv/bin/python claude_bridge.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
