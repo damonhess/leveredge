@@ -472,6 +472,39 @@ services:
       com.leveredge.group: "core"
       com.leveredge.port: "8011"
 
+  # ---------------------------------------------------------------------------
+  # Terminal Bridge - Bash access for Claude Web (Port 8251)
+  # ---------------------------------------------------------------------------
+  terminal-bridge:
+    build:
+      context: ./control-plane/agents/terminal-bridge
+      dockerfile: Dockerfile
+    container_name: terminal-bridge
+    hostname: terminal-bridge
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    environment:
+      <<: *common-env
+      RUN_AS_USER: root
+      DEFAULT_CWD: /opt/leveredge
+    volumes:
+      - ./:/opt/leveredge:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - fleet-logs:/logs
+    ports:
+      - "${TERMINAL_BRIDGE_PORT:-8251}:8251"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8251/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "terminal-bridge"
+      com.leveredge.group: "core"
+      com.leveredge.port: "8251"
+
   # ===========================================================================
   # SECURITY AGENTS
   # ===========================================================================

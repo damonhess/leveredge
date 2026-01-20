@@ -296,15 +296,25 @@ async def execute_command(
 
     # Execute
     try:
-        # Run directly as the service user (no sudo needed if running as damon)
+        # Run command - in Docker we run as root but can optionally switch user
         full_command = f"cd {shlex.quote(working_dir)} && {command}"
 
-        process = await asyncio.create_subprocess_exec(
-            "bash", "-c", full_command,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=exec_env
-        )
+        # If running as root and RUN_AS_USER is set, use su to switch
+        run_as = os.getenv("RUN_AS_USER", "")
+        if run_as and run_as != "root" and os.geteuid() == 0:
+            process = await asyncio.create_subprocess_exec(
+                "su", "-", run_as, "-c", full_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=exec_env
+            )
+        else:
+            process = await asyncio.create_subprocess_exec(
+                "bash", "-c", full_command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=exec_env
+            )
 
         try:
             stdout, stderr = await asyncio.wait_for(

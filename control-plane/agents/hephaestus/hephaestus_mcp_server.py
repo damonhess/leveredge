@@ -1592,7 +1592,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             wait = arguments.get("wait", True)
             timeout = arguments.get("timeout", 300)
 
-            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+            CLAUDE_BRIDGE_URL = os.getenv("CLAUDE_BRIDGE_URL", "http://172.20.0.1:8250")
 
             async with httpx.AsyncClient(timeout=float(timeout + 30)) as client:
                 try:
@@ -1627,7 +1627,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             message = arguments.get("message")
             session_id = arguments.get("session_id")
 
-            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+            CLAUDE_BRIDGE_URL = os.getenv("CLAUDE_BRIDGE_URL", "http://172.20.0.1:8250")
 
             async with httpx.AsyncClient(timeout=330.0) as client:
                 try:
@@ -1649,7 +1649,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "claude_gsd":
             spec_path = arguments.get("spec_path")
 
-            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+            CLAUDE_BRIDGE_URL = os.getenv("CLAUDE_BRIDGE_URL", "http://172.20.0.1:8250")
 
             async with httpx.AsyncClient(timeout=630.0) as client:
                 try:
@@ -1666,7 +1666,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     return [TextContent(type="text", text=f"ERROR: {e}")]
 
         elif name == "claude_status":
-            CLAUDE_BRIDGE_URL = "http://localhost:8250"
+            CLAUDE_BRIDGE_URL = os.getenv("CLAUDE_BRIDGE_URL", "http://172.20.0.1:8250")
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 try:
@@ -1684,7 +1684,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             cwd = arguments.get("cwd")
             timeout = arguments.get("timeout", 60)
 
-            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+            TERMINAL_BRIDGE_URL = os.getenv("TERMINAL_BRIDGE_URL", "http://terminal-bridge:8251")
 
             async with httpx.AsyncClient(timeout=float(timeout + 10)) as client:
                 try:
@@ -1714,7 +1714,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "terminal_cd":
             path = arguments.get("path")
 
-            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+            TERMINAL_BRIDGE_URL = os.getenv("TERMINAL_BRIDGE_URL", "http://terminal-bridge:8251")
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 try:
@@ -1732,7 +1732,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "terminal_history":
             limit = arguments.get("limit", 20)
 
-            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+            TERMINAL_BRIDGE_URL = os.getenv("TERMINAL_BRIDGE_URL", "http://terminal-bridge:8251")
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 try:
@@ -1754,7 +1754,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     return [TextContent(type="text", text=f"ERROR: {e}")]
 
         elif name == "docker_ps":
-            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+            TERMINAL_BRIDGE_URL = os.getenv("TERMINAL_BRIDGE_URL", "http://terminal-bridge:8251")
 
             async with httpx.AsyncClient(timeout=10.0) as client:
                 try:
@@ -1770,7 +1770,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             container = arguments.get("container")
             lines = arguments.get("lines", 100)
 
-            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+            TERMINAL_BRIDGE_URL = os.getenv("TERMINAL_BRIDGE_URL", "http://terminal-bridge:8251")
 
             async with httpx.AsyncClient(timeout=30.0) as client:
                 try:
@@ -1788,7 +1788,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         elif name == "docker_restart":
             container = arguments.get("container")
 
-            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+            TERMINAL_BRIDGE_URL = os.getenv("TERMINAL_BRIDGE_URL", "http://terminal-bridge:8251")
 
             async with httpx.AsyncClient(timeout=60.0) as client:
                 try:
