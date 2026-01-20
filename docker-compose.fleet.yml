@@ -1583,6 +1583,44 @@ services:
       com.leveredge.port: "8112"
 
   # ---------------------------------------------------------------------------
+  # ARIA Memory - Unified Threading Service (Port 8114)
+  # ---------------------------------------------------------------------------
+  aria-memory:
+    build:
+      context: ./control-plane/agents/aria-memory
+      dockerfile: Dockerfile
+    container_name: aria-memory
+    hostname: aria-memory
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    volumes:
+      - ./control-plane/agents/aria-memory:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${ARIA_MEMORY_PORT:-8114}:8114"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8114/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "aria-memory"
+      com.leveredge.group: "core"
+      com.leveredge.port: "8114"
+
+  # ---------------------------------------------------------------------------
   # THE CONCLAVE - Council Meeting System
   # ---------------------------------------------------------------------------
 
