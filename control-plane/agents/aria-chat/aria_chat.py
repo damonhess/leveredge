@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """
-ARIA Chat Service V3.2 - DEV Environment
+ARIA Chat Service V3.3 - Cross-Environment Aware
 
 Full personality chat endpoint with dynamic context injection.
+Now with cross-environment awareness - ARIA knows where she is and can query both environments.
 Port: 8113
 """
 
 import os
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 from pathlib import Path
 
@@ -25,6 +26,28 @@ logger = logging.getLogger("ARIA-CHAT")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # Upgraded from mini for better personality
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+
+# Cross-Environment Configuration
+ARIA_ENVIRONMENT = os.getenv("ARIA_ENVIRONMENT", "unknown")
+CROSS_ENVIRONMENT = os.getenv("CROSS_ENVIRONMENT", "unknown")
+PRIMARY_LCIS_URL = os.getenv("PRIMARY_LCIS_URL", "http://lcis-librarian:8050")
+CROSS_LCIS_URL = os.getenv("CROSS_LCIS_URL", "http://lcis-librarian:8050")
+PRIMARY_EVENT_BUS_URL = os.getenv("PRIMARY_EVENT_BUS_URL", "http://event-bus:8099")
+CROSS_EVENT_BUS_URL = os.getenv("CROSS_EVENT_BUS_URL", "http://event-bus:8099")
+
+# Agent health endpoints for each environment
+AGENT_HEALTH_ENDPOINTS = {
+    "dev": {
+        "aria-chat": "http://aria-chat-dev:8113/health",
+        "event-bus": "http://event-bus:8099/health",
+        "lcis": "http://lcis-librarian:8050/health",
+    },
+    "prod": {
+        "aria-chat": "http://aria-chat-prod:8113/health",
+        "event-bus": "http://event-bus:8099/health",
+        "lcis": "http://lcis-librarian:8050/health",
+    }
+}
 
 # Load full system prompt from file
 def load_system_prompt() -> str:
@@ -100,6 +123,69 @@ Analytical, methodical, long-term thinking mode.
 }
 
 
+# =============================================================================
+# CROSS-ENVIRONMENT FUNCTIONS
+# =============================================================================
+
+async def get_environment_info() -> Dict[str, Any]:
+    """Get information about current and cross environment"""
+    return {
+        "current_environment": ARIA_ENVIRONMENT,
+        "cross_environment": CROSS_ENVIRONMENT,
+        "message": f"I am ARIA running in {ARIA_ENVIRONMENT}. I can also access {CROSS_ENVIRONMENT}."
+    }
+
+
+async def query_lcis(query: str, environment: str = "current") -> Dict[str, Any]:
+    """Query LCIS knowledge base in either environment via /recent endpoint with domain filter"""
+    if environment == "current" or environment == ARIA_ENVIRONMENT:
+        url = PRIMARY_LCIS_URL
+        env_label = ARIA_ENVIRONMENT
+    else:
+        url = CROSS_LCIS_URL
+        env_label = CROSS_ENVIRONMENT
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Get recent lessons, optionally filtered by domain
+            params = {"limit": 10}
+            if query.upper() in ["ARIA", "DEPLOYMENT", "INFRASTRUCTURE", "SECURITY", "AGENT"]:
+                params["domain"] = query.upper()
+
+            response = await client.get(f"{url}/recent", params=params)
+            lessons = response.json()
+
+            # If it's a general search, filter by content containing query
+            if "domain" not in params and query:
+                query_lower = query.lower()
+                lessons = [l for l in lessons if query_lower in (l.get("content", "") or "").lower()]
+
+            return {"environment": env_label, "results": lessons, "query": query}
+    except Exception as e:
+        logger.error(f"LCIS query error ({env_label}): {e}")
+        return {"error": str(e), "environment": env_label}
+
+
+async def check_environment_health(environment: str = "current") -> Dict[str, Any]:
+    """Check health of agents in an environment"""
+    env_key = ARIA_ENVIRONMENT if environment == "current" else environment
+    if env_key not in AGENT_HEALTH_ENDPOINTS:
+        env_key = CROSS_ENVIRONMENT
+
+    endpoints = AGENT_HEALTH_ENDPOINTS.get(env_key, {})
+    results = {}
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        for agent, url in endpoints.items():
+            try:
+                response = await client.get(url)
+                results[agent] = {"status": "healthy" if response.status_code == 200 else "unhealthy"}
+            except Exception as e:
+                results[agent] = {"status": "unreachable", "error": str(e)}
+
+    return {"environment": env_key, "agents": results}
+
+
 def get_dynamic_context() -> str:
     """
     Fetch REAL dynamic context to inject into ARIA's prompt.
@@ -163,9 +249,9 @@ def get_dynamic_context() -> str:
 
 
 app = FastAPI(
-    title="ARIA Chat Service V3.2",
-    description="Elite AI executive assistant with full personality",
-    version="3.2.0"
+    title="ARIA Chat Service V3.3",
+    description="Elite AI executive assistant with full personality and cross-environment awareness",
+    version="3.3.0"
 )
 
 # CORS for frontend
@@ -206,9 +292,28 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     version: str
+    environment: str
+    cross_environment: str
     openai_configured: bool
     model: str
     prompt_loaded: bool
+
+
+class EnvironmentResponse(BaseModel):
+    current_environment: str
+    cross_environment: str
+    message: str
+
+
+class LcisQueryResponse(BaseModel):
+    environment: str
+    results: Optional[Any] = None
+    error: Optional[str] = None
+
+
+class EnvironmentHealthResponse(BaseModel):
+    environment: str
+    agents: Dict[str, Any]
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -216,12 +321,35 @@ async def health():
     """Health check"""
     return HealthResponse(
         status="healthy",
-        service="ARIA Chat V3.2",
-        version="3.2.0",
+        service="ARIA Chat V3.3",
+        version="3.3.0",
+        environment=ARIA_ENVIRONMENT,
+        cross_environment=CROSS_ENVIRONMENT,
         openai_configured=bool(OPENAI_API_KEY),
         model=OPENAI_MODEL,
         prompt_loaded=len(ARIA_SYSTEM_PROMPT) > 100
     )
+
+
+@app.get("/environment", response_model=EnvironmentResponse)
+async def get_environment():
+    """Get environment information - which ARIA this is"""
+    info = await get_environment_info()
+    return EnvironmentResponse(**info)
+
+
+@app.get("/query/lcis", response_model=LcisQueryResponse)
+async def api_query_lcis(q: str, env: str = "current"):
+    """Query LCIS knowledge base in current or cross environment"""
+    result = await query_lcis(q, env)
+    return LcisQueryResponse(**result)
+
+
+@app.get("/health/{environment}", response_model=EnvironmentHealthResponse)
+async def api_environment_health(environment: str):
+    """Check health of agents in specified environment"""
+    result = await check_environment_health(environment)
+    return EnvironmentHealthResponse(**result)
 
 
 @app.post("/chat", response_model=ChatResponse)

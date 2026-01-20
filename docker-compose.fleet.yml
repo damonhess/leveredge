@@ -1777,6 +1777,98 @@ services:
       com.leveredge.port: "8114"
 
   # ---------------------------------------------------------------------------
+  # ARIA Chat DEV - Full Personality Chat (Port 8114 external)
+  # ---------------------------------------------------------------------------
+  aria-chat-dev:
+    build:
+      context: ./control-plane/agents/aria-chat
+      dockerfile: Dockerfile
+    container_name: aria-chat-dev
+    hostname: aria-chat-dev
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+      lcis-librarian:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      # Cross-environment awareness
+      ARIA_ENVIRONMENT: "dev"
+      CROSS_ENVIRONMENT: "prod"
+      PRIMARY_LCIS_URL: "http://lcis-librarian:8050"
+      PRIMARY_EVENT_BUS_URL: "http://event-bus:8099"
+      CROSS_LCIS_URL: "http://lcis-librarian:8050"
+      CROSS_EVENT_BUS_URL: "http://event-bus:8099"
+    volumes:
+      - ./control-plane/agents/aria-chat:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${ARIA_CHAT_DEV_PORT:-8114}:8113"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8113/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "aria-chat-dev"
+      com.leveredge.group: "aria"
+      com.leveredge.port: "8114"
+
+  # ---------------------------------------------------------------------------
+  # ARIA Chat PROD - Full Personality Chat (Port 8115 external)
+  # ---------------------------------------------------------------------------
+  aria-chat-prod:
+    build:
+      context: ./control-plane/agents/aria-chat
+      dockerfile: Dockerfile
+    container_name: aria-chat-prod
+    hostname: aria-chat-prod
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+      lcis-librarian:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      # Cross-environment awareness
+      ARIA_ENVIRONMENT: "prod"
+      CROSS_ENVIRONMENT: "dev"
+      PRIMARY_LCIS_URL: "http://lcis-librarian:8050"
+      PRIMARY_EVENT_BUS_URL: "http://event-bus:8099"
+      CROSS_LCIS_URL: "http://lcis-librarian:8050"
+      CROSS_EVENT_BUS_URL: "http://event-bus:8099"
+    volumes:
+      - ./control-plane/agents/aria-chat:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${ARIA_CHAT_PROD_PORT:-8115}:8113"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8113/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+      - stack_net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "aria-chat-prod"
+      com.leveredge.group: "aria"
+      com.leveredge.port: "8115"
+
+  # ---------------------------------------------------------------------------
   # THE CONCLAVE - Council Meeting System
   # ---------------------------------------------------------------------------
 
