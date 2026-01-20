@@ -88,16 +88,47 @@ async def send_heartbeats(scheduler: VarysDailyBriefing):
         await asyncio.sleep(30)
 
 # =============================================================================
+# GSD CLEANUP REMINDER
+# =============================================================================
+
+LCIS_URL = os.getenv("LCIS_URL", "http://lcis-librarian:8050")
+
+async def check_gsd_cleanups():
+    """Periodic check for incomplete GSD cleanups - runs every 2 hours"""
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(f"{LCIS_URL}/validate/pending-cleanups")
+                data = response.json()
+
+                if data.get("count", 0) > 0:
+                    specs = [p["spec"] for p in data["pending_cleanups"]]
+                    await client.post(
+                        f"{HERMES_URL}/alert",
+                        json={
+                            "severity": "info",
+                            "source": "LCIS",
+                            "title": f"GSD Cleanup Reminder: {len(specs)} specs pending",
+                            "message": f"Move to done/: {', '.join(specs)}"
+                        }
+                    )
+        except Exception as e:
+            print(f"[VARYS] GSD cleanup check error: {e}")
+
+        await asyncio.sleep(7200)  # Every 2 hours
+
+# =============================================================================
 # MAIN
 # =============================================================================
 
 async def main():
     scheduler = VarysDailyBriefing()
 
-    # Run both scheduler and heartbeat sending
+    # Run scheduler, heartbeat, and GSD cleanup reminder
     await asyncio.gather(
         scheduler.run(),
-        send_heartbeats(scheduler)
+        send_heartbeats(scheduler),
+        check_gsd_cleanups()
     )
 
 if __name__ == "__main__":

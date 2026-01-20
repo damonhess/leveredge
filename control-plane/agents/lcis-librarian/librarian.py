@@ -972,6 +972,209 @@ async def get_agent_context(agent: str):
     }
 
 
+# =============================================================================
+# POST-GSD VALIDATION
+# =============================================================================
+
+import subprocess
+from pathlib import Path
+
+SPECS_DIR = Path("/opt/leveredge/specs")
+SPECS_DONE_DIR = Path("/opt/leveredge/specs/done")
+
+@app.post("/validate/gsd-completion")
+async def validate_gsd_completion(spec_name: str):
+    """
+    Validate that a GSD was properly completed:
+    1. Spec moved to done/
+    2. LCIS lesson logged
+    3. Git committed
+    """
+    issues = []
+    passed = []
+
+    # 1. Check spec location
+    spec_in_active = SPECS_DIR / spec_name
+    spec_in_done = SPECS_DONE_DIR / spec_name
+
+    if spec_in_active.exists():
+        issues.append({
+            "check": "spec_moved",
+            "status": "failed",
+            "message": f"Spec still in /specs/: {spec_name}",
+            "fix": f"mv /opt/leveredge/specs/{spec_name} /opt/leveredge/specs/done/"
+        })
+    elif spec_in_done.exists():
+        passed.append({"check": "spec_moved", "status": "passed"})
+    else:
+        issues.append({
+            "check": "spec_moved",
+            "status": "warning",
+            "message": f"Spec not found in either location: {spec_name}"
+        })
+
+    # 2. Check LCIS lesson
+    if pool:
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("""
+                SELECT id, created_at FROM lcis_lessons
+                WHERE content ILIKE $1
+                AND created_at > NOW() - INTERVAL '1 hour'
+                ORDER BY created_at DESC LIMIT 1
+            """, f"%{spec_name.replace('.md', '').replace('gsd-', '')}%")
+
+            if row:
+                passed.append({"check": "lcis_logged", "status": "passed", "lesson_id": str(row["id"])})
+            else:
+                issues.append({
+                    "check": "lcis_logged",
+                    "status": "failed",
+                    "message": "No LCIS lesson found for this GSD in the last hour",
+                    "fix": "Log completion lesson to LCIS"
+                })
+
+    # 3. Check git status
+    try:
+        result = subprocess.run(
+            ["git", "log", "--oneline", "-5"],
+            capture_output=True, text=True, timeout=5,
+            cwd="/opt/leveredge"
+        )
+        recent_commits = result.stdout.lower()
+        gsd_keywords = spec_name.replace(".md", "").replace("gsd-", "").replace("-", " ").split()
+
+        # Check if any keyword appears in recent commits
+        found_commit = any(kw in recent_commits for kw in gsd_keywords if len(kw) > 3)
+
+        if found_commit:
+            passed.append({"check": "git_committed", "status": "passed"})
+        else:
+            # Check for uncommitted changes
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True, text=True, timeout=5,
+                cwd="/opt/leveredge"
+            )
+            if status_result.stdout.strip():
+                issues.append({
+                    "check": "git_committed",
+                    "status": "failed",
+                    "message": "Uncommitted changes detected",
+                    "fix": "git add -A && git commit -m 'feat: <GSD description>'"
+                })
+            else:
+                passed.append({"check": "git_committed", "status": "passed"})
+    except Exception as e:
+        issues.append({
+            "check": "git_committed",
+            "status": "error",
+            "message": f"Could not check git: {str(e)}"
+        })
+
+    # Overall result
+    all_passed = len(issues) == 0
+
+    # Alert if issues found
+    if issues:
+        await alert_incomplete_gsd(spec_name, issues)
+
+    return {
+        "spec": spec_name,
+        "complete": all_passed,
+        "passed": passed,
+        "issues": issues,
+        "fix_commands": [i.get("fix") for i in issues if i.get("fix")]
+    }
+
+
+async def alert_incomplete_gsd(spec_name: str, issues: list):
+    """Alert via HERMES about incomplete GSD cleanup"""
+    try:
+        issue_list = "\n".join([f"- {i['check']}: {i['message']}" for i in issues])
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                "http://hermes:8014/alert",
+                json={
+                    "severity": "warning",
+                    "source": "LCIS",
+                    "title": f"GSD Cleanup Incomplete: {spec_name}",
+                    "message": f"The following cleanup steps are pending:\n{issue_list}"
+                }
+            )
+    except:
+        pass
+
+
+@app.get("/validate/pending-cleanups")
+async def get_pending_cleanups():
+    """List all specs that appear to be completed but not moved to done/"""
+    pending = []
+
+    # Ensure done directory exists
+    SPECS_DONE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Find specs that look completed (mentioned in recent LCIS lessons or git)
+    for spec_file in SPECS_DIR.glob("gsd-*.md"):
+        if spec_file.name.startswith("gsd-"):
+            # Check if there's a recent lesson mentioning completion
+            if pool:
+                async with pool.acquire() as conn:
+                    row = await conn.fetchrow("""
+                        SELECT id FROM lcis_lessons
+                        WHERE (content ILIKE '%complete%' OR content ILIKE '%deployed%' OR content ILIKE '%success%')
+                        AND content ILIKE $1
+                        AND created_at > NOW() - INTERVAL '24 hours'
+                    """, f"%{spec_file.stem.replace('gsd-', '')}%")
+
+                    if row:
+                        pending.append({
+                            "spec": spec_file.name,
+                            "status": "likely_complete",
+                            "fix": f"mv {spec_file} /opt/leveredge/specs/done/"
+                        })
+
+    return {
+        "pending_cleanups": pending,
+        "count": len(pending),
+        "batch_fix": "cd /opt/leveredge && " + " && ".join([f"mv specs/{p['spec']} specs/done/" for p in pending]) if pending else None
+    }
+
+
+async def check_gsd_cleanup_before_new_gsd(action: str, target: str) -> dict:
+    """Check if previous GSD cleanup is complete before starting new one"""
+
+    if "gsd" not in target.lower():
+        return {"proceed": True, "blockers": [], "warnings": [], "recommendations": []}
+
+    # Check for incomplete cleanups
+    pending = []
+    for spec_file in SPECS_DIR.glob("gsd-*.md"):
+        # Check if this spec was recently worked on (has matching LCIS entries)
+        if pool:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow("""
+                    SELECT id FROM lcis_lessons
+                    WHERE content ILIKE $1
+                    AND created_at > NOW() - INTERVAL '4 hours'
+                """, f"%{spec_file.stem}%")
+
+                if row:
+                    pending.append(spec_file.name)
+
+    if pending:
+        return {
+            "proceed": False,
+            "blockers": [f"Previous GSD specs not moved to done/: {', '.join(pending)}"],
+            "warnings": [],
+            "recommendations": [
+                f"Run: mv /opt/leveredge/specs/{pending[0]} /opt/leveredge/specs/done/",
+                "Then retry the new GSD"
+            ]
+        }
+
+    return {"proceed": True, "blockers": [], "warnings": [], "recommendations": []}
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8050)
