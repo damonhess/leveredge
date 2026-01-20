@@ -664,6 +664,99 @@ async def list_tools() -> list[Tool]:
                 "properties": {}
             }
         ),
+        # ============ TERMINAL BRIDGE TOOLS ============
+        Tool(
+            name="terminal_exec",
+            description="Execute a bash command on the server. Full shell access with safety controls.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "Bash command to execute"
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": "Working directory (optional)"
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Timeout in seconds (default: 60, max: 300)",
+                        "default": 60
+                    }
+                },
+                "required": ["command"]
+            }
+        ),
+        Tool(
+            name="terminal_cd",
+            description="Change the terminal's working directory",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "Directory path"
+                    }
+                },
+                "required": ["path"]
+            }
+        ),
+        Tool(
+            name="terminal_history",
+            description="Get recent command history",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of commands to return",
+                        "default": 20
+                    }
+                }
+            }
+        ),
+        Tool(
+            name="docker_ps",
+            description="List running Docker containers",
+            inputSchema={
+                "type": "object",
+                "properties": {}
+            }
+        ),
+        Tool(
+            name="docker_logs",
+            description="Get logs from a Docker container",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "container": {
+                        "type": "string",
+                        "description": "Container name"
+                    },
+                    "lines": {
+                        "type": "integer",
+                        "description": "Number of lines (default: 100)",
+                        "default": 100
+                    }
+                },
+                "required": ["container"]
+            }
+        ),
+        Tool(
+            name="docker_restart",
+            description="Restart a Docker container",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "container": {
+                        "type": "string",
+                        "description": "Container name to restart"
+                    }
+                },
+                "required": ["container"]
+            }
+        ),
     ]
 
 
@@ -1582,6 +1675,128 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     return [TextContent(type="text", text=json.dumps(result, indent=2))]
                 except httpx.ConnectError:
                     return [TextContent(type="text", text="ERROR: Cannot connect to Claude Bridge. Is it running on port 8250?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        # ============ TERMINAL BRIDGE TOOLS ============
+        elif name == "terminal_exec":
+            command = arguments.get("command")
+            cwd = arguments.get("cwd")
+            timeout = arguments.get("timeout", 60)
+
+            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+
+            async with httpx.AsyncClient(timeout=float(timeout + 10)) as client:
+                try:
+                    response = await client.post(
+                        f"{TERMINAL_BRIDGE_URL}/exec",
+                        json={"command": command, "cwd": cwd, "timeout": timeout}
+                    )
+                    result = response.json()
+
+                    # Format output nicely
+                    output = f"$ {command}\n"
+                    if result.get("stdout"):
+                        output += result["stdout"]
+                    if result.get("stderr"):
+                        output += f"\n[stderr]\n{result['stderr']}"
+                    if result.get("blocked"):
+                        output = f"BLOCKED: {result.get('block_reason')}"
+
+                    output += f"\n\n[exit: {result.get('exit_code')}, {result.get('duration_seconds', 0):.2f}s]"
+
+                    return [TextContent(type="text", text=output)]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Terminal Bridge. Is it running on port 8251?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "terminal_cd":
+            path = arguments.get("path")
+
+            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.post(
+                        f"{TERMINAL_BRIDGE_URL}/cd",
+                        json={"path": path}
+                    )
+                    result = response.json()
+                    return [TextContent(type="text", text=f"Changed directory to: {result.get('cwd')}")]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Terminal Bridge. Is it running on port 8251?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "terminal_history":
+            limit = arguments.get("limit", 20)
+
+            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(
+                        f"{TERMINAL_BRIDGE_URL}/history",
+                        params={"limit": limit}
+                    )
+                    result = response.json()
+
+                    history_text = "Recent commands:\n"
+                    for cmd in result.get("history", []):
+                        status = "✓" if cmd["exit_code"] == 0 else "✗"
+                        history_text += f"{status} [{cmd['exit_code']}] {cmd['command']}\n"
+
+                    return [TextContent(type="text", text=history_text)]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Terminal Bridge. Is it running on port 8251?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "docker_ps":
+            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                try:
+                    response = await client.get(f"{TERMINAL_BRIDGE_URL}/docker/ps")
+                    result = response.json()
+                    return [TextContent(type="text", text=result.get("output", "No output"))]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Terminal Bridge. Is it running on port 8251?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "docker_logs":
+            container = arguments.get("container")
+            lines = arguments.get("lines", 100)
+
+            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                try:
+                    response = await client.get(
+                        f"{TERMINAL_BRIDGE_URL}/docker/logs/{container}",
+                        params={"lines": lines}
+                    )
+                    result = response.json()
+                    return [TextContent(type="text", text=result.get("logs", "No logs"))]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Terminal Bridge. Is it running on port 8251?")]
+                except Exception as e:
+                    return [TextContent(type="text", text=f"ERROR: {e}")]
+
+        elif name == "docker_restart":
+            container = arguments.get("container")
+
+            TERMINAL_BRIDGE_URL = "http://localhost:8251"
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                try:
+                    response = await client.post(f"{TERMINAL_BRIDGE_URL}/docker/restart/{container}")
+                    result = response.json()
+                    return [TextContent(type="text", text=f"Restarted {container}: {result.get('output', 'OK')}")]
+                except httpx.ConnectError:
+                    return [TextContent(type="text", text="ERROR: Cannot connect to Terminal Bridge. Is it running on port 8251?")]
                 except Exception as e:
                     return [TextContent(type="text", text=f"ERROR: {e}")]
 

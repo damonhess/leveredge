@@ -1,0 +1,19 @@
+[Unit]
+Description=Terminal Bridge - Bash Access for Claude Web
+After=network.target
+
+[Service]
+Type=simple
+User=damon
+Group=damon
+WorkingDirectory=/opt/leveredge/control-plane/agents/terminal-bridge
+Environment="RUN_AS_USER=damon"
+Environment="DEFAULT_CWD=/opt/leveredge"
+Environment="EVENT_BUS_URL=http://localhost:8099"
+Environment="LCIS_URL=http://localhost:8050"
+ExecStart=/opt/leveredge/shared/venv/bin/python terminal_bridge.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
