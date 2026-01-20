@@ -19,6 +19,7 @@ COPY shared/ /opt/leveredge/control-plane/shared/
 COPY apollo.py .
 COPY service_registry.py .
 COPY deployment_executor.py .
+COPY migrations.py .
 
 EXPOSE 8234
 

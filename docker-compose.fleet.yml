@@ -799,6 +799,8 @@ services:
       # Mount compose file for compose deployments
       - ./docker-compose.fleet.yml:/opt/leveredge/docker-compose.fleet.yml:ro
       - ./.env.fleet:/opt/leveredge/.env.fleet:ro
+      # Mount data-plane for migrations access
+      - ./data-plane:/opt/leveredge/data-plane:ro
     ports:
       - "${APOLLO_PORT:-8234}:8234"
     healthcheck:
