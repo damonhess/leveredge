@@ -22,7 +22,7 @@ Make ARIA conversations sync across web and mobile. **BUILD IN DEV FIRST, TEST, 
 
 ```
 1. All changes go to /opt/leveredge/data-plane/dev/aria-frontend/
-2. Test at dev-aria.leveredgeai.com
+2. Test at dev.aria.leveredgeai.com
 3. Only after verification: ./promote-aria-to-prod.sh
 ```
 
@@ -34,7 +34,7 @@ Make ARIA conversations sync across web and mobile. **BUILD IN DEV FIRST, TEST, 
 
 - [ ] DEV frontend uses Supabase instead of local state
 - [ ] Real-time sync via Supabase subscriptions
-- [ ] Test on dev-aria.leveredgeai.com
+- [ ] Test on dev.aria.leveredgeai.com
 - [ ] Promote to prod after verification
 
 ---
@@ -158,7 +158,7 @@ npm run build
 # Restart DEV services
 docker compose restart caddy  # or however DEV is served
 
-# Test at dev-aria.leveredgeai.com
+# Test at dev.aria.leveredgeai.com
 # 1. Send message in browser
 # 2. Open in incognito/different browser with same user_id
 # 3. Verify message appears
