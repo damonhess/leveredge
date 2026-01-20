@@ -2,8 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install curl for healthcheck AND docker CLI for container operations
+RUN apt-get update && apt-get install -y \
+    curl \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
 COPY requirements.txt .
@@ -12,8 +15,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy shared modules
 COPY shared/ /opt/leveredge/control-plane/shared/
 
-# Copy agent
+# Copy all Apollo modules
 COPY apollo.py .
+COPY service_registry.py .
+COPY deployment_executor.py .
 
 EXPOSE 8234
 

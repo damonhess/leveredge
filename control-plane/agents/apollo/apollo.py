@@ -29,6 +29,13 @@ import asyncio
 # Add shared modules
 sys.path.append('/opt/leveredge/control-plane/shared')
 
+# Import Service Registry and Deployment Executor
+from service_registry import (
+    SERVICE_REGISTRY, ServiceConfig, DeployMethod, get_service,
+    list_services, list_critical_services, get_services_by_tag
+)
+from deployment_executor import execute_deployment as exec_service_deploy, DeploymentOutcome, DeploymentResult
+
 # Import LCIS client for mandatory consultation
 try:
     from lcis_client import consult, report_outcome, ingest_lesson
@@ -574,6 +581,211 @@ async def get_rules():
             {"name": "immediate", "description": "Hotfix only - direct replacement"}
         ]
     }
+
+
+# =============================================================================
+# SERVICE REGISTRY ENDPOINTS
+# =============================================================================
+
+@app.get("/services")
+async def list_all_services():
+    """List all registered services"""
+    return {
+        "services": [
+            {
+                "name": config.name,
+                "display_name": config.display_name,
+                "method": config.deploy_method.value,
+                "critical": config.critical,
+                "requires_approval": config.requires_approval,
+                "health_url": config.health_url,
+                "tags": config.tags
+            }
+            for config in SERVICE_REGISTRY.values()
+        ],
+        "total": len(SERVICE_REGISTRY)
+    }
+
+
+@app.get("/services/critical")
+async def list_critical():
+    """List critical services"""
+    return {"critical_services": list_critical_services()}
+
+
+@app.get("/services/by-tag/{tag}")
+async def services_by_tag(tag: str):
+    """Get services by tag"""
+    return {"tag": tag, "services": get_services_by_tag(tag)}
+
+
+@app.get("/services/{service_name}")
+async def get_service_config(service_name: str):
+    """Get configuration for a specific service"""
+    config = get_service(service_name)
+    if not config:
+        raise HTTPException(404, f"Service not found: {service_name}")
+
+    return {
+        "name": config.name,
+        "display_name": config.display_name,
+        "method": config.deploy_method.value,
+        "script": config.script_path,
+        "container": config.container_name,
+        "compose_file": config.compose_file,
+        "compose_service": config.compose_service,
+        "health_url": config.health_url,
+        "critical": config.critical,
+        "requires_approval": config.requires_approval,
+        "tags": config.tags
+    }
+
+
+# =============================================================================
+# UNIFIED DEPLOY ENDPOINT
+# =============================================================================
+
+class ServiceDeployRequest(BaseModel):
+    service: str
+    dry_run: bool = False
+    skip_backup: bool = False
+    reason: Optional[str] = None
+
+@app.post("/deploy/service")
+async def deploy_service(request: ServiceDeployRequest):
+    """
+    Deploy any registered service.
+
+    This is the primary deployment endpoint.
+    All deployments should go through here.
+    """
+    config = get_service(request.service)
+    if not config:
+        raise HTTPException(404, f"Unknown service: {request.service}")
+
+    # Check if approval required
+    if config.requires_approval and not request.dry_run:
+        if not request.reason or len(request.reason) < 10:
+            raise HTTPException(
+                400,
+                f"Service {request.service} requires approval. Provide a detailed reason (min 10 chars)."
+            )
+
+    # Execute deployment
+    outcome = await exec_service_deploy(
+        service_name=request.service,
+        dry_run=request.dry_run,
+        skip_backup=request.skip_backup,
+        reason=request.reason
+    )
+
+    return {
+        "service": outcome.service,
+        "result": outcome.result.value,
+        "dry_run": outcome.dry_run,
+        "duration_seconds": outcome.duration_seconds,
+        "backup_id": outcome.backup_id,
+        "health_check_passed": outcome.health_check_passed,
+        "error": outcome.error,
+        "stdout_tail": outcome.stdout[-1000:] if outcome.stdout else None
+    }
+
+
+# =============================================================================
+# CONVENIENCE ENDPOINTS
+# =============================================================================
+
+@app.post("/deploy/aria")
+async def deploy_aria(dry_run: bool = False, reason: str = None):
+    """Deploy ARIA Frontend (convenience endpoint)"""
+    return await deploy_service(ServiceDeployRequest(
+        service="aria-frontend",
+        dry_run=dry_run,
+        reason=reason or "ARIA frontend deployment"
+    ))
+
+
+@app.post("/deploy/aria-chat")
+async def deploy_aria_chat(dry_run: bool = False, reason: str = None):
+    """Deploy ARIA Chat API (convenience endpoint)"""
+    return await deploy_service(ServiceDeployRequest(
+        service="aria-chat",
+        dry_run=dry_run,
+        reason=reason or "ARIA chat deployment"
+    ))
+
+
+@app.post("/deploy/fleet")
+async def deploy_fleet(dry_run: bool = False, reason: str = None):
+    """Deploy entire agent fleet (convenience endpoint)"""
+    return await deploy_service(ServiceDeployRequest(
+        service="fleet",
+        dry_run=dry_run,
+        reason=reason or "Fleet deployment"
+    ))
+
+
+@app.post("/deploy/schema")
+async def deploy_schema(dry_run: bool = False, reason: str = None):
+    """Deploy schema changes (requires reason)"""
+    if not reason or len(reason) < 10:
+        raise HTTPException(400, "Schema deployments require a detailed reason")
+
+    return await deploy_service(ServiceDeployRequest(
+        service="schema",
+        dry_run=dry_run,
+        reason=reason
+    ))
+
+
+# =============================================================================
+# BATCH DEPLOYMENT
+# =============================================================================
+
+class BatchDeployRequest(BaseModel):
+    services: List[str]
+    dry_run: bool = False
+    reason: Optional[str] = None
+
+@app.post("/deploy/batch")
+async def deploy_batch(request: BatchDeployRequest):
+    """Deploy multiple services in sequence"""
+    results = []
+
+    for service_name in request.services:
+        config = get_service(service_name)
+        if not config:
+            results.append({
+                "service": service_name,
+                "result": "skipped",
+                "error": "Unknown service"
+            })
+            continue
+
+        outcome = await exec_service_deploy(
+            service_name=service_name,
+            dry_run=request.dry_run,
+            reason=request.reason
+        )
+
+        results.append({
+            "service": outcome.service,
+            "result": outcome.result.value,
+            "duration_seconds": outcome.duration_seconds,
+            "error": outcome.error
+        })
+
+        # Stop batch if critical service fails
+        if config.critical and outcome.result == DeploymentResult.FAILED:
+            await notify(f"Batch deployment stopped: {service_name} failed", "critical")
+            break
+
+    return {
+        "dry_run": request.dry_run,
+        "total_requested": len(request.services),
+        "results": results
+    }
+
 
 if __name__ == "__main__":
     import uvicorn

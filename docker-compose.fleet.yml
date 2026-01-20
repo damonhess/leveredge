@@ -756,6 +756,16 @@ services:
       - ./control-plane/agents/apollo:/app:ro
       - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
       - fleet-logs:/logs
+      # Mount scripts directory for script-based deployments
+      - ./shared/scripts:/opt/leveredge/shared/scripts:ro
+      # Mount Docker socket for container operations
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Mount fleet scripts
+      - ./fleet-start.sh:/opt/leveredge/fleet-start.sh:ro
+      - ./fleet-stop.sh:/opt/leveredge/fleet-stop.sh:ro
+      # Mount compose file for compose deployments
+      - ./docker-compose.fleet.yml:/opt/leveredge/docker-compose.fleet.yml:ro
+      - ./.env.fleet:/opt/leveredge/.env.fleet:ro
     ports:
       - "${APOLLO_PORT:-8234}:8234"
     healthcheck:
