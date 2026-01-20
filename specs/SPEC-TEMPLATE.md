@@ -13,26 +13,56 @@
 
 ---
 
+## ENVIRONMENT
+
+**Target:** DEV FIRST (always)
+
+```
+Location: /opt/leveredge/data-plane/dev/[service]/
+Test URL: dev-[service].leveredgeai.com
+```
+
+⚠️ **NEVER modify /data-plane/prod/ directly. Use promote-to-prod.sh after DEV verification.**
+
+---
+
 ## DELIVERABLES
 
-- [ ] Deliverable 1
-- [ ] Deliverable 2
-- [ ] Deliverable 3
+- [ ] Deliverable 1 (DEV)
+- [ ] Deliverable 2 (DEV)
+- [ ] Test in DEV environment
+- [ ] Promote to PROD
 
 ---
 
 ## BUILD STEPS
 
-### Phase 1: [Name]
+### Phase 1: [Name] (DEV)
 
 ```bash
-# Commands here
+# All commands target DEV
+cd /opt/leveredge/data-plane/dev/[service]/
 ```
 
-### Phase 2: [Name]
+### Phase 2: [Name] (DEV)
 
 ```bash
-# Commands here
+# More DEV changes
+```
+
+### Phase 3: Test in DEV
+
+```bash
+# Verify at dev-[service].leveredgeai.com
+curl https://dev-[service].leveredgeai.com/health
+```
+
+### Phase 4: Promote to PROD
+
+```bash
+# Only after DEV verification passes
+cd /opt/leveredge
+./shared/scripts/promote-[service]-to-prod.sh
 ```
 
 ---
@@ -40,8 +70,11 @@
 ## VERIFICATION
 
 ```bash
-# How to verify it worked
+# DEV verification
 curl http://localhost:XXXX/health
+
+# PROD verification (after promotion)
+curl https://[service].leveredgeai.com/health
 ```
 
 ---
@@ -111,13 +144,14 @@ curl -X POST http://localhost:8050/lessons \
 If something goes wrong:
 
 ```bash
-# CHRONOS restore
-curl -X POST http://localhost:8010/restore/latest
+# DEV rollback
+cd /opt/leveredge/data-plane/dev/[service]
+git checkout HEAD~1 -- .
 
-# Or HADES rollback
-curl -X POST http://localhost:8008/rollback
+# PROD rollback (if promoted)
+curl -X POST http://localhost:8008/rollback  # HADES
 ```
 
 ---
 
-*Template version: 1.0 | All specs MUST include the ON COMPLETION section*
+*Template version: 1.1 | DEV-FIRST ENFORCED | All specs MUST include ON COMPLETION section*
