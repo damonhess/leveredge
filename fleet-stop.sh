@@ -94,7 +94,7 @@ echo ""
 
 # Show current status
 echo -e "${BLUE}Current running containers:${NC}"
-docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ps 2>/dev/null || echo "  (none or compose not initialized)"
+docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ps 2>/dev/null || echo "  (none or compose not initialized)"
 echo ""
 
 # Confirm clean operation
@@ -120,29 +120,29 @@ fi
 # Stop containers
 if [ -n "$FORCE_FLAG" ]; then
     echo -e "${YELLOW}Force stopping containers...${NC}"
-    docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} kill 2>/dev/null || true
+    docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} kill 2>/dev/null || true
 else
     echo -e "${BLUE}Gracefully stopping containers (timeout: ${TIMEOUT}s)...${NC}"
-    docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} stop -t ${TIMEOUT} 2>/dev/null || true
+    docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} stop -t ${TIMEOUT} 2>/dev/null || true
 fi
 
 # Remove containers
 echo -e "${BLUE}Removing containers...${NC}"
 if [ -n "$CLEAN_FLAG" ]; then
-    docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} down -v --remove-orphans 2>/dev/null || true
+    docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} down -v --remove-orphans 2>/dev/null || true
 else
-    docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} down --remove-orphans 2>/dev/null || true
+    docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ${PROFILE_FLAG} down --remove-orphans 2>/dev/null || true
 fi
 
 echo ""
 echo -e "${GREEN}Fleet stopped successfully!${NC}"
 
 # Show remaining containers if any
-REMAINING=$(docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ps -q 2>/dev/null | wc -l)
+REMAINING=$(docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ps -q 2>/dev/null | wc -l)
 if [ "$REMAINING" -gt 0 ]; then
     echo ""
     echo -e "${YELLOW}Note: Some containers may still be running (different profile):${NC}"
-    docker-compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ps 2>/dev/null || true
+    docker compose -f "${COMPOSE_FILE}" ${ENV_FLAG} ps 2>/dev/null || true
 fi
 
 echo ""

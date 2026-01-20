@@ -118,8 +118,8 @@ echo ""
 echo -e "${BLUE}Starting ${PROFILE} agents...${NC}"
 echo ""
 
-# Build docker-compose command
-CMD="docker-compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE}"
+# Build docker compose command
+CMD="docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE}"
 
 if [ "$PROFILE" != "all" ]; then
     CMD="${CMD} --profile ${PROFILE}"
@@ -141,12 +141,12 @@ if [ -n "$DETACH_FLAG" ]; then
     echo -e "${GREEN}Fleet started successfully!${NC}"
     echo ""
     echo -e "${BLUE}Quick status:${NC}"
-    docker-compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || \
-    docker-compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
+    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || \
+    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" ps
     echo ""
     echo -e "${BLUE}Useful commands:${NC}"
     echo "  ./fleet-health.sh      - Check health of all agents"
     echo "  ./fleet-stop.sh        - Stop the fleet"
-    echo "  docker-compose -f docker-compose.fleet.yml logs -f [service]  - View logs"
+    echo "  docker compose -f docker-compose.fleet.yml logs -f [service]  - View logs"
     echo ""
 fi
