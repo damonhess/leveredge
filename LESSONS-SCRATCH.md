@@ -323,3 +323,75 @@ for agent in muse calliope thalia erato clio; do
 done
 ```
 
+
+### 2026-01-19 17:30 - [ARIA PROD Deployment Gap]
+**Symptom:** ARIA PROD completely broken - "trouble connecting to AI backend" on all devices after deployment
+**Cause:** Multiple deployment gaps in promote-to-prod.sh:
+1. **Frontend had mock API code** - PROD frontend useStore.ts had hardcoded demo responses instead of real fetch() to aria-api.leveredgeai.com
+2. **Missing 6 database tables** - aria_user_settings, aria_notifications, aria_files, aria_tasks, aria_calendar_events, aria_portfolio_wins not synced from DEV to PROD
+3. **Duplicate CORS headers** - Both Caddy AND Python app added Access-Control-Allow-Origin headers, causing browser CORS validation to fail (browsers reject duplicate CORS headers)
+**Fix:**
+1. Manually updated useStore.ts with real API fetch call from DEV
+2. Created missing tables + RLS policies + indexes in PROD
+3. Removed CORS headers from Caddy for aria-api (let Python app handle CORS)
+4. Rebuilt and deployed frontend
+**Prevention:** Update promote-to-prod.sh to include:
+1. Schema diff/sync between DEV and PROD Supabase
+2. Frontend source verification (git diff, not just container restart)
+3. CORS header validation (curl check for single Access-Control-Allow-Origin)
+4. Post-deploy smoke test hitting all endpoints
+**Key Commands:**
+```bash
+# Check for duplicate CORS headers
+curl -v -X POST "https://aria-api.leveredgeai.com/chat" -H "Origin: https://aria.leveredgeai.com" 2>&1 | grep "access-control"
+
+# Compare DEV vs PROD tables
+docker exec supabase-db-dev psql -U postgres -d postgres -c "\dt aria_*"
+docker exec supabase-db-prod psql -U postgres -d postgres -c "\dt aria_*"
+
+# Verify frontend has real API call
+curl -s "https://aria.leveredgeai.com/assets/index*.js" | grep -o 'aria-api.leveredgeai.com'
+```
+
+### 2026-01-20 14:00 - [Bulletproof Promote-to-Prod Script]
+**Context:** After ARIA PROD outage caused by schema drift, mock code, and CORS duplication, created comprehensive promotion script.
+**Solution:** `/opt/leveredge/shared/scripts/promote-aria-to-prod.sh` - 5-phase validation before deployment
+**Phases:**
+1. **Pre-flight Checks** - DEV/PROD DB connectivity, API health, Git status, directory existence
+2. **Schema Comparison** - Compare aria_* tables, views, RLS policies between DEV and PROD
+3. **Frontend Code Validation** - Detect mock code patterns, verify real API URLs, check .env config
+4. **CORS Configuration** - Check Caddy config for duplicate headers, test actual API response headers
+5. **Smoke Tests** - API health, Supabase REST endpoints, frontend JS bundle verification
+
+**What It Catches:**
+| Issue Type | Detection Method |
+|------------|------------------|
+| Missing tables | Schema diff showing "SCHEMA DRIFT: N tables missing in PROD" |
+| Mock API code | Grep for "This is a demo response" patterns |
+| Wrong API URL | Check for aria-api.leveredgeai.com in source |
+| CORS duplication | Count access-control-allow-origin headers (must be exactly 1) |
+| Missing .env | Check for VITE_SUPABASE_URL in .env file |
+
+**Key Learnings:**
+1. **Large files break echo pipes** - When grepping 1.6MB JS bundle, use temp file instead of `echo "$CONTENT" | grep`
+2. **Docker exec needs timeout** - Add `timeout 10` to prevent hanging on container commands
+3. **wc -l returns newlines** - Use `tr -d ' '` or parameter expansion to clean numeric values
+4. **Recursive grep is slow** - For mock code detection, target specific files instead of `grep -r` on entire src/
+
+**Usage:**
+```bash
+# Dry-run (validation only, no changes)
+/opt/leveredge/shared/scripts/promote-aria-to-prod.sh --dry-run
+
+# Full deployment with prompts
+/opt/leveredge/shared/scripts/promote-aria-to-prod.sh
+
+# Force deployment (skip confirmation, for CI/CD)
+/opt/leveredge/shared/scripts/promote-aria-to-prod.sh --force
+```
+
+**Exit Codes:**
+- 0: All checks passed (or warnings only)
+- 1: Critical errors found
+
+**Prevention:** Run `--dry-run` before every ARIA deployment. Script catches the exact issues that caused Jan 19-20 outage.
