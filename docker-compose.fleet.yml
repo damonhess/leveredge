@@ -698,7 +698,7 @@ services:
   # com.leveredge.port: "8021"
 
   # # ---------------------------------------------------------------------------
-  # # Varys - Intelligence Agent (Port 8022)
+  # # Varys - Master of Whispers - Omniscient System Intelligence (Port 8112)
   # # ---------------------------------------------------------------------------
   varys:
     build:
@@ -706,29 +706,41 @@ services:
       dockerfile: Dockerfile
     container_name: varys
     hostname: varys
-    <<: [*restart-policy, *resource-limits-small]
+    <<: *restart-policy
+    # HOST NETWORK MODE - VARYS sees all Docker networks from host level
+    network_mode: host
     profiles: ["security", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
+    # No depends_on needed - host network mode means no Docker DNS
     environment:
-      <<: *common-env
+      PYTHONUNBUFFERED: "1"
+      TZ: ${TIMEZONE:-America/New_York}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      VARYS_PORT: "8112"
+      # Event Bus via localhost (host network)
+      EVENT_BUS_URL: "http://localhost:8099"
+      HERMES_URL: "http://localhost:8014"
+      LCIS_URL: "http://localhost:8050"
+      WATCHDOG_URL: "http://localhost:8240"
+      # Database URLs via localhost (DEV on 54323, PROD on 54322)
+      DATABASE_URL: postgresql://postgres:${DEV_POSTGRES_PASSWORD}@localhost:54323/postgres
+      DATABASE_URL_PROD: postgresql://postgres:${PROD_POSTGRES_PASSWORD}@localhost:54322/postgres
     volumes:
       - ./control-plane/agents/varys:/app:ro
       - fleet-logs:/logs
-    ports:
-      - "${VARYS_PORT:-8022}:8020"
+      # Docker socket for container inspection
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Read access to full codebase
+      - /opt/leveredge:/opt/leveredge:ro
+    # No ports mapping needed - host network exposes directly
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8020/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
+      test: ["CMD", "curl", "-f", "http://localhost:8112/health"]
+    # No networks needed - host network mode
     labels:
       <<: *common-labels
       com.leveredge.agent: "varys"
-      com.leveredge.group: "security"
-      com.leveredge.port: "8022"
+      com.leveredge.group: "intelligence"
+      com.leveredge.port: "8112"
 
   # ---------------------------------------------------------------------------
   # Daedalus - Infrastructure Strategy Agent (Port 8026)
