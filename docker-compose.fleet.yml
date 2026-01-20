@@ -731,6 +731,45 @@ services:
       com.leveredge.group: "core"
       com.leveredge.port: "8026"
 
+  # ---------------------------------------------------------------------------
+  # Apollo - Deployment Orchestrator (Port 8234)
+  # ---------------------------------------------------------------------------
+  apollo:
+    build:
+      context: ./control-plane/agents/apollo
+      dockerfile: Dockerfile
+    container_name: apollo
+    hostname: apollo
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      CHRONOS_URL: http://chronos:8010
+      HADES_URL: http://hades:8008
+      PANOPTES_URL: http://panoptes:8023
+      HERMES_URL: http://hermes:8014
+      LCIS_URL: http://lcis-librarian:8050
+    volumes:
+      - ./control-plane/agents/apollo:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    ports:
+      - "${APOLLO_PORT:-8234}:8234"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8234/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "apollo"
+      com.leveredge.group: "core"
+      com.leveredge.port: "8234"
+
   # ===========================================================================
   # CREATIVE FLEET (8030-8034)
   # ===========================================================================
