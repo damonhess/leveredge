@@ -29,6 +29,14 @@ import asyncio
 # Add shared modules
 sys.path.append('/opt/leveredge/control-plane/shared')
 
+# Import LCIS client for mandatory consultation
+try:
+    from lcis_client import consult, report_outcome, ingest_lesson
+    LCIS_AVAILABLE = True
+except ImportError:
+    LCIS_AVAILABLE = False
+    print("[APOLLO] Warning: LCIS client not available - consultation disabled")
+
 app = FastAPI(
     title="APOLLO",
     description="Deployment Orchestrator - God of Order",
@@ -208,6 +216,7 @@ async def execute_deployment(
     start_time = datetime.utcnow()
     deployment_id = f"deploy_{start_time.strftime('%Y%m%d%H%M%S')}_{service}"
     current_version = get_current_version(service, env)
+    consultation_id = None
 
     record = DeploymentRecord(
         id=deployment_id,
@@ -223,6 +232,30 @@ async def execute_deployment(
     )
 
     try:
+        # Step 0: LCIS Consultation (MANDATORY)
+        if LCIS_AVAILABLE:
+            lcis_result = await consult(
+                action="deploy",
+                target=f"{service}:{env.value}",
+                context=f"Deploying {service} to {env.value} using {strategy.value} strategy. Reason: {reason}",
+                agent="APOLLO"
+            )
+            consultation_id = lcis_result.consultation_id
+
+            # Check for blockers
+            if not lcis_result.proceed:
+                raise Exception(f"LCIS blocked deployment: {'; '.join(lcis_result.blockers)}")
+
+            # Log warnings if any
+            if lcis_result.warnings:
+                print(f"[APOLLO] LCIS Warnings for deployment:")
+                for warning in lcis_result.warnings:
+                    print(f"  - {warning}")
+
+            # Show relevant past lessons
+            if lcis_result.relevant_lessons:
+                print(f"[APOLLO] LCIS found {len(lcis_result.relevant_lessons)} relevant past experiences")
+
         # Step 1: Pre-deployment checks
         record.status = DeploymentStatus.PRE_CHECKS
         await log_event("deployment_started", {"service": service, "env": env.value})
@@ -265,6 +298,14 @@ async def execute_deployment(
             "duration": record.duration_seconds
         })
 
+        # Report success to LCIS
+        if LCIS_AVAILABLE and consultation_id:
+            await report_outcome(
+                consultation_id=consultation_id,
+                success=True,
+                notes=f"Deployed {service} to {env.value} in {record.duration_seconds:.1f}s"
+            )
+
     except Exception as e:
         record.status = DeploymentStatus.FAILED
         record.notes = f"Failed: {str(e)}"
@@ -277,6 +318,14 @@ async def execute_deployment(
             "env": env.value,
             "error": str(e)
         })
+
+        # Report failure to LCIS
+        if LCIS_AVAILABLE and consultation_id:
+            await report_outcome(
+                consultation_id=consultation_id,
+                success=False,
+                error=str(e)
+            )
 
     deployment_history.append(record)
     return record

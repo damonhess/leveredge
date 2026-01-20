@@ -12,6 +12,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
 import os
+import re
 import httpx
 import asyncpg
 import json
@@ -643,6 +644,332 @@ async def delayed_subscription():
     import asyncio
     await asyncio.sleep(5)  # Wait for Event Bus
     await subscribe_to_event_bus()
+
+
+# ============ CONSULTATION ENDPOINT (OMNISCIENCE) ============
+
+class ConsultRequest(BaseModel):
+    """Request to consult LCIS before an action"""
+    action: str = Field(..., description="build, edit, deploy, delete, create")
+    target: str = Field(..., description="Service/file/agent being acted upon")
+    context: Optional[str] = None
+    agent: str = Field(default="UNKNOWN", description="Which agent is asking")
+
+
+class ConsultResponse(BaseModel):
+    consultation_id: str
+    action: str
+    target: str
+    proceed: bool
+    blockers: List[str]
+    warnings: List[str]
+    recommendations: List[str]
+    relevant_lessons: List[Dict[str, Any]]
+    must_acknowledge: bool
+
+
+@app.post("/consult", response_model=ConsultResponse)
+async def consult_before_action(request: ConsultRequest):
+    """
+    MANDATORY check before any build, edit, or deployment.
+
+    Returns:
+    - relevant_lessons: Past experiences related to this action
+    - warnings: Known issues or failure patterns to watch for
+    - recommendations: Suggested approaches based on history
+    - blockers: If any, action should NOT proceed
+    """
+    import uuid
+
+    consultation_id = str(uuid.uuid4())[:8]
+    blockers = []
+    warnings = []
+    recommendations = []
+    relevant_lessons = []
+
+    async with pool.acquire() as conn:
+        # Check for blocking rules
+        block_rules = await conn.fetch("""
+            SELECT name, description, trigger_pattern, trigger_keywords
+            FROM lcis_rules
+            WHERE action = 'block'
+            AND enforced = true
+            AND (expires_at IS NULL OR expires_at > NOW())
+        """)
+
+        for rule in block_rules:
+            pattern = rule['trigger_pattern']
+            keywords = rule['trigger_keywords'] or []
+
+            # Check pattern match
+            if pattern:
+                try:
+                    if re.search(pattern, f"{request.action} {request.target}", re.IGNORECASE):
+                        blockers.append(rule['description'])
+                        # Update enforcement count
+                        await conn.execute("""
+                            UPDATE lcis_rules
+                            SET enforcement_count = enforcement_count + 1,
+                                last_enforced = NOW()
+                            WHERE name = $1
+                        """, rule['name'])
+                except re.error:
+                    pass
+
+            # Check keyword match
+            for kw in keywords:
+                if kw.lower() in f"{request.action} {request.target}".lower():
+                    blockers.append(rule['description'])
+                    break
+
+        # Check for warning rules
+        warn_rules = await conn.fetch("""
+            SELECT name, description, trigger_pattern, trigger_keywords
+            FROM lcis_rules
+            WHERE action = 'warn'
+            AND enforced = true
+            AND (expires_at IS NULL OR expires_at > NOW())
+        """)
+
+        for rule in warn_rules:
+            pattern = rule['trigger_pattern']
+            keywords = rule['trigger_keywords'] or []
+
+            if pattern:
+                try:
+                    if re.search(pattern, f"{request.action} {request.target}", re.IGNORECASE):
+                        warnings.append(rule['description'])
+                except re.error:
+                    pass
+
+            for kw in keywords:
+                if kw.lower() in f"{request.action} {request.target}".lower():
+                    warnings.append(rule['description'])
+                    break
+
+        # Check for suggestion rules
+        suggest_rules = await conn.fetch("""
+            SELECT name, description, trigger_pattern, trigger_keywords
+            FROM lcis_rules
+            WHERE action = 'suggest'
+            AND enforced = true
+            AND (expires_at IS NULL OR expires_at > NOW())
+        """)
+
+        for rule in suggest_rules:
+            pattern = rule['trigger_pattern']
+            keywords = rule['trigger_keywords'] or []
+
+            if pattern:
+                try:
+                    if re.search(pattern, f"{request.action} {request.target}", re.IGNORECASE):
+                        recommendations.append(rule['description'])
+                except re.error:
+                    pass
+
+            for kw in keywords:
+                if kw.lower() in f"{request.action} {request.target}".lower():
+                    recommendations.append(rule['description'])
+                    break
+
+        # Find relevant past lessons
+        lessons = await conn.fetch("""
+            SELECT id, title, content, type, solution, domain
+            FROM lcis_lessons
+            WHERE status = 'active'
+            AND (
+                content ILIKE $1
+                OR content ILIKE $2
+                OR title ILIKE $1
+                OR title ILIKE $2
+            )
+            ORDER BY
+                CASE WHEN type = 'failure' THEN 0 ELSE 1 END,
+                occurrence_count DESC,
+                created_at DESC
+            LIMIT 5
+        """, f"%{request.action}%", f"%{request.target}%")
+
+        relevant_lessons = [
+            {
+                "id": str(row['id']),
+                "title": row['title'],
+                "content": row['content'][:200] if row['content'] else None,
+                "type": row['type'],
+                "solution": row['solution'],
+                "domain": row['domain']
+            }
+            for row in lessons
+        ]
+
+        # Log the consultation
+        await conn.execute("""
+            INSERT INTO lcis_events (event_type, agent, context)
+            VALUES ('consultation', $1, $2)
+        """, request.agent, json.dumps({
+            "action": request.action,
+            "target": request.target,
+            "blockers_count": len(blockers),
+            "warnings_count": len(warnings),
+            "proceed": len(blockers) == 0
+        }))
+
+    return ConsultResponse(
+        consultation_id=consultation_id,
+        action=request.action,
+        target=request.target,
+        proceed=len(blockers) == 0,
+        blockers=list(set(blockers)),
+        warnings=list(set(warnings)),
+        recommendations=list(set(recommendations)),
+        relevant_lessons=relevant_lessons,
+        must_acknowledge=len(blockers) > 0 or len(warnings) > 2
+    )
+
+
+@app.post("/outcome")
+async def report_outcome(
+    consultation_id: str,
+    success: bool,
+    notes: Optional[str] = None,
+    error: Optional[str] = None
+):
+    """Report the outcome of a consulted action"""
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            INSERT INTO lcis_events (event_type, context)
+            VALUES ('outcome', $1)
+        """, json.dumps({
+            "consultation_id": consultation_id,
+            "success": success,
+            "notes": notes,
+            "error": error
+        }))
+
+    return {"status": "recorded", "consultation_id": consultation_id}
+
+
+@app.get("/status")
+async def lcis_status():
+    """LCIS system status and statistics"""
+    async with pool.acquire() as conn:
+        total_lessons = await conn.fetchval("SELECT COUNT(*) FROM lcis_lessons WHERE status = 'active'")
+        lessons_today = await conn.fetchval("""
+            SELECT COUNT(*) FROM lcis_lessons
+            WHERE created_at > NOW() - INTERVAL '24 hours'
+        """)
+        errors_captured = await conn.fetchval("""
+            SELECT COUNT(*) FROM lcis_lessons WHERE type = 'failure'
+        """)
+        fixes_captured = await conn.fetchval("""
+            SELECT COUNT(*) FROM lcis_lessons WHERE type IN ('success', 'pattern')
+        """)
+        consultations_today = await conn.fetchval("""
+            SELECT COUNT(*) FROM lcis_events
+            WHERE event_type = 'consultation'
+            AND created_at > NOW() - INTERVAL '24 hours'
+        """)
+        blocks_today = await conn.fetchval("""
+            SELECT COUNT(*) FROM lcis_events
+            WHERE event_type = 'consultation'
+            AND created_at > NOW() - INTERVAL '24 hours'
+            AND context::jsonb->>'blockers_count' != '0'
+        """)
+        active_rules = await conn.fetchval("""
+            SELECT COUNT(*) FROM lcis_rules WHERE enforced = true
+        """)
+
+    return {
+        "status": "operational",
+        "version": "2.0.0",
+        "mode": "omniscient",
+        "stats": {
+            "total_lessons": total_lessons,
+            "lessons_today": lessons_today,
+            "errors_captured": errors_captured,
+            "fixes_captured": fixes_captured,
+            "consultations_today": consultations_today,
+            "blocks_today": blocks_today,
+            "active_rules": active_rules
+        },
+        "watchers": {
+            "docker_logs": "active",
+            "event_bus": "active",
+            "git_commits": "active"
+        }
+    }
+
+
+@app.get("/recent")
+async def recent_activity(limit: int = 20):
+    """Recent LCIS activity"""
+    async with pool.acquire() as conn:
+        lessons = await conn.fetch("""
+            SELECT id, title, content, type, domain, created_at
+            FROM lcis_lessons
+            ORDER BY created_at DESC
+            LIMIT $1
+        """, limit)
+
+        events = await conn.fetch("""
+            SELECT event_type, agent, context, created_at
+            FROM lcis_events
+            ORDER BY created_at DESC
+            LIMIT $1
+        """, limit)
+
+    return {
+        "lessons": [dict(row) for row in lessons],
+        "events": [dict(row) for row in events]
+    }
+
+
+@app.get("/rules")
+async def list_rules():
+    """List all active rules"""
+    async with pool.acquire() as conn:
+        rules = await conn.fetch("""
+            SELECT id, name, description, action, trigger_pattern, trigger_keywords,
+                   enforced, enforcement_count, created_at
+            FROM lcis_rules
+            WHERE enforced = true
+            ORDER BY action, name
+        """)
+    return {"rules": [dict(row) for row in rules]}
+
+
+@app.get("/context/{agent}")
+async def get_agent_context(agent: str):
+    """Get context for a specific agent - failures to avoid, rules to follow"""
+    async with pool.acquire() as conn:
+        # Get recent failures relevant to this agent
+        failures = await conn.fetch("""
+            SELECT l.content, l.solution, l.domain
+            FROM lcis_lessons l
+            LEFT JOIN lcis_agent_knowledge ak ON l.id = ak.lesson_id
+            WHERE l.type = 'failure'
+            AND l.status = 'active'
+            AND (ak.agent = $1 OR l.domain IN (
+                SELECT UNNEST(applies_to_domains) FROM lcis_rules
+                WHERE $1 = ANY(applies_to_agents)
+            ))
+            ORDER BY l.created_at DESC
+            LIMIT 10
+        """, agent.upper())
+
+        # Get rules for this agent
+        rules = await conn.fetch("""
+            SELECT name, description, action
+            FROM lcis_rules
+            WHERE enforced = true
+            AND ($1 = ANY(applies_to_agents) OR applies_to_agents = '{}')
+        """, agent.upper())
+
+    return {
+        "agent": agent,
+        "failures_to_avoid": [dict(row) for row in failures],
+        "rules_to_follow": [dict(row) for row in rules]
+    }
 
 
 if __name__ == "__main__":

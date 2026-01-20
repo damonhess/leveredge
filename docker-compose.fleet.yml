@@ -1890,3 +1890,34 @@ services:
       com.leveredge.agent: "lcis-oracle"
       com.leveredge.group: "lcis"
       com.leveredge.port: "8052"
+
+  # ---------------------------------------------------------------------------
+  # LCIS Watcher - Active Monitoring & Auto-Ingestion (No Port)
+  # ---------------------------------------------------------------------------
+  lcis-watcher:
+    build:
+      context: ./control-plane/agents/lcis-librarian
+      dockerfile: Dockerfile.watcher
+    container_name: lcis-watcher
+    hostname: lcis-watcher
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      lcis-librarian:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      LCIS_URL: http://lcis-librarian:8050
+      EVENT_BUS_URL: http://event-bus:8099
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/leveredge:/opt/leveredge:ro
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "lcis-watcher"
+      com.leveredge.group: "lcis"
