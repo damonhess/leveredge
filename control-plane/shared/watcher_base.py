@@ -310,10 +310,8 @@ class EventSubscriberBase(ABC):
         while self.running:
             try:
                 async with httpx.AsyncClient(timeout=None) as client:
-                    filter_param = ",".join(filters) if filters != ["*"] else ""
-                    url = f"{EVENT_BUS_URL}/subscribe"
-                    if filter_param:
-                        url += f"?events={filter_param}"
+                    # Use /events endpoint (SSE stream) or /agents/{name}/events
+                    url = f"{EVENT_BUS_URL}/events"
 
                     async with client.stream("GET", url) as response:
                         async for line in response.aiter_lines():

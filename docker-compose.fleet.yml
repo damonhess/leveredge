@@ -2188,9 +2188,12 @@ services:
       <<: *common-env
       HERMES_URL: http://hermes:8014
       WATCHDOG_URL: http://watchdog:8240
+      LCIS_URL: http://lcis-librarian:8050
     volumes:
       - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
       - fleet-logs:/logs
+      # Docker socket for running docker commands (logs, db queries)
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - fleet-net
       - control-plane-net
