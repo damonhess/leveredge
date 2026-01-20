@@ -553,46 +553,46 @@ services:
   # ---------------------------------------------------------------------------
   # Sentinel - Routing & Failover Agent (Port 8019)
   # ---------------------------------------------------------------------------
-  sentinel:
-    build:
-      context: ./control-plane/agents/sentinel
-      dockerfile: Dockerfile
-    container_name: sentinel
-    hostname: sentinel
-    <<: [*restart-policy, *resource-limits-small]
-    profiles: ["security", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-      hermes:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      REGISTRY_PATH: /opt/leveredge/config/agent-registry.yaml
-      FASTAPI_ATLAS_URL: http://atlas:8208
-      N8N_ATLAS_URL: ${N8N_URL:-http://control-n8n:5678}
-      HERMES_URL: http://hermes:8014
-    volumes:
-      - ./control-plane/agents/sentinel:/app:ro
-      - ./config:/opt/leveredge/config:ro
-      - fleet-logs:/logs
-    ports:
-      - "${SENTINEL_PORT:-8019}:8019"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8019/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "sentinel"
-      com.leveredge.group: "security"
-      com.leveredge.port: "8019"
+  # sentinel: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/sentinel
+  # dockerfile: Dockerfile
+  # container_name: sentinel
+  # hostname: sentinel
+  # <<: [*restart-policy, *resource-limits-small]
+  # profiles: ["security", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # hermes:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # REGISTRY_PATH: /opt/leveredge/config/agent-registry.yaml
+  # FASTAPI_ATLAS_URL: http://atlas:8208
+  # N8N_ATLAS_URL: ${N8N_URL:-http://control-n8n:5678}
+  # HERMES_URL: http://hermes:8014
+  # volumes:
+  # - ./control-plane/agents/sentinel:/app:ro
+  # - ./config:/opt/leveredge/config:ro
+  # - fleet-logs:/logs
+  # ports:
+  # - "${SENTINEL_PORT:-8019}:8019"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8019/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "sentinel"
+  # com.leveredge.group: "security"
+  # com.leveredge.port: "8019"
 
-  # ---------------------------------------------------------------------------
-  # Cerberus - API Gateway Agent (Port 8020)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # Cerberus - API Gateway Agent (Port 8020)
+  # # ---------------------------------------------------------------------------
   cerberus:
     build:
       context: ./control-plane/agents/cerberus
@@ -632,39 +632,39 @@ services:
   # ---------------------------------------------------------------------------
   # Port Manager - Port Allocation Agent (Port 8021)
   # ---------------------------------------------------------------------------
-  port-manager:
-    build:
-      context: ./control-plane/agents/port-manager
-      dockerfile: Dockerfile
-    container_name: port-manager
-    hostname: port-manager
-    <<: [*restart-policy, *resource-limits-small]
-    profiles: ["security", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-    volumes:
-      - ./control-plane/agents/port-manager:/app:ro
-      - fleet-logs:/logs
-    ports:
-      - "${PORT_MANAGER_PORT:-8021}:8021"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8021/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "port-manager"
-      com.leveredge.group: "security"
-      com.leveredge.port: "8021"
+  # port-manager: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/port-manager
+  # dockerfile: Dockerfile
+  # container_name: port-manager
+  # hostname: port-manager
+  # <<: [*restart-policy, *resource-limits-small]
+  # profiles: ["security", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # volumes:
+  # - ./control-plane/agents/port-manager:/app:ro
+  # - fleet-logs:/logs
+  # ports:
+  # - "${PORT_MANAGER_PORT:-8021}:8021"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8021/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "port-manager"
+  # com.leveredge.group: "security"
+  # com.leveredge.port: "8021"
 
-  # ---------------------------------------------------------------------------
-  # Varys - Intelligence Agent (Port 8022)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # Varys - Intelligence Agent (Port 8022)
+  # # ---------------------------------------------------------------------------
   varys:
     build:
       context: ./control-plane/agents/varys
@@ -918,78 +918,78 @@ services:
   # ---------------------------------------------------------------------------
   # Nutritionist - Nutrition Agent (Port 8101)
   # ---------------------------------------------------------------------------
-  nutritionist:
-    build:
-      context: ./control-plane/agents/nutritionist
-      dockerfile: Dockerfile
-    container_name: nutritionist
-    hostname: nutritionist
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["personal", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/nutritionist:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${NUTRITIONIST_PORT:-8101}:8101"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8101/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "nutritionist"
-      com.leveredge.group: "personal"
-      com.leveredge.port: "8101"
+  # nutritionist: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/nutritionist
+  # dockerfile: Dockerfile
+  # container_name: nutritionist
+  # hostname: nutritionist
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["personal", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/nutritionist:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${NUTRITIONIST_PORT:-8101}:8101"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8101/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "nutritionist"
+  # com.leveredge.group: "personal"
+  # com.leveredge.port: "8101"
 
-  # ---------------------------------------------------------------------------
-  # Meal Planner - Meal Planning Agent (Port 8102)
-  # ---------------------------------------------------------------------------
-  meal-planner:
-    build:
-      context: ./control-plane/agents/meal-planner
-      dockerfile: Dockerfile
-    container_name: meal-planner
-    hostname: meal-planner
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["personal", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/meal-planner:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${MEAL_PLANNER_PORT:-8102}:8102"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8102/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "meal-planner"
-      com.leveredge.group: "personal"
-      com.leveredge.port: "8102"
+  # # ---------------------------------------------------------------------------
+  # # Meal Planner - Meal Planning Agent (Port 8102)
+  # # ---------------------------------------------------------------------------
+  # meal-planner: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/meal-planner
+  # dockerfile: Dockerfile
+  # container_name: meal-planner
+  # hostname: meal-planner
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["personal", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/meal-planner:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${MEAL_PLANNER_PORT:-8102}:8102"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8102/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "meal-planner"
+  # com.leveredge.group: "personal"
+  # com.leveredge.port: "8102"
 
-  # ---------------------------------------------------------------------------
-  # Academic Guide - Education Agent (Port 8103)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # Academic Guide - Education Agent (Port 8103)
+  # # ---------------------------------------------------------------------------
   academic-guide:
     build:
       context: ./control-plane/agents/academic-guide
@@ -1026,197 +1026,197 @@ services:
   # ---------------------------------------------------------------------------
   # Eros - Relationship Agent (Port 8104)
   # ---------------------------------------------------------------------------
-  eros:
-    build:
-      context: ./control-plane/agents/eros
-      dockerfile: Dockerfile
-    container_name: eros
-    hostname: eros
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["personal", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/eros:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${EROS_PORT:-8104}:8104"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8104/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "eros"
-      com.leveredge.group: "personal"
-      com.leveredge.port: "8104"
+  # eros: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/eros
+  # dockerfile: Dockerfile
+  # container_name: eros
+  # hostname: eros
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["personal", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/eros:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${EROS_PORT:-8104}:8104"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8104/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "eros"
+  # com.leveredge.group: "personal"
+  # com.leveredge.port: "8104"
 
-  # ===========================================================================
-  # BUSINESS AGENTS (8200-8209)
-  # ===========================================================================
+  # # ===========================================================================
+  # # BUSINESS AGENTS (8200-8209)
+  # # ===========================================================================
 
-  # ---------------------------------------------------------------------------
-  # Heracles - Task Management Agent (Port 8200)
-  # ---------------------------------------------------------------------------
-  heracles:
-    build:
-      context: ./control-plane/agents/heracles
-      dockerfile: Dockerfile
-    container_name: heracles
-    hostname: heracles
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/heracles:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${HERACLES_PORT:-8200}:8200"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8200/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "heracles"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8200"
+  # # ---------------------------------------------------------------------------
+  # # Heracles - Task Management Agent (Port 8200)
+  # # ---------------------------------------------------------------------------
+  # heracles: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/heracles
+  # dockerfile: Dockerfile
+  # container_name: heracles
+  # hostname: heracles
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/heracles:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${HERACLES_PORT:-8200}:8200"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8200/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "heracles"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8200"
 
-  # ---------------------------------------------------------------------------
-  # REMOVED: Librarian (Port 8201) - Ghost entry, directory doesn't exist
-  # LCIS-LIBRARIAN (Port 8050) is the canonical knowledge management agent
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # REMOVED: Librarian (Port 8201) - Ghost entry, directory doesn't exist
+  # # LCIS-LIBRARIAN (Port 8050) is the canonical knowledge management agent
+  # # ---------------------------------------------------------------------------
 
-  # ---------------------------------------------------------------------------
-  # Workflow Builder - Automation Agent (Port 8202)
-  # ---------------------------------------------------------------------------
-  workflow-builder:
-    build:
-      context: ./control-plane/agents/workflow-builder
-      dockerfile: Dockerfile
-    container_name: workflow-builder
-    hostname: workflow-builder
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      N8N_API_KEY: ${N8N_API_KEY}
-      N8N_URL: ${N8N_URL:-http://control-n8n:5678}
-    volumes:
-      - ./control-plane/agents/workflow-builder:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${WORKFLOW_BUILDER_PORT:-8202}:8202"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8202/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "workflow-builder"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8202"
+  # # ---------------------------------------------------------------------------
+  # # Workflow Builder - Automation Agent (Port 8202)
+  # # ---------------------------------------------------------------------------
+  # workflow-builder: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/workflow-builder
+  # dockerfile: Dockerfile
+  # container_name: workflow-builder
+  # hostname: workflow-builder
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # N8N_API_KEY: ${N8N_API_KEY}
+  # N8N_URL: ${N8N_URL:-http://control-n8n:5678}
+  # volumes:
+  # - ./control-plane/agents/workflow-builder:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${WORKFLOW_BUILDER_PORT:-8202}:8202"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8202/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "workflow-builder"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8202"
 
-  # ---------------------------------------------------------------------------
-  # Themis - Legal/Compliance Agent (Port 8203)
-  # ---------------------------------------------------------------------------
-  themis:
-    build:
-      context: ./control-plane/agents/themis
-      dockerfile: Dockerfile
-    container_name: themis
-    hostname: themis
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/themis:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${THEMIS_PORT:-8203}:8203"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8203/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "themis"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8203"
+  # # ---------------------------------------------------------------------------
+  # # Themis - Legal/Compliance Agent (Port 8203)
+  # # ---------------------------------------------------------------------------
+  # themis: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/themis
+  # dockerfile: Dockerfile
+  # container_name: themis
+  # hostname: themis
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/themis:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${THEMIS_PORT:-8203}:8203"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8203/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "themis"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8203"
 
-  # ---------------------------------------------------------------------------
-  # Mentor - Coaching Agent (Port 8204)
-  # ---------------------------------------------------------------------------
-  mentor:
-    build:
-      context: ./control-plane/agents/mentor
-      dockerfile: Dockerfile
-    container_name: mentor
-    hostname: mentor
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/mentor:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${MENTOR_PORT:-8204}:8204"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8204/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "mentor"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8204"
+  # # ---------------------------------------------------------------------------
+  # # Mentor - Coaching Agent (Port 8204)
+  # # ---------------------------------------------------------------------------
+  # mentor: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/mentor
+  # dockerfile: Dockerfile
+  # container_name: mentor
+  # hostname: mentor
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/mentor:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${MENTOR_PORT:-8204}:8204"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8204/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "mentor"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8204"
 
-  # ---------------------------------------------------------------------------
-  # Plutus - Finance Agent (Port 8205)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # Plutus - Finance Agent (Port 8205)
+  # # ---------------------------------------------------------------------------
   plutus:
     build:
       context: ./control-plane/agents/plutus
@@ -1253,42 +1253,42 @@ services:
   # ---------------------------------------------------------------------------
   # Procurement - Purchasing Agent (Port 8206)
   # ---------------------------------------------------------------------------
-  procurement:
-    build:
-      context: ./control-plane/agents/procurement
-      dockerfile: Dockerfile
-    container_name: procurement
-    hostname: procurement
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/procurement:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${PROCUREMENT_PORT:-8206}:8206"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8206/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "procurement"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8206"
+  # procurement: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/procurement
+  # dockerfile: Dockerfile
+  # container_name: procurement
+  # hostname: procurement
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/procurement:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${PROCUREMENT_PORT:-8206}:8206"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8206/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "procurement"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8206"
 
-  # ---------------------------------------------------------------------------
-  # Hephaestus Server - Infrastructure Admin Agent (Port 8207)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # Hephaestus Server - Infrastructure Admin Agent (Port 8207)
+  # # ---------------------------------------------------------------------------
   hephaestus-server:
     build:
       context: ./control-plane/agents/hephaestus
@@ -1325,79 +1325,79 @@ services:
   # ---------------------------------------------------------------------------
   # Atlas - Orchestration Agent (Port 8208)
   # ---------------------------------------------------------------------------
-  atlas:
-    build:
-      context: ./control-plane/agents/atlas
-      dockerfile: Dockerfile
-    container_name: atlas
-    hostname: atlas
-    <<: [*restart-policy, *resource-limits-large]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      HERMES_URL: http://hermes:8014
-    volumes:
-      - ./control-plane/agents/atlas:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${ATLAS_PORT:-8208}:8208"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8208/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "atlas"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8208"
+  # atlas: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/atlas
+  # dockerfile: Dockerfile
+  # container_name: atlas
+  # hostname: atlas
+  # <<: [*restart-policy, *resource-limits-large]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # HERMES_URL: http://hermes:8014
+  # volumes:
+  # - ./control-plane/agents/atlas:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${ATLAS_PORT:-8208}:8208"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8208/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "atlas"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8208"
 
-  # ---------------------------------------------------------------------------
-  # Iris - Communication Agent (Port 8209)
-  # ---------------------------------------------------------------------------
-  iris:
-    build:
-      context: ./control-plane/agents/iris
-      dockerfile: Dockerfile
-    container_name: iris
-    hostname: iris
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-    volumes:
-      - ./control-plane/agents/iris:/app:ro
-      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${IRIS_PORT:-8209}:8209"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8209/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "iris"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8209"
+  # # ---------------------------------------------------------------------------
+  # # Iris - Communication Agent (Port 8209)
+  # # ---------------------------------------------------------------------------
+  # iris: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/iris
+  # dockerfile: Dockerfile
+  # container_name: iris
+  # hostname: iris
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # volumes:
+  # - ./control-plane/agents/iris:/app:ro
+  # - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${IRIS_PORT:-8209}:8209"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8209/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "iris"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8209"
 
-  # ---------------------------------------------------------------------------
-  # Solon - Legal Advisor Agent (Port 8210)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # Solon - Legal Advisor Agent (Port 8210)
+  # # ---------------------------------------------------------------------------
   solon:
     build:
       context: ./control-plane/agents/solon
@@ -1437,45 +1437,45 @@ services:
   # ---------------------------------------------------------------------------
   # Croesus - Tax & Wealth Advisor Agent (Port 8211)
   # ---------------------------------------------------------------------------
-  croesus:
-    build:
-      context: ./control-plane/agents/croesus
-      dockerfile: Dockerfile
-    container_name: croesus
-    hostname: croesus
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["business", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
-      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
-    volumes:
-      - ./control-plane/agents/croesus:/app:ro
-      - ./shared:/opt/leveredge/shared:ro
-      - fleet-logs:/logs
-      - fleet-data:/data
-    ports:
-      - "${CROESUS_PORT:-8211}:8211"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8211/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-      - stack_net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "quaestor"
-      com.leveredge.group: "business"
-      com.leveredge.port: "8211"
+  # croesus: # REMOVED - directory does not exist
+  # build:
+  # context: ./control-plane/agents/croesus
+  # dockerfile: Dockerfile
+  # container_name: croesus
+  # hostname: croesus
+  # <<: [*restart-policy, *resource-limits-medium]
+  # profiles: ["business", "all"]
+  # depends_on:
+  # event-bus:
+  # condition: service_healthy
+  # environment:
+  # <<: *common-env
+  # ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+  # SUPABASE_URL: ${SUPABASE_URL:-http://supabase-kong:8000}
+  # SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY:-}
+  # volumes:
+  # - ./control-plane/agents/croesus:/app:ro
+  # - ./shared:/opt/leveredge/shared:ro
+  # - fleet-logs:/logs
+  # - fleet-data:/data
+  # ports:
+  # - "${CROESUS_PORT:-8211}:8211"
+  # healthcheck:
+  # <<: *healthcheck-defaults
+  # test: ["CMD", "curl", "-f", "http://localhost:8211/health"]
+  # networks:
+  # - fleet-net
+  # - control-plane-net
+  # - stack_net
+  # labels:
+  # <<: *common-labels
+  # com.leveredge.agent: "quaestor"
+  # com.leveredge.group: "business"
+  # com.leveredge.port: "8211"
 
-  # ---------------------------------------------------------------------------
-  # STEWARD - Professional Coordination & Meeting Prep (Port 8220)
-  # ---------------------------------------------------------------------------
+  # # ---------------------------------------------------------------------------
+  # # STEWARD - Professional Coordination & Meeting Prep (Port 8220)
+  # # ---------------------------------------------------------------------------
   steward:
     build:
       context: ./control-plane/agents/steward
