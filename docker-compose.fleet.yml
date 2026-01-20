@@ -1921,3 +1921,173 @@ services:
       <<: *common-labels
       com.leveredge.agent: "lcis-watcher"
       com.leveredge.group: "lcis"
+
+  # ===========================================================================
+  # META-MONITORING - THE OMNISCIENT MESH
+  # ===========================================================================
+
+  # ---------------------------------------------------------------------------
+  # WATCHDOG - The Watcher of Watchers (Port 8240)
+  # ---------------------------------------------------------------------------
+  watchdog:
+    build:
+      context: ./control-plane/agents/watchdog
+      dockerfile: Dockerfile
+    container_name: leveredge-watchdog
+    hostname: watchdog
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      HERMES_URL: http://hermes:8014
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      ALERT_EMAIL: ${ALERT_EMAIL:-}
+    volumes:
+      - ./control-plane/agents/watchdog:/app:ro
+      - fleet-logs:/logs
+    ports:
+      - "${WATCHDOG_PORT:-8240}:8240"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8240/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "watchdog"
+      com.leveredge.group: "monitoring"
+      com.leveredge.port: "8240"
+
+  # ---------------------------------------------------------------------------
+  # PANOPTES Watcher - Continuous Health Monitoring
+  # ---------------------------------------------------------------------------
+  panoptes-watcher:
+    build:
+      context: ./control-plane/agents/panoptes
+      dockerfile: Dockerfile.watcher
+    container_name: leveredge-panoptes-watcher
+    hostname: panoptes-watcher
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      watchdog:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      HERMES_URL: http://hermes:8014
+      WATCHDOG_URL: http://watchdog:8240
+      ASCLEPIUS_URL: http://asclepius:8024
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "panoptes-watcher"
+      com.leveredge.group: "monitoring"
+
+  # ---------------------------------------------------------------------------
+  # ARGUS Watcher - Continuous Metrics Collection
+  # ---------------------------------------------------------------------------
+  argus-watcher:
+    build:
+      context: ./control-plane/agents/argus
+      dockerfile: Dockerfile.watcher
+    container_name: leveredge-argus-watcher
+    hostname: argus-watcher
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      watchdog:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      HERMES_URL: http://hermes:8014
+      WATCHDOG_URL: http://watchdog:8240
+    volumes:
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "argus-watcher"
+      com.leveredge.group: "monitoring"
+
+  # ---------------------------------------------------------------------------
+  # ALOY Watcher - Real-Time Anomaly Detection
+  # ---------------------------------------------------------------------------
+  aloy-watcher:
+    build:
+      context: ./control-plane/agents/aloy
+      dockerfile: Dockerfile.watcher
+    container_name: leveredge-aloy-watcher
+    hostname: aloy-watcher
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      watchdog:
+        condition: service_healthy
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      HERMES_URL: http://hermes:8014
+      WATCHDOG_URL: http://watchdog:8240
+    volumes:
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "aloy-watcher"
+      com.leveredge.group: "monitoring"
+
+  # ---------------------------------------------------------------------------
+  # VARYS Scheduler - Daily Intelligence Briefings
+  # ---------------------------------------------------------------------------
+  varys-scheduler:
+    build:
+      context: ./control-plane/agents/varys
+      dockerfile: Dockerfile.scheduler
+    container_name: leveredge-varys-scheduler
+    hostname: varys-scheduler
+    <<: [*restart-policy, *resource-limits-small]
+    profiles: ["core", "all"]
+    depends_on:
+      watchdog:
+        condition: service_healthy
+      hermes:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      VARYS_URL: http://varys:8020
+      HERMES_URL: http://hermes:8014
+      WATCHDOG_URL: http://watchdog:8240
+    volumes:
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "varys-scheduler"
+      com.leveredge.group: "monitoring"

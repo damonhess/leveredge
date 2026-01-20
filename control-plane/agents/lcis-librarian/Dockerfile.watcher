@@ -2,17 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install Docker CLI for log watching and git
-RUN apt-get update && apt-get install -y \
-    curl \
-    docker.io \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir \
-    httpx \
-    asyncio
+# No need for docker CLI - we use Docker API via socket
+RUN pip install --no-cache-dir httpx
 
 COPY watcher.py .
 
+# Mount Docker socket at runtime
 CMD ["python", "watcher.py"]

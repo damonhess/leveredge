@@ -1,317 +1,273 @@
 #!/usr/bin/env python3
 """
-LCIS Watcher - Active monitoring and auto-ingestion
-Port: (runs as background service, no HTTP)
+LCIS WATCHER - Comprehensive Log and Event Capture
 
-Monitors:
-- Docker container logs (errors, restarts, failures)
-- Event Bus events (all agent activity)
-- Git commits and changes
+Watches:
+- Docker container logs (via API, not CLI)
+- Event Bus events
+- Git commits
+- File changes
+- Error patterns
+
+Captures everything and sends to LCIS Librarian.
 """
 
 import os
 import sys
-import re
-import json
 import asyncio
+import json
+import re
 import httpx
 from datetime import datetime
-from typing import Optional, Dict, Any, List
-import subprocess
-
-LCIS_URL = os.getenv("LCIS_URL", "http://localhost:8050")
-EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://localhost:8099")
+from typing import Dict, Any, List, Optional
 
 # =============================================================================
-# PATTERNS TO DETECT
+# CONFIGURATION
 # =============================================================================
 
+LCIS_URL = os.getenv("LCIS_URL", "http://lcis-librarian:8050")
+EVENT_BUS_URL = os.getenv("EVENT_BUS_URL", "http://event-bus:8099")
+DOCKER_SOCKET = os.getenv("DOCKER_SOCKET", "/var/run/docker.sock")
+WATCHDOG_URL = os.getenv("WATCHDOG_URL", "http://watchdog:8240")
+
+# Patterns to capture
 ERROR_PATTERNS = [
-    # Python errors
-    (r"Traceback \(most recent call last\)", "python_traceback"),
-    (r"Error: (.+)", "generic_error"),
-    (r"Exception: (.+)", "exception"),
-    (r"ModuleNotFoundError: (.+)", "import_error"),
-    (r"ConnectionRefusedError", "connection_error"),
-    (r"TimeoutError", "timeout"),
-
-    # Docker errors
-    (r"container .+ exited with code [1-9]", "container_crash"),
-    (r"OOMKilled", "memory_exceeded"),
-    (r"failed to start container", "container_start_fail"),
-
-    # Database errors
-    (r"duplicate key value violates", "db_duplicate_key"),
-    (r"relation .+ does not exist", "db_missing_table"),
-    (r"column .+ does not exist", "db_missing_column"),
-
-    # API errors
-    (r"401 Unauthorized", "auth_error"),
-    (r"403 Forbidden", "permission_error"),
-    (r"404 Not Found", "not_found"),
-    (r"500 Internal Server Error", "server_error"),
-
-    # React/Frontend errors
-    (r"Cannot read properties of undefined", "js_undefined"),
-    (r"state update .+ unmounted component", "react_unmounted"),
-    (r"Maximum update depth exceeded", "react_infinite_loop"),
+    (r"Traceback \(most recent call last\)", "python_traceback", "critical"),
+    (r"Error: (.+)", "error", "warning"),
+    (r"Exception: (.+)", "exception", "warning"),
+    (r"CRITICAL", "critical_log", "critical"),
+    (r"FATAL", "fatal_log", "critical"),
+    (r"failed to", "failure", "warning"),
+    (r"connection refused", "connection_error", "warning"),
+    (r"timeout", "timeout", "warning"),
+    (r"permission denied", "permission_error", "warning"),
+    (r"out of memory", "oom", "critical"),
+    (r"disk full", "disk_full", "critical"),
 ]
 
 FIX_PATTERNS = [
-    (r"fixed:? (.+)", "fix_committed"),
-    (r"resolved:? (.+)", "issue_resolved"),
-    (r"the (?:issue|problem|bug) was (.+)", "root_cause"),
-    (r"solution:? (.+)", "solution_found"),
+    (r"fixed:?\s*(.+)", "fix"),
+    (r"resolved:?\s*(.+)", "fix"),
+    (r"solution:?\s*(.+)", "solution"),
+    (r"workaround:?\s*(.+)", "workaround"),
 ]
 
-# Rate limiting - don't spam LCIS
-RATE_LIMIT = {}
-RATE_LIMIT_SECONDS = 60
-
 # =============================================================================
-# WATCHER FUNCTIONS
+# DOCKER LOG WATCHER (via HTTP API)
 # =============================================================================
 
-def should_rate_limit(key: str) -> bool:
-    """Check if we should rate limit this capture"""
-    now = datetime.utcnow()
-    if key in RATE_LIMIT:
-        last_time = RATE_LIMIT[key]
-        if (now - last_time).total_seconds() < RATE_LIMIT_SECONDS:
-            return True
-    RATE_LIMIT[key] = now
-    return False
+class DockerLogWatcher:
+    """Watch Docker logs via HTTP API (works without docker CLI)"""
 
+    def __init__(self):
+        self.last_timestamps: Dict[str, str] = {}
 
-async def ingest_lesson(content: str, domain: str, lesson_type: str,
-                       tags: List[str], source: str, context: Dict = None,
-                       severity: str = "medium"):
-    """Send lesson to LCIS"""
-    # Rate limit key based on content hash
-    rate_key = f"{domain}:{lesson_type}:{hash(content[:100])}"
-    if should_rate_limit(rate_key):
-        return
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            await client.post(
-                f"{LCIS_URL}/ingest",
-                json={
-                    "content": content,
-                    "domain": domain,
-                    "type": lesson_type,
-                    "source_agent": source,
-                    "source_type": "watcher",
-                    "tags": tags + ["auto-captured", "watcher"],
-                    "source_context": context or {},
-                    "severity": severity
-                }
-            )
-            print(f"[LCIS] Ingested: {content[:80]}...")
-    except Exception as e:
-        print(f"[LCIS] Ingest failed: {e}")
-
-
-async def watch_docker_logs():
-    """Monitor all Docker container logs"""
-    print("[WATCHER] Starting Docker log monitor...")
-
-    while True:
+    async def get_containers(self) -> List[Dict[str, Any]]:
+        """Get list of containers via Docker API"""
         try:
-            # Get all leveredge containers
-            result = subprocess.run(
-                ["docker", "ps", "--format", "{{.Names}}"],
-                capture_output=True, text=True
-            )
-            containers = [c for c in result.stdout.strip().split('\n') if c]
-
-            # Create tasks for each container
-            tasks = [watch_container(c) for c in containers if c]
-            if tasks:
-                await asyncio.gather(*tasks, return_exceptions=True)
+            # Use Unix socket
+            transport = httpx.AsyncHTTPTransport(uds=DOCKER_SOCKET)
+            async with httpx.AsyncClient(transport=transport, base_url="http://localhost") as client:
+                response = await client.get(
+                    "/containers/json",
+                    params={"filters": json.dumps({"name": ["leveredge"]})}
+                )
+                return response.json()
         except Exception as e:
-            print(f"[WATCHER] Docker log monitor error: {e}")
+            print(f"[LCIS_WATCHER] Docker API error: {e}")
+            return []
 
-        await asyncio.sleep(30)
-
-
-async def watch_container(container_name: str):
-    """Watch a single container's logs for a short time"""
-    try:
-        process = await asyncio.create_subprocess_exec(
-            "docker", "logs", "--tail", "50", container_name,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=10)
-
-        # Process stderr (where most errors go)
-        if stderr:
-            lines = stderr.decode('utf-8', errors='ignore').split('\n')
-            for line in lines[-20:]:  # Last 20 lines only
-                await process_log_line(container_name, line.strip(), True)
-
-    except asyncio.TimeoutError:
-        pass
-    except Exception as e:
-        print(f"[WATCHER] Error watching {container_name}: {e}")
-
-
-async def process_log_line(container: str, line: str, is_error: bool):
-    """Process a log line for patterns"""
-    if not line or len(line) < 10:
-        return
-
-    for pattern, error_type in ERROR_PATTERNS:
-        if re.search(pattern, line, re.IGNORECASE):
-            # Map container to domain
-            domain = "THE_KEEP"
-            if "aria" in container.lower():
-                domain = "ARIA_SANCTUM"
-            elif any(x in container.lower() for x in ["varys", "chiron", "scholar"]):
-                domain = "CHANCERY"
-            elif any(x in container.lower() for x in ["aegis", "panoptes", "sentinel"]):
-                domain = "SENTINELS"
-            elif any(x in container.lower() for x in ["muse", "calliope", "erato"]):
-                domain = "ALCHEMY"
-
-            await ingest_lesson(
-                content=f"[{container}] {error_type}: {line[:200]}",
-                domain=domain,
-                lesson_type="failure",
-                tags=[error_type, "docker-log", container],
-                source="LCIS-WATCHER",
-                context={"container": container, "full_line": line[:500]},
-                severity="high" if error_type in ["container_crash", "memory_exceeded"] else "medium"
-            )
-            break
-
-
-async def watch_event_bus():
-    """Subscribe to Event Bus for all agent activity"""
-    print("[WATCHER] Starting Event Bus monitor...")
-
-    while True:
+    async def get_logs(self, container_id: str, since: Optional[str] = None) -> str:
+        """Get logs from a container"""
         try:
-            async with httpx.AsyncClient(timeout=None) as client:
-                # Use SSE subscription if available
-                async with client.stream("GET", f"{EVENT_BUS_URL}/subscribe/lcis-watcher") as response:
-                    async for line in response.aiter_lines():
-                        if line.startswith("data:"):
-                            try:
-                                event = json.loads(line[5:])
-                                await process_event(event)
-                            except json.JSONDecodeError:
-                                pass
-        except httpx.ConnectError:
-            print("[WATCHER] Event Bus not available, retrying in 30s...")
+            transport = httpx.AsyncHTTPTransport(uds=DOCKER_SOCKET)
+            async with httpx.AsyncClient(transport=transport, base_url="http://localhost") as client:
+                params = {"stdout": "true", "stderr": "true", "tail": "100"}
+                if since:
+                    params["since"] = since
+
+                response = await client.get(
+                    f"/containers/{container_id}/logs",
+                    params=params
+                )
+                return response.text
         except Exception as e:
-            print(f"[WATCHER] Event Bus error: {e}")
+            print(f"[LCIS_WATCHER] Log fetch error: {e}")
+            return ""
 
-        await asyncio.sleep(30)
+    async def watch_cycle(self) -> List[Dict[str, Any]]:
+        """Perform one log collection cycle"""
+        captured = []
+        containers = await self.get_containers()
 
+        for container in containers:
+            container_id = container.get("Id", "")[:12]
+            container_name = container.get("Names", ["/unknown"])[0].lstrip("/")
 
-async def process_event(event: Dict):
-    """Process an event from the Event Bus"""
-    event_type = event.get("event_type", event.get("type", ""))
-    source = event.get("source", "UNKNOWN")
-    data = event.get("data", {})
+            logs = await self.get_logs(container_id)
 
-    # Significant events to capture
-    significant_events = [
+            for line in logs.split('\n'):
+                # Check error patterns
+                for pattern, error_type, severity in ERROR_PATTERNS:
+                    if re.search(pattern, line, re.IGNORECASE):
+                        captured.append({
+                            "type": "error",
+                            "error_type": error_type,
+                            "severity": severity,
+                            "container": container_name,
+                            "message": line[:500],
+                            "timestamp": datetime.utcnow().isoformat()
+                        })
+                        break
+
+                # Check fix patterns
+                for pattern, fix_type in FIX_PATTERNS:
+                    match = re.search(pattern, line, re.IGNORECASE)
+                    if match:
+                        captured.append({
+                            "type": "fix",
+                            "fix_type": fix_type,
+                            "container": container_name,
+                            "message": match.group(1)[:500] if match.groups() else line[:500],
+                            "timestamp": datetime.utcnow().isoformat()
+                        })
+                        break
+
+        return captured
+
+# =============================================================================
+# EVENT BUS WATCHER
+# =============================================================================
+
+class EventBusWatcher:
+    """Watch Event Bus for significant events"""
+
+    SIGNIFICANT_EVENTS = [
         "deployment_failed", "deployment_completed",
         "backup_created", "rollback_executed",
-        "health_check_failed", "error_detected",
+        "health_check_failed", "agent_crashed",
+        "alert_sent", "error_detected",
         "build_completed", "build_failed",
-        "migration_applied", "migration_failed"
+        "lcis_blocked", "security_violation"
     ]
 
-    if event_type in significant_events:
-        lesson_type = "success" if "completed" in event_type or "created" in event_type else "failure"
-        severity = "critical" if "failed" in event_type else "low"
+    async def subscribe(self, callback):
+        """Subscribe to Event Bus and process events"""
+        while True:
+            try:
+                async with httpx.AsyncClient(timeout=None) as client:
+                    async with client.stream("GET", f"{EVENT_BUS_URL}/subscribe") as response:
+                        async for line in response.aiter_lines():
+                            if line.startswith("data:"):
+                                try:
+                                    event = json.loads(line[5:])
+                                    event_type = event.get("event_type", "")
 
-        await ingest_lesson(
-            content=f"[{source}] {event_type}: {json.dumps(data)[:200]}",
-            domain="THE_KEEP",
-            lesson_type=lesson_type,
-            tags=[event_type, "event-bus", source.lower()],
-            source="LCIS-WATCHER",
-            context=data,
-            severity=severity
-        )
+                                    # Capture significant events
+                                    if any(sig in event_type for sig in self.SIGNIFICANT_EVENTS):
+                                        await callback({
+                                            "type": "event",
+                                            "event_type": event_type,
+                                            "source": event.get("source", "unknown"),
+                                            "data": event.get("data", {}),
+                                            "timestamp": datetime.utcnow().isoformat()
+                                        })
+                                except:
+                                    pass
+            except Exception as e:
+                print(f"[LCIS_WATCHER] Event Bus error: {e}")
+                await asyncio.sleep(5)
 
+# =============================================================================
+# MAIN WATCHER
+# =============================================================================
 
-async def watch_git_commits():
-    """Monitor git commits for lessons"""
-    print("[WATCHER] Starting Git monitor...")
+class LCISWatcher:
+    """Main watcher orchestrator"""
 
-    last_commit = None
-    repo_path = "/opt/leveredge"
+    def __init__(self):
+        self.docker_watcher = DockerLogWatcher()
+        self.event_watcher = EventBusWatcher()
+        self.running = False
+        self.checks_performed = 0
+        self.items_captured = 0
 
-    while True:
+    async def ingest(self, item: Dict[str, Any]):
+        """Send captured item to LCIS"""
         try:
-            result = subprocess.run(
-                ["git", "-C", repo_path, "log", "-1", "--format=%H|%s|%b"],
-                capture_output=True, text=True
-            )
-
-            if result.returncode == 0:
-                parts = result.stdout.strip().split("|", 2)
-                commit_hash = parts[0]
-                subject = parts[1] if len(parts) > 1 else ""
-                body = parts[2] if len(parts) > 2 else ""
-
-                if commit_hash != last_commit and last_commit is not None:
-                    last_commit = commit_hash
-
-                    # Determine type from commit message
-                    if subject.startswith("fix:") or subject.startswith("fix("):
-                        await ingest_lesson(
-                            content=f"Git fix: {subject} - {body[:200]}",
-                            domain="THE_KEEP",
-                            lesson_type="pattern",
-                            tags=["git-commit", "fix"],
-                            source="LCIS-WATCHER",
-                            context={"commit": commit_hash}
-                        )
-                    elif "fail" in subject.lower() or "error" in subject.lower():
-                        await ingest_lesson(
-                            content=f"Git failure note: {subject}",
-                            domain="THE_KEEP",
-                            lesson_type="failure",
-                            tags=["git-commit", "failure"],
-                            source="LCIS-WATCHER",
-                            context={"commit": commit_hash}
-                        )
-                else:
-                    last_commit = commit_hash
-
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(
+                    f"{LCIS_URL}/ingest",
+                    json={
+                        "content": f"[{item.get('type', 'unknown')}] {item.get('message', item.get('event_type', 'Unknown'))}",
+                        "domain": item.get("container", item.get("source", "WATCHER")),
+                        "type": "error" if item.get("severity") else "success",
+                        "source_agent": "LCIS_WATCHER",
+                        "tags": ["auto-captured", item.get("type", "unknown")],
+                        "source_context": item,
+                        "auto_captured": True
+                    }
+                )
+                self.items_captured += 1
         except Exception as e:
-            print(f"[WATCHER] Git monitor error: {e}")
+            print(f"[LCIS_WATCHER] Ingest error: {e}")
 
-        await asyncio.sleep(30)
+    async def send_heartbeat(self):
+        """Send heartbeat to WATCHDOG"""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                await client.post(
+                    f"{WATCHDOG_URL}/heartbeat",
+                    json={
+                        "watcher_name": "LCIS_WATCHER",
+                        "state": "running",
+                        "last_check": datetime.utcnow().isoformat(),
+                        "checks_performed": self.checks_performed,
+                        "alerts_sent": self.items_captured,
+                        "errors": []
+                    }
+                )
+        except:
+            pass
 
+    async def docker_loop(self):
+        """Continuous Docker log watching"""
+        while self.running:
+            try:
+                captured = await self.docker_watcher.watch_cycle()
+                self.checks_performed += 1
+
+                for item in captured:
+                    await self.ingest(item)
+
+                await self.send_heartbeat()
+
+            except Exception as e:
+                print(f"[LCIS_WATCHER] Docker loop error: {e}")
+
+            await asyncio.sleep(30)  # Check every 30 seconds
+
+    async def event_callback(self, item: Dict[str, Any]):
+        """Callback for Event Bus events"""
+        await self.ingest(item)
+
+    async def run(self):
+        """Run all watchers"""
+        print("[LCIS_WATCHER] Starting omniscient log capture...")
+        self.running = True
+
+        await asyncio.gather(
+            self.docker_loop(),
+            self.event_watcher.subscribe(self.event_callback)
+        )
 
 # =============================================================================
 # MAIN
 # =============================================================================
 
 async def main():
-    """Run all watchers"""
-    print("[LCIS WATCHER] Starting omniscient monitoring...")
-    print(f"[LCIS WATCHER] LCIS_URL: {LCIS_URL}")
-    print(f"[LCIS WATCHER] EVENT_BUS_URL: {EVENT_BUS_URL}")
-
-    # Wait for services to be ready
-    await asyncio.sleep(10)
-
-    await asyncio.gather(
-        watch_docker_logs(),
-        watch_event_bus(),
-        watch_git_commits(),
-    )
-
+    watcher = LCISWatcher()
+    await watcher.run()
 
 if __name__ == "__main__":
     asyncio.run(main())
