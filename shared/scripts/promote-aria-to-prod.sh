@@ -198,6 +198,32 @@ else
     log_ok "All DEV aria_* tables exist in PROD"
 fi
 
+# Check pending migrations
+log_info "Checking pending migrations..."
+MIGRATIONS_DIR="/opt/leveredge/data-plane/dev/supabase/migrations"
+PROD_APPLIED=$(docker exec $PROD_DB_CONTAINER psql -U postgres -d postgres -t -c "SELECT filename FROM apollo_migrations ORDER BY filename" 2>/dev/null | tr -d ' ' || echo "")
+
+PENDING_MIGRATIONS=()
+for file in "$MIGRATIONS_DIR"/*.sql; do
+    [[ ! -f "$file" ]] && continue
+    basename=$(basename "$file")
+    if ! echo "$PROD_APPLIED" | grep -q "^${basename}$"; then
+        PENDING_MIGRATIONS+=("$basename")
+    fi
+done
+
+if [[ ${#PENDING_MIGRATIONS[@]} -gt 0 ]]; then
+    log_warn "PENDING MIGRATIONS: ${#PENDING_MIGRATIONS[@]} migrations will be applied to PROD"
+    echo ""
+    echo "Pending migrations:"
+    for migration in "${PENDING_MIGRATIONS[@]}"; do
+        echo "  - $migration"
+    done
+    echo ""
+else
+    log_ok "No pending migrations for PROD"
+fi
+
 # Check views
 DEV_VIEWS=$(docker exec $DEV_DB_CONTAINER psql -U postgres -d postgres -t -c "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name IN ('conversations','messages','files','user_settings','notifications','tasks','calendar_events','portfolio_wins','reminders')" | tr -d ' ')
 PROD_VIEWS=$(docker exec $PROD_DB_CONTAINER psql -U postgres -d postgres -t -c "SELECT table_name FROM information_schema.views WHERE table_schema='public' AND table_name IN ('conversations','messages','files','user_settings','notifications','tasks','calendar_events','portfolio_wins','reminders')" | tr -d ' ')
@@ -477,12 +503,25 @@ if ! $SKIP_BACKUP; then
         -d '{"name":"pre-aria-promote","type":"pre-deploy"}' | jq -r '.backup_id // "backup created"'
 fi
 
-# Schema sync
-if [[ ${#MISSING_TABLES[@]} -gt 0 ]]; then
-    log_info "Syncing missing tables..."
-    echo "TODO: Implement schema sync - for now, run manually"
-    # This would generate and apply CREATE TABLE statements
+# Run database migrations
+log_info "Running database migrations on PROD..."
+MIGRATION_SCRIPT="$SCRIPT_DIR/run-migrations.sh"
+if [[ -x "$MIGRATION_SCRIPT" ]]; then
+    if $MIGRATION_SCRIPT prod; then
+        log_ok "Migrations applied successfully"
+    else
+        log_error "Migration failed!"
+        if ! $FORCE; then
+            fail_fast "Migrations failed - aborting promotion"
+        fi
+    fi
+else
+    log_warn "Migration script not found: $MIGRATION_SCRIPT"
 fi
+
+# Restart realtime container to pick up schema changes
+log_info "Restarting realtime container..."
+docker restart realtime-dev.supabase-realtime 2>/dev/null || true
 
 # Frontend sync
 log_info "Syncing frontend code..."
