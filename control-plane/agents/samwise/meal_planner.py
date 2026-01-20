@@ -579,7 +579,7 @@ async def health():
         "status": "healthy",
         "agent": "MEAL_PLANNER",
         "role": "Kitchen Management",
-        "port": 8102,
+        "port": 8233,
         "current_time": time_ctx["current_datetime"],
         "next_meal": time_ctx["next_meal"],
         "day_of_week": time_ctx["day_of_week"]
@@ -1133,4 +1133,4 @@ async def chat(request: ChatRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8102)
+    uvicorn.run(app, host="0.0.0.0", port=8233)

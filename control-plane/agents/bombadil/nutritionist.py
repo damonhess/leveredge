@@ -553,7 +553,7 @@ async def health():
         "status": "healthy",
         "agent": "NUTRITIONIST",
         "role": "Nutrition & Diet Management",
-        "port": 8101,
+        "port": 8232,
         "current_time": time_ctx['current_datetime'],
         "meal_suggestion": time_ctx['meal_time_suggestion'],
         "version": "1.0.0"
@@ -1274,4 +1274,4 @@ async def execute_aria_tool(tool_name: str, parameters: Dict[str, Any], user_id:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8101)
+    uvicorn.run(app, host="0.0.0.0", port=8232)

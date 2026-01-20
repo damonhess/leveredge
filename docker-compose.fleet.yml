@@ -477,43 +477,43 @@ services:
   # ===========================================================================
 
   # ---------------------------------------------------------------------------
-  # Aegis - Security Agent (Port 8012)
+  # Aegis - Security Agent (Port 8012) - REMOVED: Uses systemd instead
   # ---------------------------------------------------------------------------
-  aegis:
-    build:
-      context: ./control-plane/agents/aegis
-      dockerfile: Dockerfile
-    container_name: aegis
-    hostname: aegis
-    <<: [*restart-policy, *resource-limits-medium]
-    profiles: ["security", "all"]
-    depends_on:
-      event-bus:
-        condition: service_healthy
-    environment:
-      <<: *common-env
-      HERMES_URL: http://hermes:8014
-      POSTGRES_HOST: ${POSTGRES_HOST:-localhost}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      POSTGRES_DB: ${POSTGRES_DB:-leveredge}
-      POSTGRES_USER: ${POSTGRES_USER:-leveredge}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - ./control-plane/agents/aegis:/app:ro
-      - fleet-logs:/logs
-    ports:
-      - "${AEGIS_PORT:-8012}:8012"
-    healthcheck:
-      <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
-    networks:
-      - fleet-net
-      - control-plane-net
-    labels:
-      <<: *common-labels
-      com.leveredge.agent: "aegis"
-      com.leveredge.group: "security"
-      com.leveredge.port: "8012"
+  # aegis:
+  #   build:
+  #     context: ./control-plane/agents/aegis
+  #     dockerfile: Dockerfile
+  #   container_name: aegis
+  #   hostname: aegis
+  #   <<: [*restart-policy, *resource-limits-medium]
+  #   profiles: ["security", "all"]
+  #   depends_on:
+  #     event-bus:
+  #       condition: service_healthy
+  #   environment:
+  #     <<: *common-env
+  #     HERMES_URL: http://hermes:8014
+  #     POSTGRES_HOST: ${POSTGRES_HOST:-localhost}
+  #     POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+  #     POSTGRES_DB: ${POSTGRES_DB:-leveredge}
+  #     POSTGRES_USER: ${POSTGRES_USER:-leveredge}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #   volumes:
+  #     - ./control-plane/agents/aegis:/app:ro
+  #     - fleet-logs:/logs
+  #   ports:
+  #     - "${AEGIS_PORT:-8012}:8012"
+  #   healthcheck:
+  #     <<: *healthcheck-defaults
+  #     test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+  #   networks:
+  #     - fleet-net
+  #     - control-plane-net
+  #   labels:
+  #     <<: *common-labels
+  #     com.leveredge.agent: "aegis"
+  #     com.leveredge.group: "security"
+  #     com.leveredge.port: "8012"
 
   # ---------------------------------------------------------------------------
   # Asclepius - System Health & Healing Agent (Port 8024)
@@ -916,7 +916,7 @@ services:
   # ===========================================================================
 
   # ---------------------------------------------------------------------------
-  # Gym Coach - Fitness Agent (Port 8100)
+  # Gym Coach - Fitness Agent (Port 8230)
   # ---------------------------------------------------------------------------
   gym-coach:
     build:
@@ -938,10 +938,10 @@ services:
       - fleet-logs:/logs
       - fleet-data:/data
     ports:
-      - "${GYM_COACH_PORT:-8100}:8100"
+      - "${GYM_COACH_PORT:-8230}:8230"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8100/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8230/health"]
     networks:
       - fleet-net
       - control-plane-net
@@ -949,7 +949,7 @@ services:
       <<: *common-labels
       com.leveredge.agent: "gym-coach"
       com.leveredge.group: "personal"
-      com.leveredge.port: "8100"
+      com.leveredge.port: "8230"
 
   # ---------------------------------------------------------------------------
   # Nutritionist - Nutrition Agent (Port 8101)
@@ -1023,9 +1023,9 @@ services:
   # com.leveredge.group: "personal"
   # com.leveredge.port: "8102"
 
-  # # ---------------------------------------------------------------------------
-  # # Academic Guide - Education Agent (Port 8103)
-  # # ---------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Academic Guide - Education Agent (Port 8231)
+  # ---------------------------------------------------------------------------
   academic-guide:
     build:
       context: ./control-plane/agents/academic-guide
@@ -1046,10 +1046,10 @@ services:
       - fleet-logs:/logs
       - fleet-data:/data
     ports:
-      - "${ACADEMIC_GUIDE_PORT:-8103}:8103"
+      - "${ACADEMIC_GUIDE_PORT:-8231}:8231"
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD", "curl", "-f", "http://localhost:8103/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8231/health"]
     networks:
       - fleet-net
       - control-plane-net
@@ -1057,7 +1057,79 @@ services:
       <<: *common-labels
       com.leveredge.agent: "academic-guide"
       com.leveredge.group: "personal"
-      com.leveredge.port: "8103"
+      com.leveredge.port: "8231"
+
+  # ---------------------------------------------------------------------------
+  # Bombadil - Nutritionist Agent (Port 8232)
+  # ---------------------------------------------------------------------------
+  bombadil:
+    build:
+      context: ./control-plane/agents/bombadil
+      dockerfile: Dockerfile
+    container_name: bombadil
+    hostname: bombadil
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["personal", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./control-plane/agents/bombadil:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+      - fleet-data:/data
+    ports:
+      - "${BOMBADIL_PORT:-8232}:8232"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8232/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "bombadil"
+      com.leveredge.group: "personal"
+      com.leveredge.port: "8232"
+
+  # ---------------------------------------------------------------------------
+  # Samwise - Meal Planner Agent (Port 8233)
+  # ---------------------------------------------------------------------------
+  samwise:
+    build:
+      context: ./control-plane/agents/samwise
+      dockerfile: Dockerfile
+    container_name: samwise
+    hostname: samwise
+    <<: [*restart-policy, *resource-limits-medium]
+    profiles: ["personal", "all"]
+    depends_on:
+      event-bus:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - ./control-plane/agents/samwise:/app:ro
+      - ./control-plane/shared:/opt/leveredge/control-plane/shared:ro
+      - fleet-logs:/logs
+      - fleet-data:/data
+    ports:
+      - "${SAMWISE_PORT:-8233}:8233"
+    healthcheck:
+      <<: *healthcheck-defaults
+      test: ["CMD", "curl", "-f", "http://localhost:8233/health"]
+    networks:
+      - fleet-net
+      - control-plane-net
+    labels:
+      <<: *common-labels
+      com.leveredge.agent: "samwise"
+      com.leveredge.group: "personal"
+      com.leveredge.port: "8233"
 
   # ---------------------------------------------------------------------------
   # Eros - Relationship Agent (Port 8104)
