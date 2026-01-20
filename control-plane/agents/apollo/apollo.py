@@ -1001,10 +1001,7 @@ async def promote_aria(request: AriaPromoteRequest):
 
                     if mig_result.success:
                         add_step("run_migrations", True, f"Applied {mig_result.applied_count}")
-
-                        if mig_result.schema_changed:
-                            mig.restart_realtime("prod")
-                            add_step("restart_realtime", True, "Realtime restarted")
+                        # Note: realtime/kong restart moved to after aria deployments
                     else:
                         add_step("run_migrations", False, mig_result.error)
                         raise Exception(f"Migration failed: {mig_result.error}")
@@ -1047,6 +1044,33 @@ async def promote_aria(request: AriaPromoteRequest):
                      frontend_outcome.error or f"Deployed in {frontend_outcome.duration_seconds:.1f}s")
         else:
             add_step("deploy_aria_frontend", True, "DRY RUN: Would deploy aria-frontend")
+
+        # Step 4: Restart realtime and kong (ALWAYS after aria deployments)
+        # Realtime needs restart for schema changes AND websocket reconnection
+        # Kong needs restart to clear upstream IP cache for new containers
+        if not request.dry_run:
+            # Restart realtime
+            try:
+                subprocess.run(
+                    ["docker", "restart", "realtime-dev.supabase-realtime"],
+                    capture_output=True, timeout=60
+                )
+                add_step("restart_realtime", True, "Realtime restarted for websocket refresh")
+            except Exception as e:
+                add_step("restart_realtime", False, f"Failed: {e}")
+
+            # Restart Kong to clear upstream IP cache
+            try:
+                subprocess.run(
+                    ["docker", "restart", "supabase-kong"],
+                    capture_output=True, timeout=60
+                )
+                add_step("restart_kong", True, "Kong restarted to clear IP cache")
+            except Exception as e:
+                add_step("restart_kong", False, f"Failed: {e}")
+        else:
+            add_step("restart_realtime", True, "DRY RUN: Would restart realtime")
+            add_step("restart_kong", True, "DRY RUN: Would restart kong")
 
         result["success"] = True
         result["duration_seconds"] = (datetime.utcnow() - start_time).total_seconds()
