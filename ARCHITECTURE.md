@@ -1,6 +1,87 @@
 # LEVEREDGE ARCHITECTURE
 
-*Last Updated: January 18, 2026 (Evening - ARIA V4)*
+*Last Updated: January 20, 2026*
+
+---
+
+## Visual Architecture
+
+### High-Level Network Topology
+
+```
+                                    ┌─────────────────┐
+                                    │    INTERNET     │
+                                    └────────┬────────┘
+                                             │
+                                    ┌────────▼────────┐
+                                    │   CLOUDFLARE    │
+                                    │   (CDN + WAF)   │
+                                    └────────┬────────┘
+                                             │
+                                    ┌────────▼────────┐
+                                    │     CADDY       │
+                                    │ (Reverse Proxy) │
+                                    └────────┬────────┘
+                                             │
+         ┌───────────────────────────────────┼───────────────────────────────────┐
+         │                          LEVEREDGE NETWORK                            │
+         │                                   │                                   │
+         │  ┌─────────┐  ┌─────────┐  ┌───┴───┐  ┌─────────┐  ┌─────────┐      │
+         │  │  ARIA   │  │ VARYS   │  │ ATLAS │  │ CHIRON  │  │ SCHOLAR │      │
+         │  │  8111   │  │  8020   │  │ 8007  │  │  8017   │  │  8018   │      │
+         │  └────┬────┘  └────┬────┘  └───┬───┘  └────┬────┘  └────┬────┘      │
+         │       └────────────┴─────┬──────┴───────────┴────────────┘           │
+         │                          │                                           │
+         │                 ┌────────▼────────┐                                  │
+         │                 │   EVENT BUS     │                                  │
+         │                 │     8099        │                                  │
+         │                 └────────┬────────┘                                  │
+         │                          │                                           │
+         │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                 │
+         │  │CHRONOS  │  │ HADES   │  │ AEGIS   │  │ HERMES  │                 │
+         │  │  8010   │  │  8008   │  │  8012   │  │  8014   │                 │
+         │  └─────────┘  └─────────┘  └─────────┘  └─────────┘                 │
+         │       THE KEEP (Infrastructure)                                      │
+         │                                                                      │
+         │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐                 │
+         │  │PANOPTES │  │ASCLEPIUS│  │  ARGUS  │  │  ALOY   │                 │
+         │  │  8023   │  │  8024   │  │  8016   │  │  8015   │                 │
+         │  └─────────┘  └─────────┘  └─────────┘  └─────────┘                 │
+         │       SENTINELS (Security/Monitoring)                                │
+         │                                                                      │
+         │  ┌─────────┐  ┌─────────┐                                           │
+         │  │  LCIS   │  │  LCIS   │                                           │
+         │  │LIBRARIAN│  │ ORACLE  │                                           │
+         │  │  8050   │  │  8052   │                                           │
+         │  └─────────┘  └─────────┘                                           │
+         │       KNOWLEDGE                                                      │
+         │                          │                                           │
+         │                 ┌────────▼────────┐                                  │
+         │                 │    SUPABASE     │                                  │
+         │                 │   (Database)    │                                  │
+         │                 │   DEV + PROD    │                                  │
+         │                 └─────────────────┘                                  │
+         │                                                                      │
+         └──────────────────────────────────────────────────────────────────────┘
+```
+
+### Domain Organization
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                            LEVEREDGE AGENT FLEET                                │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│  🏔️ GAIA          │ ATLAS, HEPHAESTUS, ATHENA, EVENT-BUS, LCIS                 │
+│  🏰 THE KEEP      │ CHRONOS, HADES, AEGIS, HERMES                              │
+│  👁️ SENTINELS     │ PANOPTES, ASCLEPIUS, ARGUS, ALOY, CERBERUS                 │
+│  📊 CHANCERY      │ VARYS, CHIRON, SCHOLAR, PLUTUS, SOLON                      │
+│  🎭 ALCHEMY       │ MUSE, CALLIOPE, THALIA, ERATO, CLIO                        │
+│  ⚔️ ARIA SANCTUM  │ ARIA, OMNISCIENCE, CONVENER                                │
+│  🏋️ PERSONAL      │ GYM-COACH, ACADEMIC-GUIDE                                  │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## System Overview
 
